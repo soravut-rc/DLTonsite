@@ -803,7 +803,7 @@ export default {
                     const nextSlot = comp.missingSlotKeys[0] || 'router_device';
                     session.pending_slot = nextSlot;
 
-                    replyText = `📍 Check-in สำเร็จ!\n• วงจร: ${so} (${c.province})\n• สถานที่: ${c.branch_name}\n• ช่างผู้ปฏิบัติงาน: ${tName}${tPhone ? ` (${tPhone})` : ''}\n• เวลาเข้า: ${new Date(nowIso).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}\n📷 รูปภาพปัจจุบัน: ${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป\n👉 ส่งรูปอุปกรณ์เข้าแชทได้เลยครับ (ระบบจะเก็บเข้า Cloudflare R2)`;
+                    replyText = `📍 Check-in สำเร็จ!\n• วงจร: ${so} (${c.province})\n• สถานที่: ${c.branch_name}\n• ช่างผู้ปฏิบัติงาน: ${tName}${tPhone ? ` (${tPhone})` : ''}\n• เวลาเข้า: ${new Date(nowIso).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' })} น.\n📷 รูปภาพปัจจุบัน: ${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป\n👉 ส่งรูปอุปกรณ์เข้าแชทได้เลยครับ (ระบบจะเก็บเข้า Cloudflare R2)`;
                   }
                 } else if (snMatch && session.active_so) {
                   const manualSn = normalizeSn(snMatch[1]);
@@ -831,7 +831,8 @@ export default {
                     c.checkout_time = nowIso;
                     c.admin_status = 'pending_review';
                     c.updated_at = nowIso;
-                    replyText = `🏁 Check-out วงจร ${session.active_so} สำเร็จ!\nระบบส่งเข้าคิว Admin QA ตรวจสอบแล้ว\n📝 ดาวน์โหลดรายงาน MS Word (.docx): ${url.origin}/api/circuits/${encodeURIComponent(session.active_so)}/report.docx`;
+                    const outTime = new Date(nowIso).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
+                    replyText = `🏁 Check-out วงจร ${session.active_so} สำเร็จ! (เวลา ${outTime} น.)\nระบบส่งเข้าคิว Admin QA ตรวจสอบแล้ว\n📝 ดาวน์โหลดรายงาน MS Word (.docx): ${url.origin}/api/circuits/${encodeURIComponent(session.active_so)}/report.docx`;
                   }
                 } else {
                   // In group chat, ignore random non-command chatter unless explicitly addressed to bot
@@ -868,7 +869,12 @@ export default {
                     const nextSlot = compAfter.missingSlotKeys[0] || 'router_device';
                     session.pending_slot = nextSlot;
 
-                    const replyText = `✅ บันทึกรูป [${slotKey}] เข้า Cloudflare R2 เรียบร้อย!\n📊 ความครบถ้วน: ${compAfter.uploadedRequiredCount}/${compAfter.totalRequiredCount} รูป (${compAfter.photoProgressPct}%)\n${compAfter.allRequiredPhotosComplete ? '🎉 รูปครบทุกจุดแล้ว! พิมพ์ "เช็คเอาท์" ได้เลยครับ' : `👉 ส่งรูปถัดไปได้เลยครับ (${nextSlot})`}`;
+                    const curSlotInfo = compAfter.slots.find(s => s.slotKey === slotKey);
+                    const nextSlotInfo = compAfter.slots.find(s => s.slotKey === nextSlot);
+                    const slotName = curSlotInfo ? curSlotInfo.shortName : slotKey;
+                    const nextName = nextSlotInfo ? nextSlotInfo.label : nextSlot;
+
+                    const replyText = `✅ บันทึกรูป [${slotName}] เข้า Cloudflare R2 เรียบร้อย!\n📊 ความครบถ้วน: ${compAfter.uploadedRequiredCount}/${compAfter.totalRequiredCount} รูป (${compAfter.photoProgressPct}%)\n${compAfter.allRequiredPhotosComplete ? '🎉 รูปครบทุกจุดแล้ว! พิมพ์ "เช็คเอาท์" ได้เลยครับ' : `👉 ส่งรูปถัดไปได้เลยครับ:\n「 ${nextName} 」`}`;
 
                     addLineMessage(userId, 'bot', replyText, savedUrl, session.active_so);
                     if (token && replyToken) {
