@@ -93,7 +93,7 @@ npm run dev
 2. นำ **Channel Secret** และ **Channel Access Token (Long-lived)** จาก [LINE Developers Console](https://developers.line.biz/console/) มาวางและกดบันทึก (หรือตั้งผ่าน Environment Variables: `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN`, `PUBLIC_BASE_URL`)
 3. ตั้งค่า **Webhook URL** ใน LINE Developers Console เป็น:
    ```text
-   https://<YOUR-DOMAIN>/api/line/webhook
+   https://dlt-onsite-inspection.pm-compass.workers.dev/api/line/webhook
    ```
 4. คำสั่งที่ช่างพิมพ์คุยกับ LINE Bot ได้ทันที:
    - `checkin BINF3480006 ชื่อช่าง 0812345678` — เช็คอินเข้าหน้างาน
@@ -115,16 +115,14 @@ npm run dev
   git push origin main
   ```
 
-### Cloudflare Workers
-- **Preview URL ล่าสุด**: `https://dlt-onsite-inspection.mixed-foxtail.workers.dev`
-- คำสั่ง Deploy ขึ้นบัญชี Cloudflare ของคุณ:
+### Cloudflare Workers & R2 Object Storage (Production)
+- **Production URL ประจำโครงการ**: **`https://dlt-onsite-inspection.pm-compass.workers.dev`**
+- **Cloudflare Account**: `Soravut@gmail.com's Account`
+- **R2 Bucket เก็บรูปภาพ**: **`dlt-onsite-photos`** (ผูกผ่าน Binding `env.PHOTOS_BUCKET` ใน `wrangler.jsonc`)
+- **คำสั่ง Deploy ขึ้น Cloudflare Workers**:
   ```bash
-  # กรณีล็อกอินบัญชี Cloudflare ถาวร
-  npx wrangler login
+  # ตรวจสอบว่าอยู่ในไดเรกทอรีโปรเจกต์ D:\AI-Projects\DLTonsite
   npx wrangler deploy
-
-  # หรือกรณี Deploy ทดสอบแบบไม่ต้องใช้ Token
-  npx wrangler deploy --temporary
   ```
 
 ---
@@ -132,8 +130,8 @@ npm run dev
 ## 6. ข้อควรระวังและข้อจำกัดในสถานะปัจจุบัน (Known Limitations & Production Notes)
 
 1. **การจัดเก็บรูปถ่ายบน Cloudflare R2 (Object Storage — ฟรี 10 GB, $0 Egress)**
-   - ระบบได้ผูกการเชื่อมต่อ **Cloudflare R2** ผ่าน Binding `PHOTOS_BUCKET` (Bucket: `dlt-onsite-photos`) ใน `wrangler.jsonc` และ `worker.js` แล้ว
-   - เมื่อช่างอัปโหลดรูปภาพผ่านเว็บหรือ LINE Bot บน Cloudflare รูปจะถูกบันทึกเข้า R2 อัตโนมัติ (และมี In-memory cache เป็น fallback) โดยลิงก์รูปยังคงเป็น `/uploads/...` แบบเดิม ทำให้ไม่ต้องกังวลเรื่องรูปหายเมื่อ Worker รีสตาร์ท และไม่มีค่าใช้จ่าย Bandwidth (Egress)
+   - ระบบได้ผูกการเชื่อมต่อ **Cloudflare R2** ผ่าน Binding `PHOTOS_BUCKET` (Bucket: `dlt-onsite-photos` ในบัญชี `Soravut@gmail.com`) ใน `wrangler.jsonc` และ `worker.js` เรียบร้อยแล้ว
+   - เมื่อช่างอัปโหลดรูปภาพผ่านเว็บหรือ LINE Bot บน Cloudflare รูปจะถูกบันทึกเข้า R2 อัตโนมัติ (และมี In-memory cache เป็น fallback) โดยลิงก์รูปยังคงเป็น `/uploads/...` แบบเดิม ทำให้รูปไม่สูญหายแม้ Worker รีสตาร์ท และไม่มีค่าใช้จ่าย Bandwidth (Egress $0)
    - สำหรับฝั่ง Database: สามารถใช้ SQLite ในเครื่อง (`server.js`) หรือเชื่อมต่อ Supabase/Cloudflare D1 ตามต้องการ
 
 2. **รูปแบบโมดูลใน `worker.js` (Mixed CJS `require` + ESM `export default`)**
