@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ใบส่งมอบงานและเอกสารรายงานการติดตั้ง - กรมการขนส่งทางบก</title>
+  <title>รายงานการติดตั้งและสำเนาแบบส่งมอบงาน - กรมการขนส่งทางบก</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -51,12 +51,32 @@
     .page {
       width: 210mm;
       min-height: 297mm;
-      padding: 14mm 16mm;
+      padding: 12mm 14mm;
       margin: 16px auto;
       background: #fff;
       box-shadow: 0 4px 20px rgba(0,0,0,0.25);
       position: relative;
       page-break-after: always;
+    }
+    .page-full-scan {
+      width: 210mm;
+      height: 297mm;
+      padding: 6mm;
+      margin: 16px auto;
+      background: #fff;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      position: relative;
+      page-break-after: always;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .scan-full-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
     }
     .brand-logo {
       display: inline-flex;
@@ -83,32 +103,9 @@
       display: inline-block;
       border-bottom: 1px dotted #333;
       padding: 0 6px;
-      font-weight: 600;
+      font-weight: 700;
       color: #0f172a;
       min-width: 60px;
-    }
-    .chk-box {
-      display: inline-flex;
-      width: 15px;
-      height: 15px;
-      border: 1.5px solid #000;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      font-weight: bold;
-      margin-right: 4px;
-      vertical-align: middle;
-    }
-    .sig-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 16px;
-    }
-    .sig-table td, .sig-table th {
-      border: 1px solid #000;
-      width: 50%;
-      vertical-align: top;
-      padding: 10px 14px;
     }
     .photo-table {
       width: 100%;
@@ -123,40 +120,54 @@
     }
     .photo-frame {
       width: 100%;
-      height: 210px;
+      height: 165px;
       object-fit: contain;
-      border: 1px solid #cbd5e1;
-      background: #f8fafc;
+      background: #fff;
       display: block;
-      margin: 6px auto;
+      margin: 4px auto;
     }
     .photo-frame-tall {
       width: 100%;
-      height: 330px;
+      height: 345px;
       object-fit: contain;
-      border: 1px solid #cbd5e1;
-      background: #f8fafc;
+      background: #fff;
       display: block;
-      margin: 10px auto;
+      margin: 8px auto;
     }
     .placeholder-box {
       width: 100%;
-      height: 195px;
-      border: 1px dashed #94a3b8;
+      height: 160px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       color: #dc2626;
-      font-size: 12px;
+      font-weight: 700;
+      font-size: 13px;
       text-align: center;
       padding: 12px;
       margin: 6px 0;
     }
+    .placeholder-scan {
+      width: 92%;
+      height: 90%;
+      border: 2px dashed #cbd5e1;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #dc2626;
+      font-weight: 700;
+      font-size: 15px;
+      text-align: center;
+      padding: 24px;
+      background: #f8fafc;
+    }
     @media print {
       body { background: #fff; }
       .toolbar { display: none !important; }
-      .page {
+      .page, .page-full-scan {
         margin: 0;
         box-shadow: none;
         width: 210mm;
@@ -169,7 +180,7 @@
 
   <div class="toolbar">
     <div style="display:flex;align-items:center;gap:12px;">
-      <strong id="toolbarTitle">กำลังโหลดเอกสารส่งมอบงาน...</strong>
+      <strong id="toolbarTitle">กำลังโหลดรายงานการติดตั้ง...</strong>
       <a id="toolbarLegacyBtn" href="#" target="_blank" class="secondary" style="display:none;">📄 เปิดไฟล์ PDF ปีที่แล้วเทียบ</a>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
@@ -194,9 +205,10 @@
         document.getElementById('toolbarTitle').textContent = 'ไม่พบข้อมูลวงจร ' + id;
         return;
       }
-      const { circuit: c } = await res.json();
-      document.title = `ใบส่งมอบงาน_${c.so_number}_${c.service_no || ''}`;
-      document.getElementById('toolbarTitle').textContent = `ใบส่งมอบงานและรายงานรูปภาพ: ${c.so_number} (${c.branch_name || c.province})`;
+      const data = await res.json();
+      const c = data.circuit || data;
+      document.title = `รายงานการติดตั้ง_${c.so_number}_${c.service_no || ''}`;
+      document.getElementById('toolbarTitle').textContent = `รายงานการติดตั้งและสำเนาแบบส่งมอบงาน: ${c.so_number} (${c.branch_name || c.province})`;
 
       const docxBtn = document.getElementById('toolbarDocxBtn');
       if (docxBtn) {
@@ -212,240 +224,154 @@
       renderReportPages(c);
     }
 
-    function renderApLineInForm(ap, idx) {
-      const checked = ap && (ap.serial_no || ap.checked);
-      return `
-        <div style="margin-top:8px;">
-          <div>
-            <span class="chk-box">${checked ? '✓' : ''}</span>
-            Access Point ${idx} สถานที่ติดตั้ง ห้อง <span class="dotted-val" style="min-width:140px;">${ap?.room || ''}</span>
-            ชั้น <span class="dotted-val" style="min-width:45px;text-align:center;">${ap?.floor || ''}</span>
-            อาคาร <span class="dotted-val" style="min-width:110px;">${ap?.building || ''}</span>
-          </div>
-          <div style="padding-left:22px;margin-top:4px;">
-            ยี่ห้อ <span class="dotted-val" style="min-width:85px;">${ap?.brand || ''}</span>
-            รุ่น <span class="dotted-val" style="min-width:95px;">${ap?.model || ''}</span>
-            Serial No. <span class="dotted-val" style="min-width:145px;font-family:monospace;">${ap?.serial_no || ''}</span>
-            เลขครุภัณฑ์ <span class="dotted-val" style="min-width:130px;">${ap?.asset_no || ''}</span>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderBlankCircuitSlot(slotNo) {
-      return `
-        <div style="margin-top:16px;">
-          <div>
-            <u>หมายเลข S/O วงจรที่ ${slotNo}</u> <span class="dotted-val" style="min-width:170px;"></span>
-            FTTx ความเร็ว <span class="dotted-val" style="min-width:160px;"></span>
-          </div>
-          <div style="margin-top:6px;">
-            <span class="chk-box"></span> Router สถานที่ติดตั้ง ห้อง <span class="dotted-val" style="min-width:140px;"></span>
-            ชั้น <span class="dotted-val" style="min-width:45px;"></span>
-            อาคาร <span class="dotted-val" style="min-width:110px;"></span>
-          </div>
-          <div style="padding-left:22px;margin-top:4px;">
-            อุปกรณ์ Mikrotik รุ่น <span class="dotted-val" style="min-width:90px;"></span>
-            Serial No. <span class="dotted-val" style="min-width:140px;"></span>
-            เลขครุภัณฑ์ <span class="dotted-val" style="min-width:130px;"></span>
-          </div>
-          <div style="margin-top:6px;">
-            <span class="chk-box"></span> Access Point 1 สถานที่ติดตั้ง ห้อง <span class="dotted-val" style="min-width:130px;"></span>
-            ชั้น <span class="dotted-val" style="min-width:45px;"></span>
-            อาคาร <span class="dotted-val" style="min-width:110px;"></span>
-          </div>
-          <div style="padding-left:22px;margin-top:4px;">
-            ยี่ห้อ <span class="dotted-val" style="min-width:80px;"></span>
-            รุ่น <span class="dotted-val" style="min-width:90px;"></span>
-            Serial No. <span class="dotted-val" style="min-width:140px;"></span>
-            เลขครุภัณฑ์ <span class="dotted-val" style="min-width:130px;"></span>
-          </div>
-          <div style="margin-top:6px;">
-            <span class="chk-box"></span> Access Point 2 สถานที่ติดตั้ง ห้อง <span class="dotted-val" style="min-width:130px;"></span>
-            ชั้น <span class="dotted-val" style="min-width:45px;"></span>
-            อาคาร <span class="dotted-val" style="min-width:110px;"></span>
-          </div>
-          <div style="padding-left:22px;margin-top:4px;">
-            ยี่ห้อ <span class="dotted-val" style="min-width:80px;"></span>
-            รุ่น <span class="dotted-val" style="min-width:90px;"></span>
-            Serial No. <span class="dotted-val" style="min-width:140px;"></span>
-            เลขครุภัณฑ์ <span class="dotted-val" style="min-width:130px;"></span>
-          </div>
-        </div>
-      `;
-    }
-
     function renderReportPages(c) {
       const rt = c.router_info || {};
-      const aps = Array.isArray(c.access_points) && c.access_points.length > 0 ? c.access_points : [{}, {}];
-      const apListForForm = aps.length >= 2 ? aps : [...aps, {}];
+      const aps = Array.isArray(c.access_points) && c.access_points.length > 0
+        ? c.access_points
+        : [{ room: 'ห้อง GPS' }, { room: 'ห้อง GECC' }];
 
-      // Page 1: Handover Form (แบบส่งมอบงาน หน้า 1/2)
+      const handoverP1 = rt.photo_handover_p1 || rt.photo_signed_doc || '';
+      const handoverP2 = rt.photo_handover_p2 || '';
+
+      // Page 1: Scanned Copy of Paper Handover Form Page 1/2 (สำเนาเอกสาร "แบบส่งมอบงาน" หน้าที่ 1/2)
       const page1Html = `
-        <div class="page">
-          <div class="brand-logo">
-            <span class="brand-circle">1</span>
-            <span>1toAll</span>
-          </div>
-
-          <div style="text-align:center;margin-top:8px;font-weight:700;font-size:15px;">
-            <div>บริษัท วัน-ทู-ออล จำกัด</div>
-            <div>แบบส่งมอบงาน</div>
-            <div style="font-weight:600;font-size:13.5px;">โครงการจ้างเหมาบริการวงจรสื่อสารข้อมูลสนับสนุนการบริหารความปลอดภัยด้วยระบบอินเตอร์เน็ตของทั้งส่วนกลางและส่วนภูมิภาค</div>
-            <div>กรมการขนส่งทางบก</div>
-          </div>
-
-          <div style="margin-top:14px;space-y:6px;">
-            <div>
-              สถานที่ติดตั้ง สำนักงานขนส่ง <span class="dotted-val" style="min-width:430px;">${c.branch_name || c.province}</span>
-            </div>
-            <div style="margin-top:6px;">
-              ที่อยู่เลขที่ <span class="dotted-val" style="min-width:530px;">${c.address || '-'}</span>
-            </div>
-            <div style="margin-top:6px;">
-              พิกัดที่ตั้ง (Lat/Long) <span class="dotted-val" style="min-width:475px;">${c.lat_long || '-'}</span>
-            </div>
-          </div>
-
-          <!-- วงจรที่ 1 -->
-          <div style="margin-top:16px;">
-            <div>
-              <u>หมายเลข S/O วงจรที่ 1</u> <span class="dotted-val" style="min-width:165px;font-weight:700;">${c.so_number} (${c.service_no || ''})</span>
-              FTTx ความเร็ว <span class="dotted-val" style="min-width:170px;">${c.speed_pkg || '1000Mbps/500Mbps'}</span>
-            </div>
-            <div style="margin-top:8px;">
-              <span class="chk-box">✓</span>
-              Router สถานที่ติดตั้ง ห้อง <span class="dotted-val" style="min-width:155px;">${rt.room || ''}</span>
-              ชั้น <span class="dotted-val" style="min-width:50px;text-align:center;">${rt.floor || ''}</span>
-              อาคาร <span class="dotted-val" style="min-width:120px;">${rt.building || ''}</span>
-            </div>
-            <div style="padding-left:22px;margin-top:4px;">
-              อุปกรณ์ Mikrotik รุ่น <span class="dotted-val" style="min-width:105px;">${rt.model || 'RB3011'}</span>
-              Serial No. <span class="dotted-val" style="min-width:155px;font-family:monospace;">${rt.serial_no || ''}</span>
-              เลขครุภัณฑ์ <span class="dotted-val" style="min-width:130px;">${rt.asset_no || ''}</span>
-            </div>
-
-            ${apListForForm.map((ap, i) => renderApLineInForm(ap, i + 1)).join('')}
-          </div>
-
-          ${renderBlankCircuitSlot(2)}
-          ${renderBlankCircuitSlot(3)}
-
-          <div style="position:absolute;bottom:10mm;right:16mm;font-size:11px;color:#475569;">หน้า 1/2</div>
+        <div class="page-full-scan">
+          ${handoverP1
+            ? `<img src="${handoverP1}" class="scan-full-img" alt="สำเนาแบบส่งมอบงาน หน้า 1/2" />`
+            : `<div class="placeholder-scan">
+                <div style="font-size:18px;color:#0f172a;margin-bottom:8px;">สำเนาเอกสาร "แบบส่งมอบงาน" (หน้าที่ 1/2)</div>
+                <div style="font-size:14px;color:#475569;margin-bottom:16px;">วงจร ${c.so_number} (${c.service_no || '-'}) — ${c.branch_name || c.province}</div>
+                <div>( นำภาพสำเนาเอกสาร "แบบส่งมอบงาน" หน้าที่ 1/2 วางตรงจุดนี้ )</div>
+                <div style="margin-top:6px;">( ภาพถ่ายเอกสารตัวจริงที่ช่างเขียนข้อมูลอุปกรณ์และรายละเอียดสถานที่หน้างาน )</div>
+              </div>`
+          }
         </div>
       `;
 
-      // Page 2: Handover Form Signatures (แบบส่งมอบงาน หน้า 2/2)
+      // Page 2: Scanned Copy of Paper Handover Form Page 2/2 (สำเนาเอกสาร "แบบส่งมอบงาน" หน้าที่ 2/2 พร้อมลายเซ็นและตราประทับ)
       const page2Html = `
-        <div class="page">
-          <div class="brand-logo">
-            <span class="brand-circle">1</span>
-            <span>1toAll</span>
-          </div>
-
-          ${renderBlankCircuitSlot(4)}
-
-          <div style="margin-top:24px;">
-            <div style="font-weight:700;text-decoration:underline;">หมายเหตุ</div>
-            <div style="border-bottom:1px dotted #333;min-height:26px;padding:4px 8px;margin-top:6px;">${c.remarks || ''}</div>
-            <div style="border-bottom:1px dotted #333;min-height:24px;"></div>
-            <div style="border-bottom:1px dotted #333;min-height:24px;"></div>
-          </div>
-
-          <div style="margin-top:28px;font-size:13px;">
-            หลังจากลงนามในเอกสารตรวจรับบริการแล้ว (ทางกรมฯ และ 1-to-All เก็บเอกสารไว้ฝ่ายละ 1 ฉบับ)
-          </div>
-
-          <table class="sig-table">
-            <thead>
-              <tr style="background:#f8fafc;">
-                <th style="text-align:center;font-weight:700;padding:8px;">ผู้เข้าดำเนินการติดตั้ง</th>
-                <th style="text-align:center;font-weight:700;padding:8px;">กรมการขนส่งทางบก</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style="text-align:center;padding:16px 12px;">
-                  <div style="height:68px;display:flex;align-items:center;justify-content:center;">
-                    ${c.inspector_signature ? `<img src="${c.inspector_signature}" style="max-height:64px;max-width:200px;" />` : `<span style="color:#94a3b8;">..................................................</span>`}
-                  </div>
-                  <div style="margin-top:4px;">ลงชื่อ ....................................................... ผู้ส่งมอบ</div>
-                  <div style="margin-top:8px;">ตัวบรรจง ( <span class="dotted-val" style="min-width:190px;">${c.inspector_name || ''}</span> )</div>
-                  <div style="margin-top:8px;">วันที่ <span class="dotted-val" style="min-width:160px;">${c.inspection_date || ''}</span></div>
-                  <div style="margin-top:8px;">โทรศัพท์ <span class="dotted-val" style="min-width:160px;">${c.inspector_phone || ''}</span></div>
-                </td>
-                <td style="text-align:center;padding:16px 12px;">
-                  <div style="height:68px;display:flex;align-items:center;justify-content:center;">
-                    ${c.receiver_signature ? `<img src="${c.receiver_signature}" style="max-height:64px;max-width:200px;" />` : `<span style="color:#94a3b8;">..................................................</span>`}
-                  </div>
-                  <div style="margin-top:4px;">ลงชื่อพร้อมประทับตรา ......................................... ผู้รับมอบ</div>
-                  <div style="margin-top:8px;">ตัวบรรจง ( <span class="dotted-val" style="min-width:190px;">${c.receiver_name || ''}</span> )</div>
-                  <div style="margin-top:8px;">ตำแหน่ง <span class="dotted-val" style="min-width:180px;">${c.receiver_position || ''}</span></div>
-                  <div style="margin-top:8px;">วันที่ <span class="dotted-val" style="min-width:160px;">${c.received_date || ''}</span></div>
-                  <div style="margin-top:8px;">โทรศัพท์ <span class="dotted-val" style="min-width:160px;">${c.receiver_phone || ''}</span></div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div style="position:absolute;bottom:10mm;right:16mm;font-size:11px;color:#475569;">หน้า 2/2</div>
+        <div class="page-full-scan">
+          ${handoverP2
+            ? `<img src="${handoverP2}" class="scan-full-img" alt="สำเนาแบบส่งมอบงาน หน้า 2/2" />`
+            : `<div class="placeholder-scan">
+                <div style="font-size:18px;color:#0f172a;margin-bottom:8px;">สำเนาเอกสาร "แบบส่งมอบงาน" (หน้าที่ 2/2 — ลงนามพร้อมประทับตรา)</div>
+                <div style="font-size:14px;color:#475569;margin-bottom:16px;">วงจร ${c.so_number} (${c.service_no || '-'}) — ${c.branch_name || c.province}</div>
+                <div>( นำภาพสำเนาเอกสาร "แบบส่งมอบงาน" หน้าที่ 2/2 วางตรงจุดนี้ )</div>
+                <div style="margin-top:6px;">( ภาพถ่ายเอกสารตัวจริงที่มีลายเซ็นผู้ส่งมอบ และ ลายเซ็นเจ้าหน้าที่ปลายทางพร้อมประทับตรา )</div>
+              </div>`
+          }
         </div>
       `;
 
-      // Page 3: Router Installation & Speedtest Photos
+      // Page 3: Router Installation & Speedtest Photos (Matches Last Year's Page 3 100%)
+      const shortSoNum = String(c.so_number || '').replace(/^BINF/i, '');
       const page3Html = `
         <div class="page">
           <div style="display:flex;justify-content:flex-end;">
             <div class="brand-logo">
               <span class="brand-circle">1</span>
-              <span>1toAll</span>
+              <div>
+                <div style="line-height:1;">1toAll</div>
+                <div style="font-size:8px;letter-spacing:0.5px;color:#64748b;font-weight:700;">LEADING THE FUTURE</div>
+              </div>
             </div>
           </div>
 
-          <div style="text-align:center;margin-top:4px;">
+          <div style="text-align:center;margin-top:2px;">
             <div style="font-size:20px;font-weight:700;">เอกสารรายงานการติดตั้ง</div>
             <div style="font-size:15px;font-weight:700;margin-top:2px;">วงจรสื่อสัญญาณความเร็วสูงแบบ INF (Internet FTTx)</div>
-            <div style="font-size:14px;font-weight:700;margin-top:4px;">
-              สำหรับ กรมการขนส่งทางบก สาขา <span class="dotted-val" style="min-width:170px;">${c.branch_name || c.province}</span>
+            <div style="font-size:14.5px;font-weight:700;margin-top:4px;">
+              สำหรับ กรมการขนส่งทางบก สาขา <span class="dotted-val" style="min-width:190px;">${c.branch_name || c.province}</span>
               จังหวัด <span class="dotted-val" style="min-width:140px;">${c.province}</span>
             </div>
           </div>
 
           <table class="photo-table">
             <tbody>
+              <!-- Row 1: Mikrotik ตัวที่ 1 -->
               <tr>
                 <td>
                   <div style="text-align:center;font-weight:700;font-size:15px;">
                     รูปถ่ายจุดติดตั้ง Mikrotik ตัวที่ 1<br/>
-                    เลขวงจร ${c.so_number}
-                  </div>
-                  <div style="text-align:center;font-size:12px;color:#334155;margin-top:2px;">
-                    รุ่น: <strong>MikroTik ${rt.model || 'RB3011'}</strong> | S/N: <strong>${rt.serial_no || '-'}</strong> | ห้อง: <strong>${rt.room || '-'}</strong>
+                    เลขวงจร BINF<span class="dotted-val" style="min-width:110px;">${shortSoNum}</span>
                   </div>
                   ${rt.photo_device
                     ? `<img src="${rt.photo_device}" class="photo-frame-tall" />`
-                    : `<div class="placeholder-box" style="height:320px;">(นำภาพวางตรงจุดนี้)<br/>ภาพอุปกรณ์ MikroTik ที่ติดสติ๊กเกอร์รายละเอียดครบถ้วน</div>`
+                    : `<div class="placeholder-box" style="height:330px;">
+                        ( นำภาพวางตรงจุดนี้ )<br/>
+                        (ภาพ อุปกรณ์ Mikrotik ที่เปลี่ยนสติ๊กเกอร์ใหม่<br/>
+                        และเขียนรายละเอียดครบถ้วน แล้ว)
+                      </div>`
                   }
                 </td>
                 <td>
                   <div>
-                    <div style="text-align:center;font-weight:700;font-size:14px;">
+                    <div style="text-align:center;font-weight:700;font-size:14.5px;">
                       รูปภาพ Test speed port lan 2
-                      ${rt.speed_lan2_dl ? `<span style="font-size:12px;color:#047857;">(${rt.speed_lan2_dl} / ${rt.speed_lan2_ul} Mbps)</span>` : ''}
                     </div>
                     ${rt.photo_lan2
                       ? `<img src="${rt.photo_lan2}" class="photo-frame" />`
-                      : `<div class="placeholder-box">(นำภาพวางตรงจุดนี้)<br/>ผลทดสอบความเร็ว Port LAN 2 (~650/350 Mbps)</div>`
+                      : `<div class="placeholder-box">
+                          ( นำภาพวางตรงจุดนี้ )<br/>
+                          (ผลทดสอบความเร็ว ความเร็วประมาณ 650 Mbps/350 Mbps)
+                        </div>`
                     }
                   </div>
-                  <div style="margin-top:12px;">
-                    <div style="text-align:center;font-weight:700;font-size:14px;">
+                  <div style="margin-top:10px;">
+                    <div style="text-align:center;font-weight:700;font-size:14.5px;">
                       รูปภาพ Test speed port lan 3
-                      ${rt.speed_lan3_dl ? `<span style="font-size:12px;color:#047857;">(${rt.speed_lan3_dl} / ${rt.speed_lan3_ul} Mbps)</span>` : ''}
                     </div>
                     ${rt.photo_lan3
                       ? `<img src="${rt.photo_lan3}" class="photo-frame" />`
-                      : `<div class="placeholder-box">(นำภาพวางตรงจุดนี้)<br/>ผลทดสอบความเร็ว Port LAN 3 (~650/350 Mbps)</div>`
+                      : `<div class="placeholder-box">
+                          ( นำภาพวางตรงจุดนี้ )<br/>
+                          (ผลทดสอบความเร็ว ความเร็วประมาณ 650 Mbps/350 Mbps)
+                        </div>`
+                    }
+                  </div>
+                </td>
+              </tr>
+
+              <!-- Row 2: Mikrotik ตัวที่ 2 (ตามแบบฟอร์มมาตรฐานของปีที่แล้ว) -->
+              <tr>
+                <td>
+                  <div style="text-align:center;font-weight:700;font-size:15px;">
+                    รูปถ่ายจุดติดตั้ง Mikrotik ตัวที่ 2<br/>
+                    เลขวงจร BINF....................................
+                  </div>
+                  ${rt.photo_device_2
+                    ? `<img src="${rt.photo_device_2}" class="photo-frame-tall" />`
+                    : `<div class="placeholder-box" style="height:310px;">
+                        ( นำภาพวางตรงจุดนี้ )<br/>
+                        (ภาพ อุปกรณ์ Mikrotik ที่เปลี่ยนสติ๊กเกอร์ใหม่<br/>
+                        และเขียนรายละเอียดครบถ้วน ใหม่แล้ว )<br/><br/>
+                        หากขนส่งที่นี่มี Mikrotik มากกว่า 2 ตัวให้เพิ่มช่องใส่นี้
+                      </div>`
+                  }
+                </td>
+                <td>
+                  <div>
+                    <div style="text-align:center;font-weight:700;font-size:14.5px;">
+                      รูปภาพ Test speed port lan 2
+                    </div>
+                    ${rt.photo_lan2_2
+                      ? `<img src="${rt.photo_lan2_2}" class="photo-frame" />`
+                      : `<div class="placeholder-box">
+                          ( นำภาพวางตรงจุดนี้ )<br/>
+                          (ผลทดสอบความเร็ว ความเร็วประมาณ 650 Mbps/350 Mbps)
+                        </div>`
+                    }
+                  </div>
+                  <div style="margin-top:10px;">
+                    <div style="text-align:center;font-weight:700;font-size:14.5px;">
+                      รูปภาพ Test speed port lan 3
+                    </div>
+                    ${rt.photo_lan3_2
+                      ? `<img src="${rt.photo_lan3_2}" class="photo-frame" />`
+                      : `<div class="placeholder-box">
+                          ( นำภาพวางตรงจุดนี้ )<br/>
+                          (ผลทดสอบความเร็ว ความเร็วประมาณ 650 Mbps/350 Mbps)
+                        </div>`
                     }
                   </div>
                 </td>
@@ -455,48 +381,51 @@
         </div>
       `;
 
-      // Page 4+: Access Point Photos (2 APs per page, matching the 1toAll standard form)
+      // Page 4+: Access Point Photos (2 APs per page, matching Last Year's Page 4 & 5 100%)
       const apPages = [];
       for (let i = 0; i < aps.length; i += 2) {
         const pair = aps.slice(i, i + 2);
         const rowsHtml = pair.map((ap, idxInPage) => {
           const apNum = i + idxInPage + 1;
-          const rmUpper = (ap.room || '').toUpperCase();
-          const is300 = rmUpper.includes('DLS') || rmUpper.includes('DSL') || rmUpper.includes('GECC') || rmUpper.includes('อบรม') || rmUpper.includes('ประชาสัมพันธ์');
-          const lanCriteria = is300 ? '300 Mbps/ 150 Mbps' : '350 Mbps/ 200 Mbps';
+          const roomLabel = ap.room ? (ap.room.startsWith('ห้อง') ? ap.room : `ห้อง ${ap.room}`) : `ห้องติดตั้ง`;
           return `
             <tr>
               <td>
                 <div style="text-align:center;font-weight:700;font-size:14.5px;">
-                  รูปถ่าย Access Point(AP) ณ จุดติดตั้ง ตัวที่ ${apNum} (${ap.room || 'ห้องติดตั้ง'})
-                </div>
-                <div style="text-align:center;font-size:12px;color:#334155;margin-top:2px;">
-                  ยี่ห้อ: <strong>${ap.brand || '-'} ${ap.model || ''}</strong> | S/N: <strong>${ap.serial_no || '-'}</strong> | ครุภัณฑ์: <strong>${ap.asset_no || '-'}</strong>
+                  รูปถ่าย Access Point(AP) ณ จุดติดตั้ง ตัวที่ ${apNum} (${roomLabel})
                 </div>
                 ${ap.photo_device
-                  ? `<img src="${ap.photo_device}" class="photo-frame-tall" style="height:290px;" />`
-                  : `<div class="placeholder-box" style="height:280px;">(นำภาพวางตรงจุดนี้)<br/>(ภาพ อุปกรณ์ AP ที่เปลี่ยนสติ๊กเกอร์ใหม่<br/>และเขียนรายละเอียด เลขวงจร/เลขครุภัณฑ์/ยี่ห้อ,รุ่น/SN ครบถ้วนแล้ว)</div>`
+                  ? `<img src="${ap.photo_device}" class="photo-frame-tall" style="height:335px;" />`
+                  : `<div class="placeholder-box" style="height:335px;">
+                      ( นำภาพวางตรงจุดนี้ )<br/>
+                      (ภาพ อุปกรณ์ AP ที่เปลี่ยนสติ๊กเกอร์ใหม่<br/>
+                      และเขียนรายละเอียดครบถ้วน ใหม่แล้ว )
+                    </div>`
                 }
               </td>
               <td>
                 <div>
-                  <div style="text-align:center;font-weight:700;font-size:13.5px;">
+                  <div style="text-align:center;font-weight:700;font-size:14px;">
                     รูปภาพ Test speed ผ่าน WiFi
-                    ${ap.speed_wifi_dl ? `<span style="font-size:12px;color:#047857;">(${ap.speed_wifi_dl} / ${ap.speed_wifi_ul} Mbps)</span>` : ''}
                   </div>
                   ${ap.photo_wifi
-                    ? `<img src="${ap.photo_wifi}" class="photo-frame" style="height:145px;" />`
-                    : `<div class="placeholder-box" style="height:140px;">(นำภาพวางตรงจุดนี้)<br/>(ผลทดสอบความเร็ว ความเร็วไม่ต่ำกว่า 50 Mbps/ 20 Mbps)</div>`
+                    ? `<img src="${ap.photo_wifi}" class="photo-frame" />`
+                    : `<div class="placeholder-box">
+                        ( นำภาพวางตรงจุดนี้ )<br/>
+                        (ผลทดสอบความเร็ว ความเร็วประมาณ 50 Mbps/ 20 Mbps)
+                      </div>`
                   }
                 </div>
-                <div style="margin-top:8px;">
-                  <div style="text-align:center;font-weight:700;font-size:13.5px;">
+                <div style="margin-top:10px;">
+                  <div style="text-align:center;font-weight:700;font-size:14px;">
                     รูปภาพ Test speed ผ่านสาย Lan
-                    ${ap.speed_lan_dl ? `<span style="font-size:12px;color:#047857;">(${ap.speed_lan_dl} / ${ap.speed_lan_ul} Mbps)</span>` : ''}
                   </div>
                   ${ap.photo_lan
-                    ? `<img src="${ap.photo_lan}" class="photo-frame" style="height:145px;" />`
-                    : `<div class="placeholder-box" style="height:140px;">(นำภาพวางตรงจุดนี้)<br/>(ผลทดสอบความเร็ว ความเร็วไม่ต่ำกว่า ${lanCriteria})</div>`
+                    ? `<img src="${ap.photo_lan}" class="photo-frame" />`
+                    : `<div class="placeholder-box">
+                        ( นำภาพวางตรงจุดนี้ )<br/>
+                        (ผลทดสอบความเร็ว ความเร็วประมาณ 350 Mbps/ 200 Mbps)
+                      </div>`
                   }
                 </div>
               </td>
@@ -509,13 +438,16 @@
             <div style="display:flex;justify-content:flex-end;">
               <div class="brand-logo">
                 <span class="brand-circle">1</span>
-                <span>1toAll</span>
+                <div>
+                  <div style="line-height:1;">1toAll</div>
+                  <div style="font-size:8px;letter-spacing:0.5px;color:#64748b;font-weight:700;">LEADING THE FUTURE</div>
+                </div>
               </div>
             </div>
             <div style="text-align:center;margin-top:2px;">
-              <div style="font-size:19px;font-weight:700;">เอกสารรายงานการติดตั้ง</div>
-              <div style="font-size:14px;font-weight:700;margin-top:2px;">
-                สำหรับ กรมการขนส่งทางบก สาขา <span class="dotted-val" style="min-width:170px;">${c.branch_name || c.province}</span>
+              <div style="font-size:20px;font-weight:700;">เอกสารรายงานการติดตั้ง</div>
+              <div style="font-size:14.5px;font-weight:700;margin-top:4px;">
+                สำหรับ กรมการขนส่งทางบก สาขา <span class="dotted-val" style="min-width:190px;">${c.branch_name || c.province}</span>
                 จังหวัด <span class="dotted-val" style="min-width:140px;">${c.province}</span>
               </div>
             </div>

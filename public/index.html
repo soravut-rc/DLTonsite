@@ -511,15 +511,17 @@
                 2️⃣ ขั้นตอนที่ 2: เลือกหัวข้อรูปที่จะส่ง (ถ้าเป็นอุปกรณ์ที่มี S/N ระบบจะแปลง OCR + มีช่องให้ช่างกรอก Recheck)
               </label>
               <select id="lineActiveSlotSelect" onchange="onLineSlotSelectChange()" class="px-2.5 py-1.5 rounded-xl border-2 border-indigo-300 text-xs font-bold bg-indigo-50 text-indigo-900">
-                <option value="router_device">1.1 รูปถ่ายอุปกรณ์ MikroTik (มี S/N + OCR)</option>
-                <option value="router_lan2">1.2 รูปผลทดสอบ Port LAN 2</option>
-                <option value="router_lan3">1.3 รูปผลทดสอบ Port LAN 3</option>
-                <option value="ap_0_device">2.1.1 รูปถ่าย AP ตัวที่ 1 (มี S/N + OCR)</option>
-                <option value="ap_0_wifi">2.1.2 รูปผลทดสอบ WiFi AP ตัวที่ 1</option>
-                <option value="ap_0_lan">2.1.3 รูปผลทดสอบสาย LAN AP ตัวที่ 1</option>
-                <option value="ap_1_device">2.2.1 รูปถ่าย AP ตัวที่ 2 (มี S/N + OCR)</option>
-                <option value="ap_1_wifi">2.2.2 รูปผลทดสอบ WiFi AP ตัวที่ 2</option>
-                <option value="ap_1_lan">2.2.3 รูปผลทดสอบสาย LAN AP ตัวที่ 2</option>
+                <option value="router_device">1.1 รูปถ่ายจุดติดตั้ง MikroTik ตัวที่ 1 (มี S/N + OCR)</option>
+                <option value="router_lan2">1.2 รูปภาพ Test speed port LAN 2</option>
+                <option value="router_lan3">1.3 รูปภาพ Test speed port LAN 3</option>
+                <option value="ap1_device">2.1.1 รูปถ่ายจุดติดตั้ง AP ตัวที่ 1 (มี S/N + OCR)</option>
+                <option value="ap1_wifi">2.1.2 รูปภาพ Test speed ผ่าน WiFi (AP ตัวที่ 1)</option>
+                <option value="ap1_lan">2.1.3 รูปภาพ Test speed ผ่านสาย LAN (AP ตัวที่ 1)</option>
+                <option value="ap2_device">2.2.1 รูปถ่ายจุดติดตั้ง AP ตัวที่ 2 (มี S/N + OCR)</option>
+                <option value="ap2_wifi">2.2.2 รูปภาพ Test speed ผ่าน WiFi (AP ตัวที่ 2)</option>
+                <option value="ap2_lan">2.2.3 รูปภาพ Test speed ผ่านสาย LAN (AP ตัวที่ 2)</option>
+                <option value="handover_page1">4.1 สำเนา "แบบส่งมอบงาน" หน้าที่ 1/2 (รายละเอียดอุปกรณ์)</option>
+                <option value="handover_page2">4.2 สำเนา "แบบส่งมอบงาน" หน้าที่ 2/2 (ลงนาม + ประทับตรา)</option>
               </select>
             </div>
 
@@ -591,8 +593,8 @@
             <!-- Photo Completeness Progress -->
             <div class="bg-slate-50 rounded-xl p-3 border border-slate-200 space-y-2">
               <div class="flex items-center justify-between text-xs">
-                <span class="font-bold text-slate-700">3️⃣ ระบบตรวจสอบจำนวนรูปถ่าย:</span>
-                <span id="linePhotoProgressText" class="font-extrabold text-indigo-700">0 / 9 รูป</span>
+                <span class="font-bold text-slate-700">3️⃣ ระบบตรวจสอบจำนวนรูปถ่าย (9 รูปอุปกรณ์ + 2 หน้าใบส่งมอบ):</span>
+                <span id="linePhotoProgressText" class="font-extrabold text-indigo-700">0 / 11 รูป</span>
               </div>
               <div class="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
                 <div id="linePhotoProgressBar" class="bg-emerald-500 h-full transition-all duration-300" style="width: 0%"></div>
@@ -1085,50 +1087,50 @@
           </div>
 
           <!-- ============================================================== -->
-          <!-- ขั้นตอนที่ 4: เขียนรายละเอียดวงจร+อุปกรณ์ และลงนามพร้อมตราประทับ -->
+          <!-- ขั้นตอนที่ 4: แนบสำเนาเอกสาร "แบบส่งมอบงาน" ที่ลงนามพร้อมประทับตราแล้ว -->
           <!-- ============================================================== -->
           <div id="modalSectionStep4" class="bg-white p-4 sm:p-5 rounded-xl shadow-sm border-2 border-rose-200 space-y-5">
             <div class="border-b border-slate-100 pb-3">
               <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
                 <span class="w-6 h-6 rounded-full bg-rose-600 text-white text-xs flex items-center justify-center">4</span>
-                ขั้นตอนที่ 4: เขียนรายละเอียดวงจร+อุปกรณ์ และให้เจ้าหน้าที่ลงนามพร้อมตราประทับในแบบส่งมอบงาน
+                ขั้นตอนที่ 4: แนบสำเนาเอกสาร "แบบส่งมอบงาน" (ที่เขียนรายละเอียด + เจ้าหน้าที่ลงนามพร้อมประทับตราแล้ว)
               </h3>
+              <p class="text-xs text-slate-500 mt-0.5">
+                ช่างนำเอกสาร "แบบส่งมอบงาน" ตัวจริงให้เจ้าหน้าที่ปลายทางลงนามพร้อมประทับตรา จากนั้นถ่ายรูป/สแกนทั้ง 2 หน้าเก็บเป็นหลักฐาน เพื่อใช้สร้างไฟล์รายงานอัตโนมัติ
+              </p>
             </div>
 
             <!-- Step 4 Checklist -->
             <div class="bg-rose-50/70 border border-rose-200 rounded-xl p-3.5 space-y-2">
-              <div class="text-xs font-bold text-rose-900">✅ รายการตรวจสอบก่อนส่งมอบงาน (ขั้นตอนที่ 4):</div>
+              <div class="text-xs font-bold text-rose-900">✅ รายการตรวจสอบเอกสาร "แบบส่งมอบงาน" (ขั้นตอนที่ 4):</div>
               <label class="flex items-start gap-2.5 text-xs text-slate-800 cursor-pointer">
                 <input id="chkDocFilled" type="checkbox" class="mt-0.5 rounded border-rose-400 text-rose-600 focus:ring-rose-500" />
-                <span><strong>4.1</strong> เขียนรายละเอียดวงจร + อุปกรณ์ (MikroTik และ Access Point ทุกห้อง) ลงในเอกสารแบบส่งมอบงานครบถ้วนแล้ว</span>
+                <span><strong>4.1</strong> ช่างเขียนข้อมูลสถานที่และอุปกรณ์ (MikroTik และ Access Point ทุกห้อง) ลงในใบ <strong>"แบบส่งมอบงาน" (หน้าที่ 1/2)</strong> และถ่ายรูปเก็บสำเนาแล้ว</span>
               </label>
               <label class="flex items-start gap-2.5 text-xs text-slate-800 cursor-pointer">
                 <input id="chkDocStamped" type="checkbox" class="mt-0.5 rounded border-rose-400 text-rose-600 focus:ring-rose-500" />
-                <span><strong>4.2</strong> เจ้าหน้าที่ผู้รับผิดชอบ <strong>ลงนาม พร้อมประทับตรา</strong> ในเอกสารแบบส่งมอบงานเรียบร้อยแล้ว</span>
+                <span><strong>4.2</strong> เจ้าหน้าที่ปลายทาง <strong>ลงนาม พร้อมประทับตรา</strong> ในใบ <strong>"แบบส่งมอบงาน" (หน้าที่ 2/2)</strong> และถ่ายรูปเก็บสำเนาแล้ว</span>
               </label>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-              <div class="md:col-span-2">
-                <label class="block text-xs font-semibold text-slate-600 mb-1">หมายเหตุการเข้าดำเนินการหน้างาน (ถ้ามี)</label>
-                <textarea id="fRemarks" rows="4" placeholder="ระบุหมายเหตุเพิ่มเติม เช่น ลอกและติดสติ๊กเกอร์ใหม่ครบทุกจุด, ย้ายสายแลนห้อง GECC ไป Port 4 และทดสอบ Authen WiFi เรียบร้อย..." class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"></textarea>
-              </div>
-              <div id="slotSignedDocPhoto" class="border border-dashed border-slate-300 rounded-xl p-3 text-center bg-slate-50/60"></div>
+            <!-- 2 Upload Slots for Scanned Paper Handover Form (Page 1/2 & Page 2/2) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div id="slotSignedDocPhoto" class="border-2 border-dashed border-rose-300 rounded-xl p-3.5 text-center bg-rose-50/30"></div>
+              <div id="slotSignedDocPage2Photo" class="border-2 border-dashed border-rose-300 rounded-xl p-3.5 text-center bg-rose-50/30"></div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">หมายเหตุการเข้าดำเนินการหน้างาน (ถ้ามี)</label>
+              <textarea id="fRemarks" rows="2" placeholder="ระบุหมายเหตุเพิ่มเติม (ถ้ามี)..." class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"></textarea>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <!-- Left: ผู้เข้าดำเนินการติดตั้ง (ช่างผู้ส่งมอบ) -->
-              <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 space-y-3">
-                <div class="flex items-center justify-between">
-                  <span class="text-sm font-bold text-slate-800">👷 ผู้เข้าดำเนินการติดตั้ง (ผู้ส่งมอบ)</span>
-                  <button type="button" onclick="clearSignature('sigInspector')" class="text-xs text-rose-600 hover:underline font-medium">ล้างลายเซ็น</button>
-                </div>
-                <div class="border border-slate-300 rounded-lg bg-white overflow-hidden">
-                  <canvas id="sigInspector" width="380" height="130" class="w-full h-[130px] sig-canvas cursor-crosshair"></canvas>
-                </div>
+              <!-- Left: ข้อมูลช่างผู้ส่งมอบ (สำหรับอ้างอิงในระบบ) -->
+              <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 space-y-2.5">
+                <div class="text-sm font-bold text-slate-800">👷 ข้อมูลผู้เข้าดำเนินการติดตั้ง (ผู้ส่งมอบ)</div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div class="sm:col-span-2">
-                    <label class="block text-xs font-semibold text-slate-600 mb-0.5">ชื่อ-นามสกุล ตัวบรรจง (ผู้ส่งมอบ)</label>
+                    <label class="block text-xs font-semibold text-slate-600 mb-0.5">ชื่อ-นามสกุล ช่างผู้ส่งมอบ</label>
                     <input id="fInspectorName" type="text" placeholder="เช่น นายสุเทพ แซ่เตียว" class="w-full px-3 py-1.5 rounded border border-slate-300 text-sm bg-white" />
                   </div>
                   <div>
@@ -1136,24 +1138,18 @@
                     <input id="fInspectionDate" type="text" placeholder="เช่น 15/10/2569" class="w-full px-3 py-1.5 rounded border border-slate-300 text-sm bg-white" />
                   </div>
                   <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-0.5">โทรศัพท์</label>
+                    <label class="block text-xs font-semibold text-slate-600 mb-0.5">โทรศัพท์ช่าง</label>
                     <input id="fInspectorPhone" type="text" placeholder="089-xxx-xxxx" class="w-full px-3 py-1.5 rounded border border-slate-300 text-sm bg-white" />
                   </div>
                 </div>
               </div>
 
-              <!-- Right: กรมการขนส่งทางบก (ผู้รับมอบ พร้อมตราประทับ) -->
-              <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 space-y-3">
-                <div class="flex items-center justify-between">
-                  <span class="text-sm font-bold text-slate-800">🏛️ กรมการขนส่งทางบก (ผู้รับมอบ + ประทับตรา)</span>
-                  <button type="button" onclick="clearSignature('sigReceiver')" class="text-xs text-rose-600 hover:underline font-medium">ล้างลายเซ็น</button>
-                </div>
-                <div class="border border-slate-300 rounded-lg bg-white overflow-hidden">
-                  <canvas id="sigReceiver" width="380" height="130" class="w-full h-[130px] sig-canvas cursor-crosshair"></canvas>
-                </div>
+              <!-- Right: ข้อมูลเจ้าหน้าที่ผู้รับมอบ (สำหรับอ้างอิงในระบบ) -->
+              <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 space-y-2.5">
+                <div class="text-sm font-bold text-slate-800">🏛️ ข้อมูลเจ้าหน้าที่กรมการขนส่งทางบก (ผู้รับมอบ)</div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-0.5">ชื่อ-นามสกุล ตัวบรรจง (ผู้รับมอบ)</label>
+                    <label class="block text-xs font-semibold text-slate-600 mb-0.5">ชื่อเจ้าหน้าที่ผู้รับมอบ (ถ้ามี)</label>
                     <input id="fReceiverName" type="text" placeholder="ระบุชื่อเจ้าหน้าที่ผู้รับมอบ" class="w-full px-3 py-1.5 rounded border border-slate-300 text-sm bg-white" />
                   </div>
                   <div>
@@ -1172,12 +1168,15 @@
               </div>
             </div>
 
-            <!-- Save & Print Footer Buttons -->
+            <!-- Save & Generate Report Footer Buttons -->
             <div class="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
               <div id="modalSaveStatus" class="text-xs text-slate-500"></div>
               <div class="flex items-center gap-2.5 flex-wrap">
+                <button type="button" onclick="downloadWordReportFromModal()" class="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold shadow transition">
+                  📝 สร้างรายงาน MS Word (.docx)
+                </button>
                 <button type="button" onclick="openPrintReportFromModal()" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-bold shadow transition">
-                  🖨️ พิมพ์ใบส่งมอบงาน & รูปภาพ (PDF)
+                  🖨️ เปิดดูรายงาน / พิมพ์ PDF
                 </button>
                 <button type="button" onclick="saveCurrentInspection()" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold shadow-lg transition">
                   💾 บันทึกข้อมูลการตรวจรับงาน

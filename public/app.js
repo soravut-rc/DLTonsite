@@ -964,7 +964,7 @@ async function openInspectionModal(soNumber) {
     const res = await fetch(`/api/circuits/${encodeURIComponent(soNumber)}`);
     if (!res.ok) throw new Error('ไม่พบข้อมูลวงจร');
     const data = await res.json();
-    currentCircuit = data.circuit;
+    currentCircuit = data.circuit || data;
     addRecentCircuit(soNumber);
 
     if (!currentCircuit.router_info) currentCircuit.router_info = {};
@@ -1117,6 +1117,9 @@ function renderModalCompletenessBar() {
     slots.push({ label: `2.${i + 1}.2 WiFi AP#${i + 1}`, ok: Boolean(ap.photo_wifi) });
     slots.push({ label: `2.${i + 1}.3 LAN AP#${i + 1}`, ok: Boolean(ap.photo_lan) });
   });
+  slots.push({ label: '4.1 สำเนาใบส่งมอบ (หน้า 1/2)', ok: Boolean(rt.photo_handover_p1 || rt.photo_signed_doc) });
+  slots.push({ label: '4.2 สำเนาใบส่งมอบ (หน้า 2/2 ประทับตรา)', ok: Boolean(rt.photo_handover_p2) });
+
   const uploaded = slots.filter(s => s.ok).length;
   const total = slots.length;
 
@@ -1368,12 +1371,30 @@ function populateInspectionModal() {
   // Steps 2 & 3: Access Points
   renderAccessPointCards();
 
-  // Step 4: Document & Signatures
+  // Step 4: Scanned Paper Handover Form Copies (Page 1/2 & Page 2/2)
   document.getElementById('chkDocFilled').checked = Boolean(rt.doc_filled);
   document.getElementById('chkDocStamped').checked = Boolean(rt.doc_stamped);
-  renderPhotoSlot('slotSignedDocPhoto', 'signed_handover_doc', '4. รูปถ่ายใบส่งมอบงานที่ลงนามและประทับตราจริง (ถ้ามี)', rt.photo_signed_doc || '', url => {
-    currentCircuit.router_info.photo_signed_doc = url;
-  });
+  renderPhotoSlot(
+    'slotSignedDocPhoto',
+    'handover_page1',
+    '📄 4.1 สำเนาเอกสาร "แบบส่งมอบงาน" หน้าที่ 1/2 (รายละเอียดสถานที่และอุปกรณ์ที่ช่างเขียน)',
+    rt.photo_handover_p1 || rt.photo_signed_doc || '',
+    url => {
+      currentCircuit.router_info.photo_handover_p1 = url;
+      currentCircuit.router_info.photo_signed_doc = url;
+      renderModalCompletenessBar();
+    }
+  );
+  renderPhotoSlot(
+    'slotSignedDocPage2Photo',
+    'handover_page2',
+    '📄 4.2 สำเนาเอกสาร "แบบส่งมอบงาน" หน้าที่ 2/2 (หน้าที่มีลายเซ็นผู้ส่งมอบ & ผู้รับมอบพร้อมประทับตรา)',
+    rt.photo_handover_p2 || '',
+    url => {
+      currentCircuit.router_info.photo_handover_p2 = url;
+      renderModalCompletenessBar();
+    }
+  );
 
   const todayThai = formatThaiDateToday();
   document.getElementById('fRemarks').value = c.remarks || '';
@@ -1813,14 +1834,18 @@ function renderPhotoSlot(containerId, slotKey, label, currentUrl, onUploaded) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           circuitId: currentCircuit.so_number,
+          so_number: currentCircuit.so_number,
           slot: slotKey,
-          dataUrl: compressedDataUrl
+          category: slotKey,
+          dataUrl: compressedDataUrl,
+          data_url: compressedDataUrl
         })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Upload failed');
       onUploaded(data.url);
       renderPhotoSlot(containerId, slotKey, label, data.url, onUploaded);
+      renderModalCompletenessBar(currentCircuit);
 
       // If this is a device sticker photo (MikroTik or AP), automatically extract S/N!
       if (isDeviceStickerSlot && snTarget) {
@@ -1839,6 +1864,7 @@ function renderPhotoSlot(containerId, slotKey, label, currentUrl, onUploaded) {
     removeBtn.addEventListener('click', () => {
       onUploaded('');
       renderPhotoSlot(containerId, slotKey, label, '', onUploaded);
+      renderModalCompletenessBar(currentCircuit);
     });
   }
 }
@@ -1963,6 +1989,8 @@ function collectFormPayload() {
   syncApInputsFromDom();
   const statusEl = document.querySelector('input[name="circuitStatus"]:checked');
   const routerModelEl = document.querySelector('input[name="routerModel"]:checked');
+  const handoverP1 = currentCircuit.router_info?.photo_handover_p1 || currentCircuit.router_info?.photo_signed_doc || '';
+  const handoverP2 = currentCircuit.router_info?.photo_handover_p2 || '';
 
   return {
     so_number: document.getElementById('fSoNumber').value.trim(),
@@ -1992,19 +2020,21 @@ function collectFormPayload() {
       photo_device: currentCircuit.router_info?.photo_device || '',
       photo_lan2: currentCircuit.router_info?.photo_lan2 || '',
       photo_lan3: currentCircuit.router_info?.photo_lan3 || '',
-      photo_signed_doc: currentCircuit.router_info?.photo_signed_doc || ''
+      photo_handover_p1: handoverP1,
+      photo_handover_p2: handoverP2,
+      photo_signed_doc: handoverP1
     },
     access_points: currentCircuit.access_points,
     remarks: document.getElementById('fRemarks').value.trim(),
     inspector_name: document.getElementById('fInspectorName').value.trim(),
     inspector_phone: document.getElementById('fInspectorPhone').value.trim(),
     inspection_date: document.getElementById('fInspectionDate').value.trim(),
-    inspector_signature: getSignatureDataUrl('sigInspector'),
+    inspector_signature: getSignatureDataUrl('sigInspector') || currentCircuit.inspector_signature || '',
     receiver_name: document.getElementById('fReceiverName').value.trim(),
     receiver_position: document.getElementById('fReceiverPosition').value.trim(),
     receiver_phone: document.getElementById('fReceiverPhone').value.trim(),
     received_date: document.getElementById('fReceivedDate').value.trim(),
-    receiver_signature: getSignatureDataUrl('sigReceiver')
+    receiver_signature: getSignatureDataUrl('sigReceiver') || currentCircuit.receiver_signature || ''
   };
 }
 
@@ -2866,10 +2896,10 @@ function applyLineBotStateToUi(data) {
       }).join('');
     }
   } else {
-    if (pctText) pctText.textContent = '0 / 9 รูป (0%)';
+    if (pctText) pctText.textContent = '0 / 11 รูป (0%)';
     if (bar) bar.style.width = '0%';
     if (checklistEl) {
-      checklistEl.innerHTML = `<div class="text-xs text-slate-400 text-center py-6">กรุณา Check-in วงจรเพื่อดูรายการรูปถ่ายบังคับ 9 จุด</div>`;
+      checklistEl.innerHTML = `<div class="text-xs text-slate-400 text-center py-6">กรุณา Check-in วงจรเพื่อดูรายการรูปถ่ายบังคับ 11 จุด (9 รูปอุปกรณ์ + 2 หน้าใบส่งมอบ)</div>`;
     }
     if (snListEl) {
       snListEl.innerHTML = `<div class="text-xs text-slate-400 text-center py-4">กรุณา Check-in วงจรเพื่อตรวจสอบ S/N (OCR vs ช่างกรอก)</div>`;
@@ -2893,7 +2923,7 @@ function syncLineSnFieldsFromCircuit(c) {
   const ocrEl = document.getElementById('lineOcrSnInput');
   const recheckPanel = document.getElementById('lineSnRecheckPanel');
 
-  const isSnSlot = slot === 'router_device' || slot === 'ap1_device' || slot === 'ap2_device';
+  const isSnSlot = slot === 'router_device' || slot === 'ap1_device' || slot === 'ap_0_device' || slot === 'ap2_device' || slot === 'ap_1_device';
   if (recheckPanel) {
     if (isSnSlot) recheckPanel.classList.remove('hidden');
     else recheckPanel.classList.add('hidden');
@@ -2903,10 +2933,10 @@ function syncLineSnFieldsFromCircuit(c) {
   if (slot === 'router_device') {
     manualEl.value = c.router_info?.serial_no || '';
     ocrEl.value = c.router_info?.ocr_serial_no || '';
-  } else if (slot === 'ap1_device') {
+  } else if (slot === 'ap1_device' || slot === 'ap_0_device') {
     manualEl.value = c.access_points?.[0]?.serial_no || '';
     ocrEl.value = c.access_points?.[0]?.ocr_serial_no || '';
-  } else if (slot === 'ap2_device') {
+  } else if (slot === 'ap2_device' || slot === 'ap_1_device') {
     manualEl.value = c.access_points?.[1]?.serial_no || '';
     ocrEl.value = c.access_points?.[1]?.ocr_serial_no || '';
   }
@@ -3007,7 +3037,7 @@ async function onLineSlotSelectChange() {
     syncLineSnFieldsFromCircuit(activeCircuit);
   } else {
     const recheckPanel = document.getElementById('lineSnRecheckPanel');
-    const isSnSlot = slot === 'router_device' || slot === 'ap1_device' || slot === 'ap2_device';
+    const isSnSlot = slot === 'router_device' || slot === 'ap1_device' || slot === 'ap_0_device' || slot === 'ap2_device' || slot === 'ap_1_device';
     if (recheckPanel) {
       if (isSnSlot) recheckPanel.classList.remove('hidden');
       else recheckPanel.classList.add('hidden');
@@ -3042,7 +3072,7 @@ async function onLinePhotoFileSelected(inputOrEvent) {
   }
 
   const slot = document.getElementById('lineActiveSlotSelect')?.value || 'router_device';
-  const isSnSlot = slot === 'router_device' || slot === 'ap1_device' || slot === 'ap2_device';
+  const isSnSlot = slot === 'router_device' || slot === 'ap1_device' || slot === 'ap_0_device' || slot === 'ap2_device' || slot === 'ap_1_device';
 
   try {
     showToast('📸 กำลังบีบอัดรูปและส่งเข้า LINE Bot...');
@@ -3120,7 +3150,7 @@ async function submitLineSnRecheckOnly() {
   }
 
   const slot = document.getElementById('lineActiveSlotSelect')?.value || 'router_device';
-  const target = slot === 'ap1_device' ? 'ap_0' : slot === 'ap2_device' ? 'ap_1' : 'router';
+  const target = (slot === 'ap1_device' || slot === 'ap_0_device') ? 'ap_0' : (slot === 'ap2_device' || slot === 'ap_1_device') ? 'ap_1' : 'router';
   const manualSn = (document.getElementById('lineManualSnInput')?.value || '').trim().toUpperCase();
   const ocrSn = (document.getElementById('lineOcrSnInput')?.value || '').trim().toUpperCase();
 
