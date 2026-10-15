@@ -1,0 +1,18 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.wrangler/
+
+# Large local raw archive folder (758 MB) - seed data is in data/seed_circuits.json
+Onsite/
+
+# Runtime SQLite DB & local secret config files
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
+data/cloud_config.json
+data/line_config.json
+data/uploads/*
+!data/uploads/.gitkeep
+!data/seed_circuits.json

@@ -1,0 +1,15 @@
+{
+  "name": "dlt-onsite-inspection-system",
+  "version": "1.0.0",
+  "description": "ระบบตรวจรับและส่งมอบงานโครงการวงจรสื่อสารข้อมูล กรมการขนส่งทางบก (334 วงจร) รองรับ Router MikroTik และ Access Point พร้อมเชื่อมต่อ Cloud Database (Supabase) และ SQLite",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "cf:dev": "npx wrangler dev",
+    "deploy": "npx wrangler deploy"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}
