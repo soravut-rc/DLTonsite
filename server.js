@@ -189,7 +189,7 @@ db.exec(`
     checkout_lat_long TEXT DEFAULT '',
     checkout_note TEXT DEFAULT '',
     uploaded_photos INTEGER DEFAULT 0,
-    required_photos INTEGER DEFAULT 9,
+    required_photos INTEGER DEFAULT 11,
     is_complete_photos INTEGER DEFAULT 0,
     sn_recheck_json TEXT DEFAULT '[]',
     admin_status TEXT DEFAULT 'working',
@@ -350,25 +350,37 @@ function saveBase64PhotoToDisk(circuitId, slot, dataUrl) {
 async function syncCircuitToCloud(circuitObj) {
   if (!isCloudConfigured() || !cloudConfig.autoSync) return { synced: false };
   try {
-    const cleanPayload = { ...circuitObj };
-    delete cleanPayload.checkin_time;
-    delete cleanPayload.checkout_time;
-    delete cleanPayload.admin_status;
-    delete cleanPayload.admin_name;
-    delete cleanPayload.admin_comment;
-    delete cleanPayload.admin_reviewed_at;
-    delete cleanPayload.line_user_id;
     await supabaseRequest('/rest/v1/dlt_circuits?on_conflict=id', {
       method: 'POST',
       headers: {
         Prefer: 'resolution=merge-duplicates,return=minimal'
       },
-      body: JSON.stringify([cleanPayload])
+      body: JSON.stringify([circuitObj])
     });
     return { synced: true };
-  } catch (err) {
-    console.warn('Cloud auto-sync warning:', err.message);
-    return { synced: false, error: err.message };
+  } catch (firstErr) {
+    try {
+      // Fallback for Supabase tables created before check-in/admin columns were added
+      const cleanPayload = { ...circuitObj };
+      delete cleanPayload.checkin_time;
+      delete cleanPayload.checkout_time;
+      delete cleanPayload.admin_status;
+      delete cleanPayload.admin_name;
+      delete cleanPayload.admin_comment;
+      delete cleanPayload.admin_reviewed_at;
+      delete cleanPayload.line_user_id;
+      await supabaseRequest('/rest/v1/dlt_circuits?on_conflict=id', {
+        method: 'POST',
+        headers: {
+          Prefer: 'resolution=merge-duplicates,return=minimal'
+        },
+        body: JSON.stringify([cleanPayload])
+      });
+      return { synced: true, fallbackLegacySchema: true };
+    } catch (err) {
+      console.warn('Cloud auto-sync warning:', err.message);
+      return { synced: false, error: err.message };
+    }
   }
 }
 
@@ -1438,6 +1450,7 @@ const server = http.createServer(async (req, res) => {
               router_info, access_points, remarks,
               inspector_name, inspector_phone, inspection_date, inspector_signature,
               receiver_name, receiver_position, receiver_phone, received_date, receiver_signature,
+              checkin_time, checkout_time, admin_status, admin_name, admin_comment, admin_reviewed_at, line_user_id,
               updated_at
             ) VALUES (
               ?, ?, ?, ?, ?, ?, ?,
@@ -1445,6 +1458,7 @@ const server = http.createServer(async (req, res) => {
               ?, ?, ?,
               ?, ?, ?, ?,
               ?, ?, ?, ?, ?,
+              ?, ?, ?, ?, ?, ?, ?,
               ?
             )
           `);
@@ -1458,7 +1472,10 @@ const server = http.createServer(async (req, res) => {
                 JSON.stringify(r.router_info || {}), JSON.stringify(r.access_points || []),
                 r.remarks || '', r.inspector_name || '', r.inspector_phone || '', r.inspection_date || '',
                 r.inspector_signature || '', r.receiver_name || '', r.receiver_position || '',
-                r.receiver_phone || '', r.received_date || '', r.receiver_signature || '', r.updated_at || null
+                r.receiver_phone || '', r.received_date || '', r.receiver_signature || '',
+                r.checkin_time || '', r.checkout_time || '', r.admin_status || '',
+                r.admin_name || '', r.admin_comment || '', r.admin_reviewed_at || '', r.line_user_id || '',
+                r.updated_at || null
               );
             }
             db.exec('COMMIT');

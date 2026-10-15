@@ -560,7 +560,7 @@ export default {
             const comp = evaluateCircuitCompleteness(circuit);
             let snFeedback = '';
             if (slotMeta?.requiresSn) {
-              const targetKey = slotKey === 'router_device' ? 'router' : slotKey === 'ap1_device' ? 'ap_0' : 'ap_1';
+              const targetKey = slotKey === 'router_device' ? 'router' : (slotKey === 'ap_0_device' || slotKey === 'ap1_device') ? 'ap_0' : 'ap_1';
               const cmpItem = comp.snComparisons.find(x => x.key === targetKey);
               if (cmpItem) {
                 snFeedback = `\n🔎 ผลเทียบ S/N (${cmpItem.deviceLabel}):\n• ช่างกรอก: ${cmpItem.manualSn || '-'}\n• OCR แปลงได้: ${cmpItem.ocrSn || '-'}\n• สถานะ: ${cmpItem.statusLabel}`;
@@ -577,8 +577,8 @@ export default {
             const so = body.so_number || session.active_so;
             const circuit = circuitsMap.get(so);
             if (!circuit) return jsonResponse({ error: 'กรุณา Check-in วงจรก่อนบันทึก S/N' }, 400);
-            const target = body.target || (body.slot === 'ap1_device' ? 'ap_0' : body.slot === 'ap2_device' ? 'ap_1' : 'router');
-            const slotKey = target === 'ap_0' ? 'ap1_device' : target === 'ap_1' ? 'ap2_device' : 'router_device';
+            const target = body.target || ((body.slot === 'ap_0_device' || body.slot === 'ap1_device') ? 'ap_0' : (body.slot === 'ap_1_device' || body.slot === 'ap2_device') ? 'ap_1' : 'router');
+            const slotKey = target === 'ap_0' ? 'ap_0_device' : target === 'ap_1' ? 'ap_1_device' : 'router_device';
             const manualSn = normalizeSn(body.manual_sn || body.manualSn || '');
             const ocrSn = normalizeSn(body.ocr_sn || body.ocrSn || '');
 

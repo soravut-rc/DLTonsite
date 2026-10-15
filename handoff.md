@@ -26,18 +26,19 @@
    - *หมายเหตุ*: ระบบไม่ต้องสร้างฟอร์มเปล่าของใบส่งมอบงานซ้ำ แต่จะนำไฟล์ภาพสำเนาทั้ง 2 หน้านี้ไปวางเป็น **หน้าที่ 1 และหน้าที่ 2 ของไฟล์รายงาน** โดยตรง
 
 4. **📋 ขั้นตอนที่ 4: ระบบตรวจสอบความครบถ้วนของรูปถ่าย (Completeness Check — 11 รายการบังคับ)**
-   - ระบบตรวจสอบว่ารูปถ่ายครบทั้ง **11 จุด** หรือไม่:
+   - ระบบตรวจสอบว่ารูปถ่ายครบทั้ง **11 จุด** หรือไม่ (`REQUIRED_PHOTO_SLOTS` ใน `lib/completeness_and_line.js`):
      1. `router_device` — 1.1 รูปถ่ายจุดติดตั้ง MikroTik ตัวที่ 1 (พร้อม S/N + OCR)
      2. `router_lan2` — 1.2 รูปภาพ Test speed port LAN 2
      3. `router_lan3` — 1.3 รูปภาพ Test speed port LAN 3
-     4. `ap1_device` — 2.1.1 รูปถ่าย Access Point ณ จุดติดตั้ง ตัวที่ 1 (พร้อม S/N + OCR)
-     5. `ap1_wifi` — 2.1.2 รูปภาพ Test speed ผ่าน WiFi (AP ตัวที่ 1)
-     6. `ap1_lan` — 2.1.3 รูปภาพ Test speed ผ่านสาย LAN (AP ตัวที่ 1)
-     7. `ap2_device` — 2.2.1 รูปถ่าย Access Point ณ จุดติดตั้ง ตัวที่ 2 (พร้อม S/N + OCR)
-     8. `ap2_wifi` — 2.2.2 รูปภาพ Test speed ผ่าน WiFi (AP ตัวที่ 2)
-     9. `ap2_lan` — 2.2.3 รูปภาพ Test speed ผ่านสาย LAN (AP ตัวที่ 2)
+     4. `ap_0_device` — 2.1.1 รูปถ่าย Access Point ณ จุดติดตั้ง ตัวที่ 1 (พร้อม S/N + OCR)
+     5. `ap_0_wifi` — 2.1.2 รูปภาพ Test speed ผ่าน WiFi (AP ตัวที่ 1)
+     6. `ap_0_lan` — 2.1.3 รูปภาพ Test speed ผ่านสาย LAN (AP ตัวที่ 1)
+     7. `ap_1_device` — 2.2.1 รูปถ่าย Access Point ณ จุดติดตั้ง ตัวที่ 2 (พร้อม S/N + OCR)
+     8. `ap_1_wifi` — 2.2.2 รูปภาพ Test speed ผ่าน WiFi (AP ตัวที่ 2)
+     9. `ap_1_lan` — 2.2.3 รูปภาพ Test speed ผ่านสาย LAN (AP ตัวที่ 2)
      10. `handover_page1` — 4.1 สำเนาเอกสาร "แบบส่งมอบงาน" หน้าที่ 1/2
      11. `handover_page2` — 4.2 สำเนาเอกสาร "แบบส่งมอบงาน" หน้าที่ 2/2 (ลงนาม + ประทับตรา)
+   - *(หมายเหตุ: `applySlotPhotoAndSnToCircuit` รองรับทั้งคีย์ `ap_0_device` / `ap_1_device` และ alias `ap1_device` / `ap2_device`)*
 
 5. **🏁 ขั้นตอนที่ 5: Check-out ออกจาก Site**
    - เมื่อช่างอัปโหลดรูปครบและตรวจสอบ S/N แล้ว กด **Check-out**
@@ -58,15 +59,16 @@
 | ไฟล์ / โฟลเดอร์ | หน้าที่การทำงาน |
 | :--- | :--- |
 | `server.js` | Local Node.js Server รันที่พอร์ต **`3480`** (ใช้ SQLite `data/dlt_onsite.sqlite` และบันทึกรูปลง `data/uploads/`) |
-| `worker.js` | Cloudflare Workers Entrypoint สำหรับรันระบบแบบ Serverless บน Cloudflare |
-| `wrangler.jsonc` | ไฟล์ตั้งค่า Cloudflare Workers + Static Assets (`./public`) |
+| `start.bat` | สคริปต์รันระบบบน Windows และเปิดเบราว์เซอร์ที่ `http://localhost:3480` อัตโนมัติ |
+| `worker.js` | Cloudflare Workers Entrypoint (โหลดข้อมูลตั้งต้นจาก `./data/seed_circuits.json` และให้บริการ API + Static Assets) |
+| `wrangler.jsonc` | ไฟล์ตั้งค่า Cloudflare Workers (`compatibility_flags: ["nodejs_compat"]`) + Static Assets (`./public`) |
 | `lib/completeness_and_line.js` | โมดูลกลางสำหรับตรวจความครบถ้วนรูปถ่าย 11 จุด, เปรียบเทียบ S/N (ช่างกรอก vs OCR), และจัดการสถานะของ LINE Bot |
 | `lib/docx_generator.js` | โมดูลสร้างไฟล์รายงาน **MS Word (`.docx`)** แท้แบบ OpenXML (ZIP buffer) พร้อมฝังรูปสำเนาใบส่งมอบงานและรูปถ่ายอุปกรณ์ตามแบบฟอร์มปีที่แล้ว |
-| `lib/seed_data.js` | ข้อมูลตั้งต้น 334 วงจรครบทั้ง 77 จังหวัด สำหรับ Cloudflare Workers |
+| `data/seed_circuits.json` | ข้อมูล Seed 334 วงจรครบทั้ง 77 จังหวัด ที่สกัดจากไฟล์โครงการ |
+| `supabase/schema.sql` | สคริปต์สร้างตาราง PostgreSQL (`dlt_circuits`, `dlt_inspection_logs`) และ Storage Bucket บน Supabase |
 | `public/index.html` | หน้าเว็บหลัก รองรับทั้งโหมดช่างมือถือ (Quick Jump), LINE Bot Simulator, Dashboard 77 จังหวัด, และ Admin QA Center |
 | `public/app.js` | Frontend Logic ทั้งหมด (การค้นหาวงจร, กล้องถ่ายรูป, OCR สแกน S/N, LINE Bot Simulator, Admin QA, ตั้งค่า LINE Token) |
 | `public/report.html` | หน้าแสดงและสั่งพิมพ์รายงาน (Print / Save as PDF) ขนาด A4 ตรงตามเล่มรายงานปีที่แล้ว |
-| `data/seed_circuits.json` | ข้อมูล Seed 334 วงจรที่สกัดจากไฟล์โครงการ |
 
 ---
 
@@ -76,7 +78,7 @@
 # 1. ติดตั้ง Dependencies (หากยังไม่ได้ติดตั้ง)
 npm install
 
-# 2. รันโหมดพัฒนา (Auto-reload เมื่อแก้ไขไฟล์)
+# 2. รันโหมดพัฒนา (Auto-reload เมื่อแก้ไขไฟล์) หรือคลิกดับเบิลที่ start.bat
 npm run dev
 ```
 
@@ -124,6 +126,24 @@ npm run dev
   # หรือกรณี Deploy ทดสอบแบบไม่ต้องใช้ Token
   npx wrangler deploy --temporary
   ```
-- **หมายเหตุสำหรับงาน Production ที่มีรูปถ่ายครบทั้ง 334 วงจร (~3,674 รูป)**:
-  - โค้ดเว็บและข้อมูล Text ทั้ง 334 วงจรใช้พื้นที่เพียง **~1.1 MB (gzip 52 KB)** ซึ่งอยู่ในเกณฑ์ **Cloudflare Free Plan** สบายมาก
-  - สำหรับการจัดเก็บรูปถ่ายถาวรบน Cloudflare แนะนำให้ผูก **Cloudflare D1** (เก็บสถานะตาราง) และ **Cloudflare R2** (เก็บรูปภาพ ฟรี 10 GB/เดือน) เข้ากับ `worker.js` ในเฟสถัดไป
+
+---
+
+## 6. ข้อควรระวังและข้อจำกัดในสถานะปัจจุบัน (Known Limitations & Production Notes)
+
+1. **`worker.js` เก็บสถานะในหน่วยความจำ (In-Memory State บน Cloudflare Workers)**
+   - บน Cloudflare Workers (`worker.js`) ข้อมูลวงจรเริ่มต้นถูกโหลดจาก `data/seed_circuits.json` และรูปที่อัปโหลดเก็บใน `Map` ในหน่วยความจำ เมื่อ Worker isolate รีสตาร์ท ข้อมูลและรูปบน Worker จะรีเซ็ตกลับเป็นค่าเริ่มต้น (ต่างจาก `server.js` บนเครื่องที่ใช้ SQLite `data/dlt_onsite.sqlite` และโฟลเดอร์ `data/uploads/` ซึ่งเก็บถาวร)
+   - **แนวทางขึ้น Production บน Cloud**: ผูก **Cloudflare D1** (ฐานข้อมูล SQL) และ **Cloudflare R2** (เก็บรูปภาพ ฟรี 10 GB/เดือน) หรือเปิดใช้งานการเชื่อมต่อ **Supabase**
+
+2. **รูปแบบโมดูลใน `worker.js` (Mixed CJS `require` + ESM `export default`)**
+   - `worker.js` ใช้ `export default` ของ ES Module คู่กับ `require()` เพื่อดึง `lib/completeness_and_line.js`, `lib/docx_generator.js`, และ `data/seed_circuits.json` ซึ่ง `wrangler deploy` (ผ่าน esbuild + `nodejs_compat`) แปลงและ bundle ให้ได้อัตโนมัติ แต่หากย้ายไปใช้รันไทม์อื่นที่ไม่ได้ผ่าน bundler ควรแปลงเป็น ESM หรือ CJS ให้เป็นรูปแบบเดียวกัน
+
+3. **ระบบยืนยันตัวตน (Authentication), CORS และ Supabase RLS**
+   - ปัจจุบัน API เปิด `Access-Control-Allow-Origin: *` และยังไม่มีระบบ Login/Token สำหรับแยกสิทธิ์ช่างกับ Admin รวมถึง `supabase/schema.sql` ตั้งค่า RLS Policy เป็น Public Read/Write เพื่อความสะดวกในการทดสอบต้นแบบ (Prototype)
+   - **ก่อนใช้งานจริง (Production)**: ควรเพิ่มระบบยืนยันตัวตน (เช่นรหัสผ่าน/PIN สำหรับ Admin QA หรือ LIFF Authentication สำหรับช่าง) และจำกัดสิทธิ์ RLS บน Supabase ให้แก้ไขได้เฉพาะผู้มีสิทธิ์
+
+4. **การซิงก์ข้อมูลกับ Supabase (`syncCircuitToCloud` & `/api/cloud/sync`)**
+   - อัปเดต `supabase/schema.sql` และ `server.js` ให้รองรับการซิงก์ฟิลด์ `checkin_time`, `checkout_time`, `admin_status`, `admin_name`, `admin_comment`, `admin_reviewed_at`, และ `line_user_id` ของตาราง `dlt_circuits` แล้ว (พร้อม fallback อัตโนมัติหากตารางปลายทางยังไม่ได้รัน `ALTER TABLE`) ทั้งนี้ตารางประวัติแชท `dlt_line_messages` และ `dlt_onsite_sessions` ยังเก็บเฉพาะใน SQLite ท้องถิ่น
+
+5. **โฟลเดอร์ `Onsite/` (ไฟล์ PDF รายงานต้นฉบับปีที่แล้ว ~758 MB)**
+   - โฟลเดอร์ `Onsite/` ที่มีไฟล์ PDF ต้นฉบับของปีที่แล้วถูกใส่ไว้ใน `.gitignore` เพื่อไม่ให้ขนาดเกินลิมิตของ GitHub และ Cloudflare Workers หากต้องการเปิดดูไฟล์ PDF เก่าผ่านลิงก์ในระบบ Local (`server.js`) ต้องมีโฟลเดอร์ `Onsite/` วางอยู่ในเครื่องที่รัน `server.js`

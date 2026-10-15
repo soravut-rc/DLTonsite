@@ -30,8 +30,24 @@ CREATE TABLE IF NOT EXISTS public.dlt_circuits (
     receiver_phone TEXT DEFAULT '',               -- เบอร์โทรศัพท์ผู้รับมอบ
     received_date TEXT DEFAULT '',                -- วันที่รับมอบ
     receiver_signature TEXT DEFAULT '',           -- ลายมือชื่อผู้รับมอบ (Data URL / Storage URL)
+    checkin_time TEXT DEFAULT '',                 -- เวลา Check-in เข้า Site
+    checkout_time TEXT DEFAULT '',                -- เวลา Check-out ออกจาก Site
+    admin_status TEXT DEFAULT '',                 -- สถานะ Admin QA: pending_review | approved | rejected
+    admin_name TEXT DEFAULT '',                   -- ชื่อ Admin ผู้ตรวจรับ
+    admin_comment TEXT DEFAULT '',                -- ความเห็น/หมายเหตุจาก Admin
+    admin_reviewed_at TEXT DEFAULT '',            -- เวลาที่ Admin ตรวจสอบ
+    line_user_id TEXT DEFAULT '',                 -- LINE User ID ของช่างที่เข้าหน้างาน
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- รองรับการอัปเกรดตารางเดิมที่มีอยู่แล้วบน Supabase
+ALTER TABLE public.dlt_circuits ADD COLUMN IF NOT EXISTS checkin_time TEXT DEFAULT '';
+ALTER TABLE public.dlt_circuits ADD COLUMN IF NOT EXISTS checkout_time TEXT DEFAULT '';
+ALTER TABLE public.dlt_circuits ADD COLUMN IF NOT EXISTS admin_status TEXT DEFAULT '';
+ALTER TABLE public.dlt_circuits ADD COLUMN IF NOT EXISTS admin_name TEXT DEFAULT '';
+ALTER TABLE public.dlt_circuits ADD COLUMN IF NOT EXISTS admin_comment TEXT DEFAULT '';
+ALTER TABLE public.dlt_circuits ADD COLUMN IF NOT EXISTS admin_reviewed_at TEXT DEFAULT '';
+ALTER TABLE public.dlt_circuits ADD COLUMN IF NOT EXISTS line_user_id TEXT DEFAULT '';
 
 -- Indexes สำหรับการค้นหาและกรองข้อมูลอย่างรวดเร็ว
 CREATE INDEX IF NOT EXISTS idx_dlt_circuits_region ON public.dlt_circuits (region);

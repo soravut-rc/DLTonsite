@@ -2861,7 +2861,7 @@ function applyLineBotStateToUi(data) {
     }
     if (snListEl) {
       snListEl.innerHTML = (comp.snComparisons || []).map(s => {
-        const slotKey = s.key === 'router' ? 'router_device' : s.key === 'ap_0' ? 'ap1_device' : 'ap2_device';
+        const slotKey = s.key === 'router' ? 'router_device' : s.key === 'ap_0' ? 'ap_0_device' : 'ap_1_device';
         let badgeHtml = `<span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold">⬜ ยังไม่ระบุ</span>`;
         let boxCls = 'bg-slate-50 border-slate-200';
         if (s.status === 'matched') {
