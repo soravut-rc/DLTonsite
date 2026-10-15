@@ -1566,17 +1566,22 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && pathname === '/api/line/config') {
       const body = await readJsonBody(req);
-      if (body.channelAccessToken !== undefined && body.channelAccessToken.trim() !== '') {
-        lineConfig.channelAccessToken = body.channelAccessToken.trim();
+      const token = body.channel_access_token !== undefined ? body.channel_access_token : body.channelAccessToken;
+      const secret = body.channel_secret !== undefined ? body.channel_secret : body.channelSecret;
+      const pubUrl = body.public_base_url !== undefined ? body.public_base_url : body.publicBaseUrl;
+      const botId = body.bot_basic_id !== undefined ? body.bot_basic_id : body.botBasicId;
+
+      if (token !== undefined && String(token).trim() !== '') {
+        lineConfig.channelAccessToken = String(token).trim();
       }
-      if (body.channelSecret !== undefined && body.channelSecret.trim() !== '') {
-        lineConfig.channelSecret = body.channelSecret.trim();
+      if (secret !== undefined && String(secret).trim() !== '') {
+        lineConfig.channelSecret = String(secret).trim();
       }
-      if (body.botBasicId !== undefined) {
-        lineConfig.botBasicId = body.botBasicId.trim() || '@dlt-onsite';
+      if (botId !== undefined) {
+        lineConfig.botBasicId = String(botId).trim() || '@dlt-onsite';
       }
-      if (body.publicBaseUrl !== undefined && body.publicBaseUrl.trim() !== '') {
-        lineConfig.publicBaseUrl = body.publicBaseUrl.trim().replace(/\/+$/, '');
+      if (pubUrl !== undefined && String(pubUrl).trim() !== '') {
+        lineConfig.publicBaseUrl = String(pubUrl).trim().replace(/\/+$/, '');
       }
       fs.writeFileSync(LINE_CONFIG_PATH, JSON.stringify(lineConfig, null, 2), 'utf8');
       sendJson(res, 200, {

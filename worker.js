@@ -750,28 +750,98 @@ export default {
               if (ev.type === 'message' && ev.message?.type === 'text') {
                 const txt = (ev.message.text || '').trim();
                 addLineMessage(userId, 'user', txt, '', session.active_so);
-                let replyText = `🤖 DLT Onsite Bot รับข้อความ: "${txt}"\nพิมพ์ "checkin <รหัสวงจร> <ชื่อช่าง>" เพื่อเข้าหน้างาน หรือเปิดเว็บ ${url.origin}`;
-                if (txt.toLowerCase().startsWith('checkin ')) {
-                  const parts = txt.split(/\s+/);
-                  const so = (parts[1] || '').toUpperCase();
-                  const techName = parts.slice(2).join(' ') || 'ช่าง LINE OA';
+                let replyText = '';
+
+                const checkinMatch = txt.match(/^(?:เช็คอิน|checkin)\s+(BINF\d{7})\s+([^\s]+)(?:\s+(\S+))?/i);
+                const snMatch = txt.match(/^sn\s+([A-Z0-9-]{6,20})/i);
+
+                if (checkinMatch) {
+                  const [, soRaw, tName, tPhone] = checkinMatch;
+                  const so = soRaw.toUpperCase();
                   const c = circuitsMap.get(so);
-                  if (c) {
+                  if (!c) {
+                    replyText = `❌ ไม่พบรหัสวงจร ${so} ในระบบ 334 วงจร`;
+                  } else {
                     const nowIso = new Date().toISOString();
                     session.active_so = so;
-                    c.inspector_name = techName;
+                    session.tech_name = tName;
+                    session.tech_phone = tPhone || '';
+                    session.updated_at = nowIso;
+
+                    c.inspector_name = tName;
+                    c.inspector_phone = tPhone || '';
                     c.checkin_status = 'checked_in';
                     c.checkin_time = nowIso;
                     c.line_user_id = userId;
                     if (c.status === 'pending') c.status = 'in_progress';
-                    replyText = `📍 Check-in สำเร็จ!\nวงจร: ${so} (${c.province})\nสถานที่: ${c.branch_name}\nช่าง: ${techName}\nส่งรูปอุปกรณ์เข้าแชทนี้ได้เลยครับ`;
-                  } else {
-                    replyText = `❌ ไม่พบรหัสวงจร ${so}`;
+                    c.updated_at = nowIso;
+
+                    const comp = evaluateCircuitCompleteness(c);
+                    const nextSlot = comp.missingSlotKeys[0] || 'router_device';
+                    session.pending_slot = nextSlot;
+
+                    replyText = `📍 Check-in สำเร็จ!\n• วงจร: ${so} (${c.province})\n• สถานที่: ${c.branch_name}\n• ช่างผู้ปฏิบัติงาน: ${tName}\n• เวลาเข้า: ${new Date(nowIso).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}\n📷 รูปภาพปัจจุบัน: ${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป\n👉 ส่งรูปอุปกรณ์เข้าแชทได้เลยครับ (ระบบจะเก็บเข้า Cloudflare R2)`;
                   }
+                } else if (snMatch && session.active_so) {
+                  const manualSn = normalizeSn(snMatch[1]);
+                  const c = circuitsMap.get(session.active_so);
+                  if (c) {
+                    const targetSlot = session.pending_slot || 'router_device';
+                    applySlotPhotoAndSnToCircuit(c, targetSlot, '', '', manualSn);
+                    c.updated_at = new Date().toISOString();
+                    const comp = evaluateCircuitCompleteness(c);
+                    const snCmp = comp.snComparisons.find(s => s.target === 'router' || s.target === 'ap_0' || s.target === 'ap_1');
+                    replyText = `✍️ บันทึก S/N ช่างกรอก: ${manualSn}\nผลตรวจเทียบ OCR: ${snCmp ? snCmp.statusLabel : 'บันทึกเรียบร้อย'}`;
+                  }
+                } else if (/^(?:เช็ครูป|สถานะ|status)$/i.test(txt) && session.active_so) {
+                  const c = circuitsMap.get(session.active_so);
+                  if (c) {
+                    const comp = evaluateCircuitCompleteness(c);
+                    replyText = `📋 วงจร ${session.active_so} (${c.province})\n📷 รูปภาพ: ${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป (${comp.photoProgressPct}%)\n` +
+                      comp.slots.map(s => `${s.hasPhoto ? '✅' : '❌'} ${s.shortName}`).join('\n');
+                  }
+                } else if (/^(?:เช็คเอาท์|checkout|ส่งงาน)$/i.test(txt) && session.active_so) {
+                  const c = circuitsMap.get(session.active_so);
+                  if (c) {
+                    const nowIso = new Date().toISOString();
+                    c.checkin_status = 'checked_out';
+                    c.checkout_time = nowIso;
+                    c.admin_status = 'pending_review';
+                    c.updated_at = nowIso;
+                    replyText = `🏁 Check-out วงจร ${session.active_so} สำเร็จ!\nระบบส่งเข้าคิว Admin QA ตรวจสอบแล้ว\n📝 ดาวน์โหลดรายงาน MS Word (.docx): ${url.origin}/api/circuits/${encodeURIComponent(session.active_so)}/report.docx`;
+                  }
+                } else {
+                  replyText = `🤖 DLT Onsite LINE Bot:\n• พิมพ์: เช็คอิน BINF3480006 สมชาย 0812345678\n• ส่งรูปถ่ายอุปกรณ์ (ระบบเก็บเข้า Cloudflare R2)\n• พิมพ์: sn <รหัสS/N> เพื่อยืนยัน S/N เทียบ OCR\n• พิมพ์: เช็ครูป เพื่อตรวจความครบถ้วน\n• พิมพ์: เช็คเอาท์ เพื่อส่งงาน Admin\nหรือเปิดดูที่ ${url.origin}`;
                 }
+
                 addLineMessage(userId, 'bot', replyText, '', session.active_so);
                 if (token && replyToken) {
                   await sendLineReply(token, replyToken, [{ type: 'text', text: replyText }]).catch(() => {});
+                }
+              } else if (ev.type === 'message' && ev.message?.type === 'image' && session.active_so) {
+                const imgData = await downloadLineMessageImage(ev.message.id, token);
+                if (imgData) {
+                  const dataUrl = `data:${imgData.mimeType};base64,${imgData.buffer.toString('base64')}`;
+                  const c = circuitsMap.get(session.active_so);
+                  if (c) {
+                    const compBefore = evaluateCircuitCompleteness(c);
+                    const slotKey = session.pending_slot || compBefore.missingSlotKeys[0] || 'router_device';
+                    const savedUrl = await storeDataUrlAsUpload(session.active_so, slotKey, dataUrl, env);
+
+                    applySlotPhotoAndSnToCircuit(c, slotKey, savedUrl, '', '');
+                    c.updated_at = new Date().toISOString();
+
+                    const compAfter = evaluateCircuitCompleteness(c);
+                    const nextSlot = compAfter.missingSlotKeys[0] || 'router_device';
+                    session.pending_slot = nextSlot;
+
+                    const replyText = `✅ บันทึกรูป [${slotKey}] เข้า Cloudflare R2 เรียบร้อย!\n📊 ความครบถ้วน: ${compAfter.uploadedRequiredCount}/${compAfter.totalRequiredCount} รูป (${compAfter.photoProgressPct}%)\n${compAfter.allRequiredPhotosComplete ? '🎉 รูปครบทุกจุดแล้ว! พิมพ์ "เช็คเอาท์" ได้เลยครับ' : `👉 ส่งรูปถัดไปได้เลยครับ (${nextSlot})`}`;
+
+                    addLineMessage(userId, 'bot', replyText, savedUrl, session.active_so);
+                    if (token && replyToken) {
+                      await sendLineReply(token, replyToken, [{ type: 'text', text: replyText }]).catch(() => {});
+                    }
+                  }
                 }
               }
             }
