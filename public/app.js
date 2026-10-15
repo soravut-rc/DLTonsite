@@ -84,6 +84,16 @@ window.addEventListener('DOMContentLoaded', async () => {
   initSignaturePad('sigInspector');
   initSignaturePad('sigReceiver');
   await refreshAllData();
+
+  // Support direct circuit link via URL query param: ?so=BINF3480006
+  const params = new URLSearchParams(window.location.search);
+  const targetSo = params.get('so') || params.get('circuit') || params.get('id');
+  if (targetSo) {
+    const cleanSo = targetSo.trim().toUpperCase();
+    setTimeout(() => {
+      openInspectionModal(cleanSo);
+    }, 200);
+  }
 });
 
 function toggleSopBanner() {

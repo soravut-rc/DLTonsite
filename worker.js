@@ -803,7 +803,7 @@ export default {
                     const nextSlot = comp.missingSlotKeys[0] || 'router_device';
                     session.pending_slot = nextSlot;
 
-                    replyText = `📍 Check-in สำเร็จ!\n• วงจร: ${so} (${c.province})\n• สถานที่: ${c.branch_name}\n• ช่างผู้ปฏิบัติงาน: ${tName}${tPhone ? ` (${tPhone})` : ''}\n• เวลาเข้า: ${new Date(nowIso).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' })} น.\n📷 รูปภาพปัจจุบัน: ${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป\n👉 ส่งรูปอุปกรณ์เข้าแชทได้เลยครับ (ระบบจะเก็บเข้า Cloudflare R2)`;
+                    replyText = `📍 Check-in สำเร็จ!\n• วงจร: ${so} (${c.province})\n• สถานที่: ${c.branch_name}\n• ช่างผู้ปฏิบัติงาน: ${tName}${tPhone ? ` (${tPhone})` : ''}\n• เวลาเข้า: ${new Date(nowIso).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' })} น.\n📷 รูปภาพปัจจุบัน: ${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป\n\n📱 ช่างสามารถเปิดหน้าเว็บเพื่อถ่ายรูป 11 จุดและกรอกข้อมูลได้เลยครับ:\n👉 ${url.origin}/?so=${so}`;
                   }
                 } else if (snMatch && session.active_so) {
                   const manualSn = normalizeSn(snMatch[1]);
@@ -814,25 +814,41 @@ export default {
                     c.updated_at = new Date().toISOString();
                     const comp = evaluateCircuitCompleteness(c);
                     const snCmp = comp.snComparisons.find(s => s.target === 'router' || s.target === 'ap_0' || s.target === 'ap_1');
-                    replyText = `✍️ บันทึก S/N ช่างกรอก: ${manualSn}\nผลตรวจเทียบ OCR: ${snCmp ? snCmp.statusLabel : 'บันทึกเรียบร้อย'}`;
+                    replyText = `✍️ บันทึก S/N ช่างกรอก: ${manualSn}\nผลตรวจเทียบ OCR: ${snCmp ? snCmp.statusLabel : 'บันทึกเรียบร้อย'}\n\n📱 ดูข้อมูลบนหน้าเว็บ: ${url.origin}/?so=${session.active_so}`;
                   }
-                } else if (/^(?:เช็ครูป|สถานะ|status)$/i.test(txt) && session.active_so) {
-                  const c = circuitsMap.get(session.active_so);
-                  if (c) {
+                } else if (/^(?:เช็ครูป|สถานะ|status)/i.test(txt)) {
+                  const m = txt.match(/^(?:เช็ครูป|สถานะ|status)(?:\s+(BINF\d{7}))?/i);
+                  const targetSo = (m && m[1] ? m[1] : session.active_so || '').toUpperCase();
+                  const c = targetSo ? circuitsMap.get(targetSo) : null;
+                  if (!c) {
+                    replyText = `❌ กรุณาระบุรหัสวงจร เช่น "สถานะ BINF3480006" หรือเช็คอินก่อนครับ`;
+                  } else {
                     const comp = evaluateCircuitCompleteness(c);
-                    replyText = `📋 วงจร ${session.active_so} (${c.province})\n📷 รูปภาพ: ${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป (${comp.photoProgressPct}%)\n` +
-                      comp.slots.map(s => `${s.hasPhoto ? '✅' : '❌'} ${s.shortName}`).join('\n');
+                    const inTime = c.checkin_time ? new Date(c.checkin_time).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }) + ' น.' : 'ยังไม่เช็คอิน';
+                    replyText = `📋 สถานะวงจร ${targetSo} (${c.province})\n• สถานที่: ${c.branch_name}\n• ช่าง: ${c.inspector_name || 'ยังไม่ระบุ'}${c.inspector_phone ? ` (${c.inspector_phone})` : ''}\n• เวลาเข้า Site: ${inTime}\n📷 รูปภาพบนเว็บ: ${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป (${comp.photoProgressPct}%)\n` +
+                      comp.slots.map(s => `${s.hasPhoto ? '✅' : '❌'} ${s.shortName}`).join('\n') +
+                      `\n\n📱 แตะเปิดหน้าเว็บเพื่ออัปเดตงาน:\n👉 ${url.origin}/?so=${targetSo}`;
                   }
-                } else if (/^(?:เช็คเอาท์|checkout|ส่งงาน)$/i.test(txt) && session.active_so) {
-                  const c = circuitsMap.get(session.active_so);
-                  if (c) {
-                    const nowIso = new Date().toISOString();
-                    c.checkin_status = 'checked_out';
-                    c.checkout_time = nowIso;
-                    c.admin_status = 'pending_review';
-                    c.updated_at = nowIso;
-                    const outTime = new Date(nowIso).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
-                    replyText = `🏁 Check-out วงจร ${session.active_so} สำเร็จ! (เวลา ${outTime} น.)\nระบบส่งเข้าคิว Admin QA ตรวจสอบแล้ว\n📝 ดาวน์โหลดรายงาน MS Word (.docx): ${url.origin}/api/circuits/${encodeURIComponent(session.active_so)}/report.docx`;
+                } else if (/^(?:เช็คเอาท์|checkout|ส่งงาน)/i.test(txt)) {
+                  const m = txt.match(/^(?:เช็คเอาท์|checkout|ส่งงาน)(?:\s+(BINF\d{7}))?/i);
+                  const targetSo = (m && m[1] ? m[1] : session.active_so || '').toUpperCase();
+                  const c = targetSo ? circuitsMap.get(targetSo) : null;
+                  if (!c) {
+                    replyText = `❌ กรุณาระบุรหัสวงจร เช่น "เช็คเอาท์ BINF3480006"`;
+                  } else {
+                    const comp = evaluateCircuitCompleteness(c);
+                    if (!comp.allRequiredPhotosComplete) {
+                      const missingList = comp.slots.filter(s => !s.hasPhoto).map(s => `• ${s.shortName}`).join('\n');
+                      replyText = `⚠️ ยังไม่สามารถ Check-out ได้เนื่องจากรูปยังไม่ครบ (${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป)\n\nรายการรูปที่ยังขาด:\n${missingList}\n\n📱 แตะเปิดหน้าเว็บเพื่ออัปโหลดให้ครบ:\n👉 ${url.origin}/?so=${targetSo}`;
+                    } else {
+                      const nowIso = new Date().toISOString();
+                      c.checkin_status = 'checked_out';
+                      c.checkout_time = nowIso;
+                      c.admin_status = 'pending_review';
+                      c.updated_at = nowIso;
+                      const outTime = new Date(nowIso).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
+                      replyText = `🏁 Check-out วงจร ${targetSo} สำเร็จ! (เวลา ${outTime} น.)\nระบบส่งเข้าคิว Admin QA ตรวจสอบแล้ว\n\n📝 ดาวน์โหลดรายงาน MS Word (.docx):\n👉 ${url.origin}/api/circuits/${encodeURIComponent(targetSo)}/report.docx`;
+                    }
                   }
                 } else {
                   // In group chat, ignore random non-command chatter unless explicitly addressed to bot
@@ -841,7 +857,7 @@ export default {
                   if (isGroup && !isBotCall) {
                     continue;
                   }
-                  replyText = `🤖 DLT Onsite LINE Bot:\n• พิมพ์: เช็คอิน BINF3480006 สมชาย 0812345678\n• ส่งรูปถ่ายอุปกรณ์ (ระบบเก็บเข้า Cloudflare R2)\n• พิมพ์: sn <รหัสS/N> เพื่อยืนยัน S/N เทียบ OCR\n• พิมพ์: เช็ครูป เพื่อตรวจความครบถ้วน\n• พิมพ์: เช็คเอาท์ เพื่อส่งงาน Admin\nหรือเปิดดูที่ ${url.origin}`;
+                  replyText = `🤖 DLT Onsite LINE Bot (ศูนย์รายงานสถานะ):\n• พิมพ์: เช็คอิน BINF3480006 สมชาย 0812345678\n  (บอทจะส่งลิงก์หน้าเว็บให้เข้าไปถ่ายรูป 11 จุด)\n• พิมพ์: สถานะ BINF3480006 (รายงานความครบถ้วนของรูปภาพ)\n• พิมพ์: เช็คเอาท์ BINF3480006 (ส่งงานและรับไฟล์ Word .docx)\n\n🌐 เว็บไซต์ระบบ: ${url.origin}`;
                 }
 
                 addLineMessage(userId, 'bot', replyText, '', session.active_so);
@@ -870,11 +886,9 @@ export default {
                     session.pending_slot = nextSlot;
 
                     const curSlotInfo = compAfter.slots.find(s => s.slotKey === slotKey);
-                    const nextSlotInfo = compAfter.slots.find(s => s.slotKey === nextSlot);
                     const slotName = curSlotInfo ? curSlotInfo.shortName : slotKey;
-                    const nextName = nextSlotInfo ? nextSlotInfo.label : nextSlot;
 
-                    const replyText = `✅ บันทึกรูป [${slotName}] เข้า Cloudflare R2 เรียบร้อย!\n📊 ความครบถ้วน: ${compAfter.uploadedRequiredCount}/${compAfter.totalRequiredCount} รูป (${compAfter.photoProgressPct}%)\n${compAfter.allRequiredPhotosComplete ? '🎉 รูปครบทุกจุดแล้ว! พิมพ์ "เช็คเอาท์" ได้เลยครับ' : `👉 ส่งรูปถัดไปได้เลยครับ:\n「 ${nextName} 」`}`;
+                    const replyText = `✅ บันทึกรูป [${slotName}] เข้า Cloudflare R2 เรียบร้อย!\n📊 ความครบถ้วน: ${compAfter.uploadedRequiredCount}/${compAfter.totalRequiredCount} รูป (${compAfter.photoProgressPct}%)\n\n💡 แนะนำ: ช่างสามารถอัปเดตและเลือกตำแหน่งรูปถ่าย 11 จุดให้ชัดเจนผ่านหน้าเว็บได้โดยตรงครับ:\n👉 ${url.origin}/?so=${session.active_so}`;
 
                     addLineMessage(userId, 'bot', replyText, savedUrl, session.active_so);
                     if (token && replyToken) {
