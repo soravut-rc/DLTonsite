@@ -57,7 +57,7 @@
 
 | ไฟล์ / โฟลเดอร์ | หน้าที่การทำงาน |
 | :--- | :--- |
-| `server.js` | Local Node.js Server (รันด้วย SQLite `data/dlt_onsite.db` และบันทึกรูปลง `public/uploads/`) |
+| `server.js` | Local Node.js Server รันที่พอร์ต **`3480`** (ใช้ SQLite `data/dlt_onsite.sqlite` และบันทึกรูปลง `data/uploads/`) |
 | `worker.js` | Cloudflare Workers Entrypoint สำหรับรันระบบแบบ Serverless บน Cloudflare |
 | `wrangler.jsonc` | ไฟล์ตั้งค่า Cloudflare Workers + Static Assets (`./public`) |
 | `lib/completeness_and_line.js` | โมดูลกลางสำหรับตรวจความครบถ้วนรูปถ่าย 11 จุด, เปรียบเทียบ S/N (ช่างกรอก vs OCR), และจัดการสถานะของ LINE Bot |
@@ -66,7 +66,7 @@
 | `public/index.html` | หน้าเว็บหลัก รองรับทั้งโหมดช่างมือถือ (Quick Jump), LINE Bot Simulator, Dashboard 77 จังหวัด, และ Admin QA Center |
 | `public/app.js` | Frontend Logic ทั้งหมด (การค้นหาวงจร, กล้องถ่ายรูป, OCR สแกน S/N, LINE Bot Simulator, Admin QA, ตั้งค่า LINE Token) |
 | `public/report.html` | หน้าแสดงและสั่งพิมพ์รายงาน (Print / Save as PDF) ขนาด A4 ตรงตามเล่มรายงานปีที่แล้ว |
-| `data/dlt_circuits_seed.json` | ข้อมูล Seed 334 วงจรที่สกัดจากไฟล์โครงการ |
+| `data/seed_circuits.json` | ข้อมูล Seed 334 วงจรที่สกัดจากไฟล์โครงการ |
 
 ---
 
@@ -80,8 +80,8 @@ npm install
 npm run dev
 ```
 
-- เปิดเบราว์เซอร์ไปที่: **`http://localhost:3000`**
-- ข้อมูลที่บันทึกบนเครื่องจะถูกเก็บถาวรไว้ในฐานข้อมูล SQLite ที่ `data/dlt_onsite.db` และไฟล์รูปภาพอยู่ที่ `public/uploads/<SO_NUMBER>/`
+- เปิดเบราว์เซอร์ไปที่: **`http://localhost:3480`** (ค่าเริ่มต้นตั้งตามรหัสโครงการ `BINF3480xxx` หรือเปลี่ยนผ่านตัวแปร `PORT`)
+- ข้อมูลที่บันทึกบนเครื่องจะถูกเก็บถาวรไว้ในฐานข้อมูล SQLite ที่ `data/dlt_onsite.sqlite` และไฟล์รูปภาพอยู่ที่ `data/uploads/<SO_NUMBER>/`
 
 ---
 
