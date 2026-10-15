@@ -2048,14 +2048,24 @@ const server = http.createServer(async (req, res) => {
           `).run(userId, uState.active_so_number || '', text, now);
 
           let replyMsg = '';
-          const checkinMatch = text.match(/^(?:เช็คอิน|checkin)\s+(BINF\d{7})\s+([^\s]+)(?:\s+(\S+))?/i);
+          const checkinMatch = text.match(/^(?:เช็คอิน|checkin)\s+(BINF\d{7})(?:[\s\n]+([\s\S]+))?$/i);
           const snMatch = text.match(/^sn\s+([A-Z0-9-]{6,20})/i);
 
           if (checkinMatch) {
-            const [, so, tName, tPhone] = checkinMatch;
-            const cRow = db.prepare('SELECT * FROM dlt_circuits WHERE so_number = ?').get(so.toUpperCase());
+            const so = checkinMatch[1].toUpperCase();
+            const rest = (checkinMatch[2] || '').trim();
+            let tPhone = '';
+            let tName = rest;
+            const phoneMatch = rest.match(/(?:0\d{1,2}[- ]?\d{3}[- ]?\d{4}|0\d{8,9})$/);
+            if (phoneMatch) {
+              tPhone = phoneMatch[0].replace(/[- ]/g, '');
+              tName = rest.slice(0, phoneMatch.index).trim();
+            }
+            if (!tName) tName = 'ช่างเทคนิค';
+
+            const cRow = db.prepare('SELECT * FROM dlt_circuits WHERE so_number = ?').get(so);
             if (!cRow) {
-              replyMsg = `❌ ไม่พบรหัสวงจร ${so.toUpperCase()}`;
+              replyMsg = `❌ ไม่พบรหัสวงจร ${so}`;
             } else {
               const updated = performCheckin(deserializeCircuit(cRow), {
                 techName: tName,
@@ -2067,7 +2077,7 @@ const server = http.createServer(async (req, res) => {
               const nextSlot = comp.missingSlotKeys[0] || 'router_device';
               db.prepare('UPDATE dlt_line_user_states SET tech_name=?, tech_phone=?, active_so_number=?, active_slot_key=?, updated_at=? WHERE line_user_id=?')
                 .run(tName, tPhone || '', updated.so_number, nextSlot, now, userId);
-              replyMsg = `✅ Check-in สำเร็จ!\nวงจร: ${updated.so_number} (${updated.branch_name})\nช่าง: ${tName}\nเวลา: ${new Date(updated.checkin_time).toLocaleString('th-TH')}\n📷 รูปภาพ: ${comp.uploadedPhotos}/${comp.requiredPhotos} รูป\n👉 กรุณาส่งรูปถัดไป หรือพิมพ์ "เช็ครูป"`;
+              replyMsg = `✅ Check-in สำเร็จ!\nวงจร: ${updated.so_number} (${updated.branch_name})\nช่าง: ${tName}${tPhone ? ` (${tPhone})` : ''}\nเวลา: ${new Date(updated.checkin_time).toLocaleString('th-TH')}\n📷 รูปภาพ: ${comp.uploadedPhotos}/${comp.requiredPhotos} รูป\n👉 กรุณาส่งรูปถัดไป หรือพิมพ์ "เช็ครูป"`;
             }
           } else if (snMatch && uState.active_so_number) {
             const manualSn = normalizeSn(snMatch[1]);

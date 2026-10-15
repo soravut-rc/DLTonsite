@@ -743,21 +743,44 @@ export default {
             const payload = JSON.parse(rawBody || '{}');
             const events = payload.events || [];
             for (const ev of events) {
-              const userId = ev.source?.userId || 'line_user';
               const replyToken = ev.replyToken;
+              const userId = ev.source?.userId || ev.source?.groupId || ev.source?.roomId || 'line_user';
               const session = getLineSession(userId);
 
+              // 1. Handle bot join group or follow (friend add)
+              if (ev.type === 'join' || ev.type === 'follow') {
+                const welcomeText = `👋 สวัสดีครับ! DLT Onsite Bot ยินดีให้บริการ\n\n📌 วิธีใช้งานสำหรับช่างเข้าหน้างาน:\n• เช็คอิน: พิมพ์ "เช็คอิน <รหัสวงจร> <ชื่อช่าง> <เบอร์โทร>"\n  (ตัวอย่าง: เช็คอิน BINF3480006 สมชาย 0812345678)\n• ส่งรูปถ่ายอุปกรณ์ (ระบบจัดเก็บเข้า Cloudflare R2)\n• ระบุ S/N: พิมพ์ "sn <รหัสSN>" เพื่อเทียบ OCR\n• ตรวจสอบความครบถ้วน: พิมพ์ "เช็ครูป" หรือ "สถานะ"\n• ส่งงาน: พิมพ์ "เช็คเอาท์"\n\n🌐 เว็บไซต์: ${url.origin}`;
+                addLineMessage(userId, 'bot', welcomeText, '', session.active_so);
+                if (token && replyToken) {
+                  await sendLineReply(replyToken, [{ type: 'text', text: welcomeText }], token).catch(err => {
+                    console.error('LINE welcome reply error:', err);
+                  });
+                }
+                continue;
+              }
+
+              // 2. Handle Text message
               if (ev.type === 'message' && ev.message?.type === 'text') {
                 const txt = (ev.message.text || '').trim();
                 addLineMessage(userId, 'user', txt, '', session.active_so);
                 let replyText = '';
 
-                const checkinMatch = txt.match(/^(?:เช็คอิน|checkin)\s+(BINF\d{7})\s+([^\s]+)(?:\s+(\S+))?/i);
+                // Flexible regex matching checkin across spaces, newlines, and optional phone numbers
+                const checkinMatch = txt.match(/^(?:เช็คอิน|checkin)\s+(BINF\d{7})(?:[\s\n]+([\s\S]+))?$/i);
                 const snMatch = txt.match(/^sn\s+([A-Z0-9-]{6,20})/i);
 
                 if (checkinMatch) {
-                  const [, soRaw, tName, tPhone] = checkinMatch;
-                  const so = soRaw.toUpperCase();
+                  const so = checkinMatch[1].toUpperCase();
+                  const rest = (checkinMatch[2] || '').trim();
+                  let tPhone = '';
+                  let tName = rest;
+                  const phoneMatch = rest.match(/(?:0\d{1,2}[- ]?\d{3}[- ]?\d{4}|0\d{8,9})$/);
+                  if (phoneMatch) {
+                    tPhone = phoneMatch[0].replace(/[- ]/g, '');
+                    tName = rest.slice(0, phoneMatch.index).trim();
+                  }
+                  if (!tName) tName = 'ช่างเทคนิค';
+
                   const c = circuitsMap.get(so);
                   if (!c) {
                     replyText = `❌ ไม่พบรหัสวงจร ${so} ในระบบ 334 วงจร`;
@@ -780,7 +803,7 @@ export default {
                     const nextSlot = comp.missingSlotKeys[0] || 'router_device';
                     session.pending_slot = nextSlot;
 
-                    replyText = `📍 Check-in สำเร็จ!\n• วงจร: ${so} (${c.province})\n• สถานที่: ${c.branch_name}\n• ช่างผู้ปฏิบัติงาน: ${tName}\n• เวลาเข้า: ${new Date(nowIso).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}\n📷 รูปภาพปัจจุบัน: ${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป\n👉 ส่งรูปอุปกรณ์เข้าแชทได้เลยครับ (ระบบจะเก็บเข้า Cloudflare R2)`;
+                    replyText = `📍 Check-in สำเร็จ!\n• วงจร: ${so} (${c.province})\n• สถานที่: ${c.branch_name}\n• ช่างผู้ปฏิบัติงาน: ${tName}${tPhone ? ` (${tPhone})` : ''}\n• เวลาเข้า: ${new Date(nowIso).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}\n📷 รูปภาพปัจจุบัน: ${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป\n👉 ส่งรูปอุปกรณ์เข้าแชทได้เลยครับ (ระบบจะเก็บเข้า Cloudflare R2)`;
                   }
                 } else if (snMatch && session.active_so) {
                   const manualSn = normalizeSn(snMatch[1]);
@@ -811,12 +834,22 @@ export default {
                     replyText = `🏁 Check-out วงจร ${session.active_so} สำเร็จ!\nระบบส่งเข้าคิว Admin QA ตรวจสอบแล้ว\n📝 ดาวน์โหลดรายงาน MS Word (.docx): ${url.origin}/api/circuits/${encodeURIComponent(session.active_so)}/report.docx`;
                   }
                 } else {
+                  // In group chat, ignore random non-command chatter unless explicitly addressed to bot
+                  const isGroup = ev.source?.type === 'group' || ev.source?.type === 'room';
+                  const isBotCall = /^(?:bot|บอท|help|เมนู|\?|คำสั่ง)/i.test(txt);
+                  if (isGroup && !isBotCall) {
+                    continue;
+                  }
                   replyText = `🤖 DLT Onsite LINE Bot:\n• พิมพ์: เช็คอิน BINF3480006 สมชาย 0812345678\n• ส่งรูปถ่ายอุปกรณ์ (ระบบเก็บเข้า Cloudflare R2)\n• พิมพ์: sn <รหัสS/N> เพื่อยืนยัน S/N เทียบ OCR\n• พิมพ์: เช็ครูป เพื่อตรวจความครบถ้วน\n• พิมพ์: เช็คเอาท์ เพื่อส่งงาน Admin\nหรือเปิดดูที่ ${url.origin}`;
                 }
 
                 addLineMessage(userId, 'bot', replyText, '', session.active_so);
                 if (token && replyToken) {
-                  await sendLineReply(token, replyToken, [{ type: 'text', text: replyText }]).catch(() => {});
+                  const replyRes = await sendLineReply(replyToken, [{ type: 'text', text: replyText }], token).catch(err => {
+                    console.error('sendLineReply error:', err);
+                    return { sent: false, error: err.message };
+                  });
+                  console.log('sendLineReply text result:', JSON.stringify(replyRes));
                 }
               } else if (ev.type === 'message' && ev.message?.type === 'image' && session.active_so) {
                 const imgData = await downloadLineMessageImage(ev.message.id, token);
@@ -839,7 +872,11 @@ export default {
 
                     addLineMessage(userId, 'bot', replyText, savedUrl, session.active_so);
                     if (token && replyToken) {
-                      await sendLineReply(token, replyToken, [{ type: 'text', text: replyText }]).catch(() => {});
+                      const replyRes = await sendLineReply(replyToken, [{ type: 'text', text: replyText }], token).catch(err => {
+                        console.error('sendLineReply error:', err);
+                        return { sent: false, error: err.message };
+                      });
+                      console.log('sendLineReply image result:', JSON.stringify(replyRes));
                     }
                   }
                 }
