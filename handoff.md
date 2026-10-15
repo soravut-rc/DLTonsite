@@ -131,9 +131,10 @@ npm run dev
 
 ## 6. ข้อควรระวังและข้อจำกัดในสถานะปัจจุบัน (Known Limitations & Production Notes)
 
-1. **`worker.js` เก็บสถานะในหน่วยความจำ (In-Memory State บน Cloudflare Workers)**
-   - บน Cloudflare Workers (`worker.js`) ข้อมูลวงจรเริ่มต้นถูกโหลดจาก `data/seed_circuits.json` และรูปที่อัปโหลดเก็บใน `Map` ในหน่วยความจำ เมื่อ Worker isolate รีสตาร์ท ข้อมูลและรูปบน Worker จะรีเซ็ตกลับเป็นค่าเริ่มต้น (ต่างจาก `server.js` บนเครื่องที่ใช้ SQLite `data/dlt_onsite.sqlite` และโฟลเดอร์ `data/uploads/` ซึ่งเก็บถาวร)
-   - **แนวทางขึ้น Production บน Cloud**: ผูก **Cloudflare D1** (ฐานข้อมูล SQL) และ **Cloudflare R2** (เก็บรูปภาพ ฟรี 10 GB/เดือน) หรือเปิดใช้งานการเชื่อมต่อ **Supabase**
+1. **การจัดเก็บรูปถ่ายบน Cloudflare R2 (Object Storage — ฟรี 10 GB, $0 Egress)**
+   - ระบบได้ผูกการเชื่อมต่อ **Cloudflare R2** ผ่าน Binding `PHOTOS_BUCKET` (Bucket: `dlt-onsite-photos`) ใน `wrangler.jsonc` และ `worker.js` แล้ว
+   - เมื่อช่างอัปโหลดรูปภาพผ่านเว็บหรือ LINE Bot บน Cloudflare รูปจะถูกบันทึกเข้า R2 อัตโนมัติ (และมี In-memory cache เป็น fallback) โดยลิงก์รูปยังคงเป็น `/uploads/...` แบบเดิม ทำให้ไม่ต้องกังวลเรื่องรูปหายเมื่อ Worker รีสตาร์ท และไม่มีค่าใช้จ่าย Bandwidth (Egress)
+   - สำหรับฝั่ง Database: สามารถใช้ SQLite ในเครื่อง (`server.js`) หรือเชื่อมต่อ Supabase/Cloudflare D1 ตามต้องการ
 
 2. **รูปแบบโมดูลใน `worker.js` (Mixed CJS `require` + ESM `export default`)**
    - `worker.js` ใช้ `export default` ของ ES Module คู่กับ `require()` เพื่อดึง `lib/completeness_and_line.js`, `lib/docx_generator.js`, และ `data/seed_circuits.json` ซึ่ง `wrangler deploy` (ผ่าน esbuild + `nodejs_compat`) แปลงและ bundle ให้ได้อัตโนมัติ แต่หากย้ายไปใช้รันไทม์อื่นที่ไม่ได้ผ่าน bundler ควรแปลงเป็น ESM หรือ CJS ให้เป็นรูปแบบเดียวกัน

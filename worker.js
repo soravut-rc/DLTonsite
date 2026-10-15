@@ -239,12 +239,31 @@ function addLineMessage(userId, senderRole, messageText, mediaUrl = '', soNumber
   return msg;
 }
 
-function storeDataUrlAsUpload(soNumber, prefix, dataUrl) {
+async function storeDataUrlAsUpload(soNumber, prefix, dataUrl, env = null) {
   if (!dataUrl || !dataUrl.startsWith('data:image/')) return dataUrl || '';
-  const m = /^data:image\/([a-zA-Z0-9.+-]+);base64,/.exec(dataUrl);
-  const ext = m && m[1].toLowerCase().includes('png') ? 'png' : 'jpg';
+  const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(dataUrl);
+  if (!m) return dataUrl;
+  const mime = m[1].toLowerCase();
+  const ext = mime.includes('png') ? 'png' : 'jpg';
   const pathKey = `/uploads/${encodeURIComponent(soNumber)}/${prefix}_${Date.now()}.${ext}`;
   uploadsMap.set(pathKey, dataUrl);
+
+  // If Cloudflare R2 bucket is bound
+  if (env && env.PHOTOS_BUCKET) {
+    try {
+      const r2Key = pathKey.replace(/^\//, ''); // e.g. uploads/BINF3480006/photo_123.jpg
+      const bin = Buffer.from(m[2], 'base64');
+      await env.PHOTOS_BUCKET.put(r2Key, bin, {
+        httpMetadata: {
+          contentType: mime,
+          cacheControl: 'public, max-age=31536000'
+        }
+      });
+    } catch (err) {
+      console.warn('R2 upload warning:', err.message);
+    }
+  }
+
   return pathKey;
 }
 
@@ -278,8 +297,22 @@ export default {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
-    // Serve uploaded images stored in memory
+    // Serve uploaded images (R2 Bucket first, fallback to in-memory cache)
     if (pathname.startsWith('/uploads/')) {
+      const r2Key = pathname.replace(/^\//, '');
+      if (env && env.PHOTOS_BUCKET) {
+        try {
+          const r2Obj = await env.PHOTOS_BUCKET.get(r2Key);
+          if (r2Obj) {
+            const headers = new Headers();
+            r2Obj.writeHttpMetadata(headers);
+            headers.set('etag', r2Obj.httpEtag);
+            headers.set('Cache-Control', 'public, max-age=31536000');
+            return new Response(r2Obj.body, { headers });
+          }
+        } catch (_) {}
+      }
+
       const dataUrl = uploadsMap.get(pathname);
       if (dataUrl) {
         const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(dataUrl);
@@ -443,7 +476,7 @@ export default {
           if (!dataUrl.startsWith('data:image/')) {
             return jsonResponse({ error: 'รูปแบบข้อมูลรูปภาพไม่ถูกต้อง' }, 400);
           }
-          const savedPath = storeDataUrlAsUpload(soNumber, category, dataUrl);
+          const savedPath = await storeDataUrlAsUpload(soNumber, category, dataUrl, env);
           return jsonResponse({ ok: true, url: savedPath });
         }
 
@@ -541,7 +574,7 @@ export default {
             const dataUrl = body.data_url || body.dataUrl || '';
             const ocrSn = normalizeSn(body.ocr_sn || body.ocrSn || '');
             const manualSn = normalizeSn(body.manual_sn || body.manualSn || '');
-            const savedUrl = storeDataUrlAsUpload(so, slotKey, dataUrl);
+            const savedUrl = await storeDataUrlAsUpload(so, slotKey, dataUrl, env);
 
             applySlotPhotoAndSnToCircuit(circuit, slotKey, savedUrl, ocrSn, manualSn);
             circuit.updated_at = new Date().toISOString();

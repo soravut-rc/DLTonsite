@@ -3,6 +3,12 @@
   "main": "worker.js",
   "compatibility_date": "2025-03-01",
   "compatibility_flags": ["nodejs_compat"],
+  "r2_buckets": [
+    {
+      "binding": "PHOTOS_BUCKET",
+      "bucket_name": "dlt-onsite-photos"
+    }
+  ],
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
