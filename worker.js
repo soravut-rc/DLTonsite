@@ -344,6 +344,88 @@ export default {
           });
         }
 
+        // 1.1 GET /api/stats - KPI Statistics & Region/Province Breakdown
+        if (pathname === '/api/stats' && request.method === 'GET') {
+          const rows = Array.from(circuitsMap.values());
+          const total = rows.length;
+          const statusCounts = { pending: 0, in_progress: 0, completed: 0, issue: 0 };
+          const adminCounts = { working: 0, pending_review: 0, approved: 0, rejected: 0, sn_mismatch: 0, incomplete_photos: 0 };
+          const byRegion = {};
+          const byProvince = {};
+          const routerModels = { 'RB3011': 0, 'RB4011': 0, 'hAP ac2 (RBD52G)': 0, 'อื่นๆ': 0 };
+          const apBrands = { 'TOTOLINK': 0, 'TP-LINK': 0, 'D-LINK': 0, 'อื่นๆ': 0 };
+          let totalApCount = 0;
+          let withLegacyPdf = 0;
+
+          for (const r of rows) {
+            const st = statusCounts[r.status] !== undefined ? r.status : 'pending';
+            statusCounts[st]++;
+            if (r.legacy_pdf_path) withLegacyPdf++;
+
+            if (r.admin_status && adminCounts[r.admin_status] !== undefined) {
+              adminCounts[r.admin_status]++;
+            }
+            const comp = evaluateCircuitCompleteness(r);
+            if (comp.snMismatchCount > 0) adminCounts.sn_mismatch++;
+            if ((r.status === 'in_progress' || r.status === 'completed' || r.checkin_time) && !comp.allRequiredPhotosComplete) {
+              adminCounts.incomplete_photos++;
+            }
+
+            if (!byRegion[r.region]) {
+              byRegion[r.region] = { total: 0, pending: 0, in_progress: 0, completed: 0, issue: 0 };
+            }
+            byRegion[r.region].total++;
+            byRegion[r.region][st]++;
+
+            const provKey = `${r.region}__${r.province}`;
+            if (!byProvince[provKey]) {
+              byProvince[provKey] = {
+                region: r.region,
+                province: r.province,
+                total: 0,
+                completed: 0,
+                in_progress: 0,
+                pending: 0,
+                issue: 0
+              };
+            }
+            byProvince[provKey].total++;
+            byProvince[provKey][st]++;
+
+            const rm = (r.router_info?.model || '').toUpperCase();
+            if (rm.includes('3011')) routerModels['RB3011']++;
+            else if (rm.includes('4011')) routerModels['RB4011']++;
+            else if (rm.includes('HAP') || rm.includes('RBD52G') || rm.includes('AC2')) routerModels['hAP ac2 (RBD52G)']++;
+            else routerModels['อื่นๆ']++;
+
+            if (Array.isArray(r.access_points)) {
+              for (const ap of r.access_points) {
+                if (ap && ap.checked !== false) {
+                  totalApCount++;
+                  const br = (ap.brand || '').toUpperCase();
+                  if (br.includes('TOTO')) apBrands['TOTOLINK']++;
+                  else if (br.includes('TP')) apBrands['TP-LINK']++;
+                  else if (br.includes('D-LINK') || br.includes('DLINK')) apBrands['D-LINK']++;
+                  else apBrands['อื่นๆ']++;
+                }
+              }
+            }
+          }
+
+          return jsonResponse({
+            total,
+            withLegacyPdf,
+            statusCounts,
+            adminCounts,
+            byRegion,
+            provinces: Object.values(byProvince).sort((a, b) => a.province.localeCompare(b.province, 'th')),
+            routerModels,
+            apBrands,
+            totalApCount,
+            cloudConfigured: true
+          });
+        }
+
         // 2. GET /api/circuits/:id/report.docx
         const docxMatch = /^\/api\/circuits\/([^/]+)\/report\.docx$/.exec(pathname);
         if (docxMatch && request.method === 'GET') {

@@ -101,14 +101,41 @@ function toggleSopBanner() {
   if (el) el.classList.toggle('hidden');
 }
 
+function calculateClientStats(circuits) {
+  const rows = circuits || [];
+  const statusCounts = { pending: 0, in_progress: 0, completed: 0, issue: 0 };
+  const byRegion = {};
+  const byProvince = {};
+  for (const r of rows) {
+    const st = statusCounts[r.status] !== undefined ? r.status : 'pending';
+    statusCounts[st]++;
+    if (!byRegion[r.region]) byRegion[r.region] = { total: 0, pending: 0, in_progress: 0, completed: 0, issue: 0 };
+    byRegion[r.region].total++;
+    byRegion[r.region][st]++;
+    const pKey = `${r.region}__${r.province}`;
+    if (!byProvince[pKey]) byProvince[pKey] = { region: r.region, province: r.province, total: 0, completed: 0, in_progress: 0, pending: 0, issue: 0 };
+    byProvince[pKey].total++;
+    byProvince[pKey][st]++;
+  }
+  return {
+    total: rows.length,
+    withLegacyPdf: rows.filter(r => r.legacy_pdf_path).length,
+    statusCounts,
+    adminCounts: { working: 0, pending_review: 0, approved: 0, rejected: 0, sn_mismatch: 0, incomplete_photos: 0 },
+    byRegion,
+    provinces: Object.values(byProvince).sort((a, b) => (a.province || '').localeCompare(b.province || '', 'th')),
+    cloudConfigured: true
+  };
+}
+
 async function refreshAllData() {
   try {
     const [statsRes, circuitsRes] = await Promise.all([
-      fetch('/api/stats').then(r => r.json()),
+      fetch('/api/stats').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('/api/circuits').then(r => r.json())
     ]);
-    globalStats = statsRes;
     allCircuits = circuitsRes.circuits || [];
+    globalStats = (statsRes && statsRes.statusCounts) ? statsRes : calculateClientStats(allCircuits);
 
     renderHeaderAndCards();
     populateProvinceDropdown();
@@ -137,8 +164,10 @@ function showToast(msg, isError = false) {
 // ============================================================================
 function renderHeaderAndCards() {
   if (!globalStats) return;
-  const { total, withLegacyPdf, statusCounts, cloudConfigured } = globalStats;
+  const statusCounts = globalStats.statusCounts || { pending: 0, in_progress: 0, completed: 0, issue: 0 };
   const adminCounts = globalStats.adminCounts || globalStats.adminStatusCounts || {};
+  const total = globalStats.total !== undefined ? globalStats.total : allCircuits.length;
+  const withLegacyPdf = globalStats.withLegacyPdf || 0;
   const completed = statusCounts.completed || 0;
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
