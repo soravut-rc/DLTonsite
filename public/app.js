@@ -168,6 +168,7 @@ function renderHeaderAndCards() {
   const adminCounts = globalStats.adminCounts || globalStats.adminStatusCounts || {};
   const total = globalStats.total !== undefined ? globalStats.total : allCircuits.length;
   const withLegacyPdf = globalStats.withLegacyPdf || 0;
+  const cloudConfigured = Boolean(globalStats && globalStats.cloudConfigured);
   const completed = statusCounts.completed || 0;
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
