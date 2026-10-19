@@ -2170,7 +2170,7 @@ const server = http.createServer(async (req, res) => {
     // ------------------------------------------------------------------------
     // 11. Serve Static Frontend Files from /public
     // ------------------------------------------------------------------------
-    let targetFile = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
+    let targetFile = pathname === '/' ? 'index.html' : pathname === '/tech' ? 'tech.html' : pathname.replace(/^\/+/, '');
     const fullPublicPath = path.normalize(path.join(PUBLIC_DIR, targetFile));
     if (fullPublicPath.startsWith(PUBLIC_DIR) && fs.existsSync(fullPublicPath) && fs.statSync(fullPublicPath).isFile()) {
       serveStaticFile(res, fullPublicPath);
