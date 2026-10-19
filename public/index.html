@@ -305,7 +305,7 @@
             <h3 class="text-sm sm:text-base font-bold text-slate-900">
               🏛️ แตะเลือกจังหวัดที่เข้าปฏิบัติงาน <span id="provGridCountLabel" class="text-indigo-600">(77 จังหวัด)</span>
             </h3>
-            <p class="text-xs text-slate-500">เลือกจังหวัดเพื่อแสดงเฉพาะวงจรและสาขาในจังหวัดนั้น</p>
+            <p id="provinceGridSubtitle" class="text-xs text-slate-500">เลือกจังหวัดเพื่อแสดงเฉพาะวงจรและสาขาในจังหวัดนั้น</p>
           </div>
           <button type="button" onclick="setBrowseMode('all')" class="text-xs font-bold text-indigo-600 hover:underline self-start sm:self-auto">
             ดูรายการทั้ง 334 วงจรแบบไม่แยกจังหวัด →
@@ -315,28 +315,31 @@
       </div>
 
       <!-- STEP 2 VIEW: SELECTED PROVINCE / SEARCH RESULTS HEADER & SUB-BRANCH CHIPS -->
-      <div id="selectedProvinceBanner" class="hidden bg-indigo-950 text-white p-3.5 rounded-2xl shadow-md border border-indigo-700 space-y-2.5">
-        <div class="flex items-center justify-between gap-2 flex-wrap">
-          <div class="flex items-center gap-2">
-            <button type="button" onclick="backToProvinceGrid()" class="px-3 py-1.5 rounded-xl bg-white text-slate-900 hover:bg-slate-100 text-xs font-bold shadow-sm flex items-center gap-1 shrink-0">
-              ⬅️ เลือกจังหวัดอื่น
-            </button>
-            <div>
-              <div class="text-sm sm:text-base font-bold text-amber-300" id="selectedProvinceTitle">จังหวัด...</div>
-              <div class="text-xs text-slate-300">แสดง <strong id="showingCount" class="text-white">0</strong> วงจร <span id="activeFilterSummary"></span></div>
+      <div id="circuitsListWrapper" class="space-y-3.5">
+        <div id="selectedProvinceBanner" class="hidden bg-indigo-950 text-white p-3.5 rounded-2xl shadow-md border border-indigo-700 space-y-2.5">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="backToProvinceGrid()" class="px-3 py-1.5 rounded-xl bg-white text-slate-900 hover:bg-slate-100 text-xs font-bold shadow-sm flex items-center gap-1 shrink-0">
+                ⬅️ เลือกจังหวัดอื่น
+              </button>
+              <div>
+                <div class="text-sm sm:text-base font-bold text-amber-300" id="selectedProvinceTitle">จังหวัด...</div>
+                <div class="text-xs text-amber-200 font-medium" id="selectedProvinceMeta"></div>
+                <div class="text-xs text-slate-300">แสดง <strong id="showingCount" class="text-white">0</strong> วงจร <span id="activeFilterSummary"></span></div>
+              </div>
             </div>
+          </div>
+
+          <!-- Sub-branch / Building Filter Chips inside Selected Province -->
+          <div id="subBranchChipsBox" class="hidden pt-2 border-t border-indigo-800/80">
+            <div class="text-[11px] text-indigo-200 mb-1.5 font-semibold">🏢 กรองเฉพาะสาขา / อาคารในจังหวัดนี้:</div>
+            <div id="subBranchChipsBar" class="flex items-center gap-1.5 flex-wrap"></div>
           </div>
         </div>
 
-        <!-- Sub-branch / Building Filter Chips inside Selected Province -->
-        <div id="subBranchChipsBox" class="hidden pt-2 border-t border-indigo-800/80">
-          <div class="text-[11px] text-indigo-200 mb-1.5 font-semibold">🏢 กรองเฉพาะสาขา / อาคารในจังหวัดนี้:</div>
-          <div id="subBranchChipsBar" class="flex items-center gap-1.5 flex-wrap"></div>
-        </div>
+        <!-- Circuits Grid -->
+        <div id="circuitsContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5"></div>
       </div>
-
-      <!-- Circuits Grid -->
-      <div id="circuitsContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5"></div>
     </section>
 
     <!-- ================================================================== -->

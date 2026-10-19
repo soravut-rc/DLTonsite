@@ -312,6 +312,10 @@ function extractSubBranchGroup(c) {
     const bld = c.router_summary?.building || '';
     return bld ? `สนง.ใหญ่ หมอชิต (อาคาร ${bld})` : 'สนง.ใหญ่ หมอชิต';
   }
+  const parenMatch = b.match(/[\(（]([^\)）]+)[\)）]/);
+  if (parenMatch && (parenMatch[1].includes('สข') || parenMatch[1].includes('สาขา') || parenMatch[1].includes('อำเภอ') || parenMatch[1].includes('เมือง'))) {
+    return parenMatch[1].trim();
+  }
   const branchMatch = b.match(/สาขา(?:อำเภอ)?([^\s(]+)/);
   if (branchMatch) return `สาขา${branchMatch[1]}`;
   return `สขจ.${c.province} (สำนักงานหลัก)`;
@@ -351,11 +355,11 @@ function populateProvinceDropdown() {
 function updateRegionPillsUi(selectedRegion) {
   const pills = document.querySelectorAll('#regionPillsBar .reg-pill');
   pills.forEach(btn => {
-    const r = btn.getAttribute('data-reg') || '';
-    if (r === selectedRegion) {
-      btn.className = 'reg-pill active px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-600 text-white whitespace-nowrap shadow-sm transition';
+    const r = btn.getAttribute('data-region') ?? btn.getAttribute('data-reg') ?? '';
+    if (r === (selectedRegion || '')) {
+      btn.className = 'reg-pill active px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white whitespace-nowrap shadow-sm transition';
     } else {
-      btn.className = 'reg-pill px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 whitespace-nowrap transition';
+      btn.className = 'reg-pill px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 whitespace-nowrap transition';
     }
   });
 }
@@ -380,6 +384,14 @@ function onRegionChange() {
 }
 
 function onProvinceDropdownChange() {
+  const province = document.getElementById('filterProvince').value;
+  if (province) {
+    const found = allCircuits.find(c => c.province === province);
+    if (found && document.getElementById('filterRegion').value && document.getElementById('filterRegion').value !== found.region) {
+      document.getElementById('filterRegion').value = '';
+      updateRegionPillsUi('');
+    }
+  }
   selectedSubBranch = '';
   gpsSortCenter = null;
   applyCircuitFilters();
@@ -680,11 +692,14 @@ function applyCircuitFilters() {
   // If a province is selected, show the Selected Province Banner & Sub-Branch Chips
   if (province) {
     selProvBanner?.classList.remove('hidden');
-    document.getElementById('selectedProvinceTitle').textContent = `จังหวัด${province}`;
+    const provTitle = document.getElementById('selectedProvinceTitle');
+    if (provTitle) provTitle.textContent = `จังหวัด${province}`;
     const provCircuits = allCircuits.filter(c => c.province === province);
     const doneCnt = provCircuits.filter(c => c.status === 'completed').length;
-    document.getElementById('selectedProvinceMeta').textContent =
-      `มีทั้งหมด ${provCircuits.length} วงจร • ส่งมอบแล้ว ${doneCnt}/${provCircuits.length} วงจร`;
+    const provMeta = document.getElementById('selectedProvinceMeta');
+    if (provMeta) {
+      provMeta.textContent = `มีทั้งหมด ${provCircuits.length} วงจร • ส่งมอบแล้ว ${doneCnt}/${provCircuits.length} วงจร`;
+    }
     renderSubBranchChips(provCircuits);
   } else {
     selProvBanner?.classList.add('hidden');
@@ -692,7 +707,7 @@ function applyCircuitFilters() {
   }
 
   let filtered = allCircuits.filter(c => {
-    if (region && c.region !== region) return false;
+    if (region && !province && c.region !== region) return false;
     if (province && c.province !== province) return false;
     if (status && c.status !== status) return false;
     if (province && selectedSubBranch) {
