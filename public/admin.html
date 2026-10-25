@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <meta name="robots" content="noindex" />
+  <title>ศูนย์ตรวจรับงาน · DLT Onsite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/admin.css?v=1" />
+</head>
+<body>
+  <header class="top" id="top" hidden>
+    <a class="brand" href="#/dashboard">ศูนย์ตรวจรับงาน<small>DLT Onsite</small></a>
+    <nav class="tabs" aria-label="เมนูหลัก">
+      <a href="#/dashboard" data-tab="dashboard">ภาพรวม</a>
+      <a href="#/review" data-tab="review">ตรวจสอบ<span class="count" id="navPending" hidden></span></a>
+      <a href="#/export" data-tab="export">ส่งออก</a>
+      <a href="#/tools" data-tab="tools">เครื่องมือ UAT</a>
+    </nav>
+    <div class="who">
+      <span id="whoName"></span>
+      <button class="btn btn--quiet btn--sm" id="logoutBtn" type="button">ออกจากระบบ</button>
+    </div>
+  </header>
+
+  <main id="view" aria-live="polite"></main>
+
+  <dialog id="dlg" class="dlg"></dialog>
+  <dialog id="lightbox" class="lightbox" aria-label="ดูรูปขยาย"></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <noscript><p style="padding:24px">ต้องเปิดใช้งาน JavaScript เพื่อใช้งานหน้านี้</p></noscript>
+  <script src="/admin.js?v=1"></script>
+</body>
+</html>

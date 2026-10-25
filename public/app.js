@@ -78,9 +78,39 @@ function detectRoomSpec(roomStr = '') {
 }
 
 // ============================================================================
-// Initialization
+// Initialization & Persistent Technician Profile (รองรับช่าง 40-50 คน)
 // ============================================================================
+function loadGlobalTechProfile() {
+  try {
+    const savedName = localStorage.getItem('dlt_tech_name') || '';
+    const savedPhone = localStorage.getItem('dlt_tech_phone') || '';
+    const gName = document.getElementById('globalTechName');
+    const gPhone = document.getElementById('globalTechPhone');
+    if (gName && savedName) gName.value = savedName;
+    if (gPhone && savedPhone) gPhone.value = savedPhone;
+    return { name: savedName, phone: savedPhone };
+  } catch (_) {
+    return { name: '', phone: '' };
+  }
+}
+
+function saveGlobalTechProfile() {
+  try {
+    const gName = document.getElementById('globalTechName')?.value.trim() ||
+      document.getElementById('modalQuickTechName')?.value.trim() || '';
+    const gPhone = document.getElementById('globalTechPhone')?.value.trim() ||
+      document.getElementById('modalQuickTechPhone')?.value.trim() || '';
+    if (gName) localStorage.setItem('dlt_tech_name', gName);
+    if (gPhone) localStorage.setItem('dlt_tech_phone', gPhone);
+    const topNameEl = document.getElementById('globalTechName');
+    const topPhoneEl = document.getElementById('globalTechPhone');
+    if (topNameEl && gName && topNameEl.value !== gName) topNameEl.value = gName;
+    if (topPhoneEl && gPhone && topPhoneEl.value !== gPhone) topPhoneEl.value = gPhone;
+  } catch (_) {}
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
+  loadGlobalTechProfile();
   initSignaturePad('sigInspector');
   initSignaturePad('sigReceiver');
   await refreshAllData();
@@ -189,18 +219,18 @@ function renderHeaderAndCards() {
     const waitCnt = adminCounts.pending_review || 0;
     adminBadge.textContent = waitCnt;
     adminBadge.className = waitCnt > 0
-      ? 'px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 text-[10px] font-extrabold animate-pulse'
-      : 'px-1.5 py-0.2 rounded-full bg-slate-600 text-slate-200 text-[10px] font-bold';
+      ? 'px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold'
+      : 'px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold';
   }
 
   const cloudDot = document.getElementById('cloudDot');
   const cloudStatusText = document.getElementById('cloudStatusText');
   if (cloudConfigured) {
-    cloudDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+    cloudDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
     cloudStatusText.textContent = 'Supabase Connected';
   } else {
-    cloudDot.className = 'w-2 h-2 rounded-full bg-amber-400';
-    cloudStatusText.textContent = 'Local + Cloud Ready';
+    cloudDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+    cloudStatusText.textContent = 'Cloud Ready';
   }
 }
 
@@ -217,12 +247,6 @@ function switchTab(tab) {
     admin: document.getElementById('tabBtnAdmin'),
     dashboard: document.getElementById('tabBtnDashboard')
   };
-  const activeColors = {
-    circuits: 'bg-rose-600 text-white shadow',
-    linebot: 'bg-emerald-600 text-white shadow',
-    admin: 'bg-amber-500 text-slate-950 shadow',
-    dashboard: 'bg-indigo-600 text-white shadow'
-  };
 
   Object.keys(views).forEach(k => {
     if (views[k]) {
@@ -230,10 +254,10 @@ function switchTab(tab) {
       else views[k].classList.add('hidden');
     }
     if (btns[k]) {
-      const baseCls = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center gap-1';
+      const baseCls = 'px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 whitespace-nowrap';
       btns[k].className = k === tab
-        ? `${baseCls} ${activeColors[k]}`
-        : `${baseCls} text-slate-300 hover:bg-slate-700`;
+        ? `${baseCls} bg-slate-900 text-white`
+        : `${baseCls} text-slate-600 hover:bg-slate-200/70`;
     }
   });
 
@@ -289,40 +313,59 @@ function renderRecentCircuits() {
     const shortBranch = extractShortSubBranchLabel(c);
     const dotCls = c.status === 'completed' ? 'bg-emerald-500' : c.status === 'in_progress' ? 'bg-amber-500' : 'bg-slate-400';
     return `
-      <button type="button" onclick="openInspectionModal('${c.so_number}')" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 text-xs flex items-center gap-1.5 transition">
-        <span class="w-2 h-2 rounded-full ${dotCls}"></span>
-        <span class="font-bold text-slate-900">${c.so_number}</span>
-        <span class="text-slate-600 truncate max-w-[160px]">${c.province} • ${shortBranch}</span>
+      <button type="button" onclick="openInspectionModal('${c.so_number}')" class="px-2.5 py-1 rounded-md bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs flex items-center gap-1.5 shrink-0 transition">
+        <span class="w-1.5 h-1.5 rounded-full ${dotCls}"></span>
+        <span class="font-semibold text-slate-900">${c.so_number}</span>
+        <span class="text-slate-500 truncate max-w-[140px]">${c.province} • ${shortBranch}</span>
       </button>
     `;
   }).join('');
 }
 
 // ============================================================================
-// Helper: Extract Sub-Branch / Building / Room Distinction inside a Province
+// Helper: Extract Physical Site Name & Group Circuits by Site / Same Rack
 // ============================================================================
+let currentSiteCircuits = []; // All circuits belonging to the currently open Site/Rack
+
+function extractSiteNameClient(c) {
+  if (!c) return '';
+  if (c.site_name && String(c.site_name).trim()) return String(c.site_name).trim();
+  const branch = String(c.branch_name || '').trim();
+  if (c.province === 'กรุงเทพมหานคร' && c.short_branch_name === 'สขพ.5 จตุจักร' && !branch.includes('สขพ.5')) {
+    return String(c.customer_site_name || branch).trim();
+  }
+  if (c.short_branch_name && String(c.short_branch_name).trim()) {
+    return String(c.short_branch_name).trim();
+  }
+  const raw = String(c.customer_site_name || branch || '').trim();
+  if (!raw) return `สขจ.${c.province || ''}`;
+  const cleaned = raw
+    .replace(/\s*วงจรที่\s*\d+.*$/i, '')
+    .replace(/\s*\(.*$/, '')
+    .trim();
+  return cleaned || raw;
+}
+
+function getSiteKeyClient(c) {
+  if (!c) return '';
+  if (c.site_key) return c.site_key;
+  return `${(c.province || '').trim()}::${extractSiteNameClient(c)}`;
+}
+
+function getCircuitsForSite(targetCircuit) {
+  if (!targetCircuit) return [];
+  const key = getSiteKeyClient(targetCircuit);
+  const matched = allCircuits.filter(item => getSiteKeyClient(item) === key);
+  if (matched.length === 0) return [targetCircuit];
+  return matched.sort((a, b) => String(a.so_number || '').localeCompare(String(b.so_number || '')));
+}
+
 function extractSubBranchGroup(c) {
-  const b = (c.branch_name || '').trim();
-  if (!b) return `สำนักงานขนส่งจังหวัด${c.province}`;
-  if (b.includes('พื้นที่ 1') || b.includes('บางขุนเทียน')) return 'สขพ.1 (บางขุนเทียน)';
-  if (b.includes('พื้นที่ 2') || b.includes('ตลิ่งชัน')) return 'สขพ.2 (ตลิ่งชัน)';
-  if (b.includes('พื้นที่ 3') || b.includes('พระโขนง')) return 'สขพ.3 (พระโขนง)';
-  if (b.includes('พื้นที่ 4') || b.includes('หนองจอก')) return 'สขพ.4 (หนองจอก)';
-  if (b.includes('กรุงเทพมหานคร') || b.includes('หมอชิต') || b.includes('จตุจักร')) {
-    const bld = c.router_summary?.building || '';
-    return bld ? `สนง.ใหญ่ หมอชิต (อาคาร ${bld})` : 'สนง.ใหญ่ หมอชิต';
-  }
-  const parenMatch = b.match(/[\(（]([^\)）]+)[\)）]/);
-  if (parenMatch && (parenMatch[1].includes('สข') || parenMatch[1].includes('สาขา') || parenMatch[1].includes('อำเภอ') || parenMatch[1].includes('เมือง'))) {
-    return parenMatch[1].trim();
-  }
-  const branchMatch = b.match(/สาขา(?:อำเภอ)?([^\s(]+)/);
-  if (branchMatch) return `สาขา${branchMatch[1]}`;
-  return `สขจ.${c.province} (สำนักงานหลัก)`;
+  return extractSiteNameClient(c);
 }
 
 function extractShortSubBranchLabel(c) {
-  const grp = extractSubBranchGroup(c);
+  const grp = extractSiteNameClient(c);
   const rm = c.router_summary?.room ? `ห้อง${c.router_summary.room}` : '';
   const fl = c.router_summary?.floor ? `ชั้น ${c.router_summary.floor}` : '';
   const extra = [fl, rm].filter(Boolean).join(' ');
@@ -344,7 +387,7 @@ function populateProvinceDropdown() {
   }
   const sortedProvs = Object.keys(provMap).sort((a, b) => a.localeCompare(b, 'th'));
 
-  provSelect.innerHTML = `<option value="">📍 เลือกจังหวัด (${sortedProvs.length} จังหวัด)</option>` +
+  provSelect.innerHTML = `<option value="">เลือกจังหวัด (${sortedProvs.length} จังหวัด)</option>` +
     sortedProvs.map(p => `<option value="${p}">${p} (${provMap[p]} วงจร)</option>`).join('');
 
   if (sortedProvs.includes(currentVal)) {
@@ -357,9 +400,9 @@ function updateRegionPillsUi(selectedRegion) {
   pills.forEach(btn => {
     const r = btn.getAttribute('data-region') ?? btn.getAttribute('data-reg') ?? '';
     if (r === (selectedRegion || '')) {
-      btn.className = 'reg-pill active px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white whitespace-nowrap shadow-sm transition';
+      btn.className = 'reg-pill active px-2.5 py-1 rounded-md text-xs font-semibold shrink-0 bg-slate-900 text-white transition';
     } else {
-      btn.className = 'reg-pill px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 whitespace-nowrap transition';
+      btn.className = 'reg-pill px-2.5 py-1 rounded-md text-xs font-medium shrink-0 bg-slate-100 hover:bg-slate-200 text-slate-700 transition';
     }
   });
 }
@@ -399,7 +442,6 @@ function onProvinceDropdownChange() {
 
 function selectProvinceFromGrid(province) {
   const provSelect = document.getElementById('filterProvince');
-  // Ensure dropdown has this province
   const found = allCircuits.find(c => c.province === province);
   if (found && document.getElementById('filterRegion').value && document.getElementById('filterRegion').value !== found.region) {
     document.getElementById('filterRegion').value = '';
@@ -434,9 +476,7 @@ function setBrowseMode(mode) {
   browseMode = mode;
   const btn = document.getElementById('btnToggleViewMode');
   if (btn) {
-    btn.innerHTML = browseMode === 'province'
-      ? `📋 ดูทั้งหมด ${allCircuits.length || 334} วงจร`
-      : '🗺️ เลือกตามจังหวัด (77 จังหวัด)';
+    btn.textContent = browseMode === 'province' ? 'ดูทั้งหมด' : 'แยกตามจังหวัด';
   }
   applyCircuitFilters();
 }
@@ -474,11 +514,11 @@ function setQuickStatus(status) {
     const el = document.getElementById(id);
     if (!el) return;
     if (k === status) {
-      el.classList.add('border-indigo-600');
-      el.classList.remove('border-transparent');
+      el.classList.add('border-slate-900');
+      el.classList.remove('border-slate-200');
     } else {
-      el.classList.remove('border-indigo-600');
-      el.classList.add('border-transparent');
+      el.classList.remove('border-slate-900');
+      el.classList.add('border-slate-200');
     }
   });
   applyCircuitFilters();
@@ -495,7 +535,7 @@ function resetFilters() {
   gpsSortCenter = null;
   browseMode = 'province';
   const btn = document.getElementById('btnToggleViewMode');
-  if (btn) btn.innerHTML = `📋 ดูทั้งหมด ${allCircuits.length || 334} วงจร`;
+  if (btn) btn.textContent = 'ดูทั้งหมด';
   setQuickStatus('');
 }
 
@@ -525,7 +565,7 @@ function findNearestCircuitsByGps() {
     showToast('เบราว์เซอร์นี้ไม่รองรับ GPS กรุณาพิมพ์ชื่อจังหวัดหรือสาขาในช่องค้นหา', true);
     return;
   }
-  showToast('📍 กำลังค้นหาสาขาขนส่งที่ใกล้พิกัดปัจจุบันของคุณ...');
+  showToast('กำลังค้นหาสาขาขนส่งที่ใกล้พิกัดปัจจุบันของคุณ...');
   navigator.geolocation.getCurrentPosition(
     pos => {
       gpsSortCenter = { lat: pos.coords.latitude, lng: pos.coords.longitude };
@@ -536,7 +576,7 @@ function findNearestCircuitsByGps() {
       selectedSubBranch = '';
       browseMode = 'all';
       applyCircuitFilters();
-      showToast('✅ เรียงลำดับวงจรจากสาขาที่อยู่ใกล้คุณที่สุดแล้ว');
+      showToast('เรียงลำดับวงจรจากสาขาที่อยู่ใกล้คุณที่สุดแล้ว');
     },
     err => {
       showToast('ไม่สามารถดึงพิกัด GPS ได้ (' + err.message + ') กรุณาเลือกภาค/จังหวัดแทน', true);
@@ -574,19 +614,19 @@ function renderSubBranchChips(provinceCircuits) {
   box.classList.remove('hidden');
   const allActive = !selectedSubBranch;
   let html = `
-    <button type="button" onclick="selectSubBranchChip('')" class="px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-      allActive ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+    <button type="button" onclick="selectSubBranchChip('')" class="px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+      allActive ? 'bg-slate-900 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
     }">
-      ทั้งหมดในจังหวัดนี้ (${provinceCircuits.length})
+      ทั้งหมด (${provinceCircuits.length})
     </button>
   `;
   html += groups.map(g => {
     const active = selectedSubBranch === g;
     return `
-      <button type="button" onclick="selectSubBranchChip('${g.replace(/'/g, "\\'")}')" class="px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-        active ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+      <button type="button" onclick="selectSubBranchChip('${g.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-md text-xs font-medium transition ${
+        active ? 'bg-slate-900 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
       }">
-        🏢 ${g} (${groupCounts[g]})
+        ${g} (${groupCounts[g]})
       </button>
     `;
   }).join('');
@@ -618,7 +658,6 @@ function renderProvinceQuickGrid(regionFilter) {
   }
 
   const provList = Object.values(byProv).sort((a, b) => {
-    // Put Bangkok first if no filter or central, otherwise Thai alphabetical
     if (a.province === 'กรุงเทพมหานคร') return -1;
     if (b.province === 'กรุงเทพมหานคร') return 1;
     return a.province.localeCompare(b.province, 'th');
@@ -626,38 +665,31 @@ function renderProvinceQuickGrid(regionFilter) {
 
   if (subtitle) {
     subtitle.textContent = regionFilter
-      ? `แสดงเฉพาะ ${regionFilter} (${provList.length} จังหวัด) — แตะชื่อจังหวัดเพื่อดูรายชื่อวงจร`
-      : `แสดงครบทั้ง ${provList.length} จังหวัด — แตะจังหวัดที่คุณเข้าหน้างานเพื่อดูวงจรเฉพาะในจังหวัดนั้น`;
+      ? `${regionFilter} (${provList.length} จังหวัด)`
+      : `ทั้งหมด ${provList.length} จังหวัด`;
   }
 
   container.innerHTML = provList.map(p => {
     const subArr = Array.from(p.subBranches);
-    const subPreview = subArr.slice(0, 3).join(' • ') + (subArr.length > 3 ? ` +อีก ${subArr.length - 3}` : '');
-    const pct = p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0;
-    const isMulti = p.total > 3;
+    const subPreview = subArr.slice(0, 2).join(', ') + (subArr.length > 2 ? ` +${subArr.length - 2}` : '');
 
     return `
-      <button type="button" onclick="selectProvinceFromGrid('${p.province}')" class="text-left bg-white hover:bg-indigo-50/60 active:scale-[0.99] p-3.5 rounded-2xl border-2 ${
-        isMulti ? 'border-indigo-200' : 'border-slate-200'
-      } hover:border-indigo-500 shadow-sm transition flex flex-col justify-between gap-2">
+      <button type="button" onclick="selectProvinceFromGrid('${p.province}')" class="text-left bg-white hover:bg-slate-50 p-3 rounded-xl border border-slate-200 hover:border-slate-400 transition flex flex-col justify-between gap-2">
         <div>
           <div class="flex items-start justify-between gap-1">
-            <span class="font-extrabold text-slate-900 text-sm sm:text-base leading-tight">${p.province}</span>
-            <span class="px-2 py-0.5 rounded-full text-[11px] font-extrabold shrink-0 ${
-              isMulti ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
-            }">
+            <span class="font-bold text-slate-900 text-sm leading-tight">${p.province}</span>
+            <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-semibold shrink-0">
               ${p.total} วงจร
             </span>
           </div>
-          <p class="text-[11px] text-slate-400 mt-0.5">${p.region}</p>
-          <p class="text-[11px] text-indigo-700 font-medium mt-1.5 line-clamp-2">${subPreview}</p>
+          <p class="text-[11px] text-slate-500 mt-1 line-clamp-1">${subPreview}</p>
         </div>
 
         <div class="pt-1.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
-          <span class="${p.completed > 0 ? 'text-emerald-700 font-bold' : 'text-slate-400'}">
-            ✅ ส่งมอบ ${p.completed}/${p.total}
+          <span class="${p.completed > 0 ? 'text-emerald-700 font-semibold' : 'text-slate-400'}">
+            ส่งมอบ ${p.completed}/${p.total}
           </span>
-          <span class="text-indigo-600 font-bold">เลือก →</span>
+          <span class="text-slate-600 font-medium">เลือก →</span>
         </div>
       </button>
     `;
@@ -675,7 +707,6 @@ function applyCircuitFilters() {
   const selProvBanner = document.getElementById('selectedProvinceBanner');
   const subBranchBox = document.getElementById('subBranchChipsBox');
 
-  // Show Province Quick Grid when in 'province' mode and no specific province/search/status/GPS is active
   const shouldShowProvinceGrid =
     browseMode === 'province' && !province && !q && !status && !gpsSortCenter;
 
@@ -689,7 +720,6 @@ function applyCircuitFilters() {
   provGridBox?.classList.add('hidden');
   listWrapper?.classList.remove('hidden');
 
-  // If a province is selected, show the Selected Province Banner & Sub-Branch Chips
   if (province) {
     selProvBanner?.classList.remove('hidden');
     const provTitle = document.getElementById('selectedProvinceTitle');
@@ -698,7 +728,7 @@ function applyCircuitFilters() {
     const doneCnt = provCircuits.filter(c => c.status === 'completed').length;
     const provMeta = document.getElementById('selectedProvinceMeta');
     if (provMeta) {
-      provMeta.textContent = `มีทั้งหมด ${provCircuits.length} วงจร • ส่งมอบแล้ว ${doneCnt}/${provCircuits.length} วงจร`;
+      provMeta.textContent = `(${provCircuits.length} วงจร • ส่งมอบแล้ว ${doneCnt}/${provCircuits.length})`;
     }
     renderSubBranchChips(provCircuits);
   } else {
@@ -733,7 +763,7 @@ function applyCircuitFilters() {
 
   document.getElementById('showingCount').textContent = filtered.length;
   const tags = [];
-  if (gpsSortCenter) tags.push('📍 เรียงตามระยะทางใกล้ฉัน');
+  if (gpsSortCenter) tags.push('เรียงตามระยะทาง');
   if (region) tags.push(region);
   if (province) tags.push(`จ.${province}`);
   if (selectedSubBranch) tags.push(selectedSubBranch);
@@ -748,114 +778,120 @@ function renderCircuitsGrid(list) {
   const container = document.getElementById('circuitsContainer');
   if (list.length === 0) {
     container.innerHTML = `
-      <div class="col-span-full bg-white p-10 rounded-xl border border-slate-200 text-center space-y-3">
-        <p class="text-slate-600 font-semibold">ไม่พบข้อมูลวงจรที่ตรงกับเงื่อนไขการค้นหา</p>
-        <button onclick="resetFilters()" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold">
-          🔄 ล้างตัวกรองทั้งหมด
+      <div class="col-span-full bg-white p-8 rounded-xl border border-slate-200 text-center space-y-2">
+        <p class="text-slate-600 text-sm font-medium">ไม่พบข้อมูลวงจรที่ค้นหา</p>
+        <button onclick="resetFilters()" class="px-3.5 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-semibold">
+          ล้างตัวกรอง
         </button>
       </div>
     `;
     return;
   }
 
-  // Compute per-province index (e.g., วงจรที่ 1/19 ของ จ.กรุงเทพมหานคร)
-  const provOrderMap = {};
-  const provTotals = {};
-  for (const c of allCircuits) {
-    provTotals[c.province] = (provTotals[c.province] || 0) + 1;
-    provOrderMap[c.so_number] = provTotals[c.province];
+  const siteGroupsMap = new Map();
+  for (const c of list) {
+    const sKey = getSiteKeyClient(c);
+    if (!siteGroupsMap.has(sKey)) {
+      siteGroupsMap.set(sKey, []);
+    }
+    siteGroupsMap.get(sKey).push(c);
   }
 
-  container.innerHTML = list.map(c => {
-    const badge = STATUS_BADGE[c.status] || STATUS_BADGE.pending;
-    const rModel = c.router_summary?.model || 'RB3011';
-    const rSn = c.router_summary?.serial_no ? `S/N: ${c.router_summary.serial_no}` : 'รอระบุ S/N';
-    const rLocParts = [];
-    if (c.router_summary?.building) rLocParts.push(`อาคาร ${c.router_summary.building}`);
-    if (c.router_summary?.floor) rLocParts.push(`ชั้น ${c.router_summary.floor}`);
-    if (c.router_summary?.room) rLocParts.push(`ห้อง${c.router_summary.room}`);
-    const rLocText = rLocParts.length ? rLocParts.join(' • ') : 'ห้องวิชาการ';
+  const siteGroups = Array.from(siteGroupsMap.values()).map(group => {
+    const sKey = getSiteKeyClient(group[0]);
+    const fullSiteCircuits = allCircuits
+      .filter(item => getSiteKeyClient(item) === sKey)
+      .sort((a, b) => String(a.so_number || '').localeCompare(String(b.so_number || '')));
+    return fullSiteCircuits.length > 0 ? fullSiteCircuits : group;
+  });
 
-    const apList = c.ap_summary || [];
-    const apPillsHtml = apList.length > 0
-      ? apList.map(a => `<span class="inline-flex items-center px-2 py-0.5 rounded bg-indigo-50 text-indigo-800 border border-indigo-200 text-[11px] font-semibold">📡 ${a.room || ('AP ' + a.ap_no)} (${a.brand || 'AP'})</span>`).join(' ')
-      : '<span class="text-slate-400 text-[11px]">ยังไม่มีข้อมูล AP</span>';
+  container.innerHTML = siteGroups.map(siteCircuits => {
+    const primary = siteCircuits[0];
+    const siteName = extractSiteNameClient(primary);
+    const totalInSite = siteCircuits.length;
+    const completedInSite = siteCircuits.filter(x => x.status === 'completed').length;
+    const inProgInSite = siteCircuits.filter(x => x.status === 'in_progress').length;
+    const siteStatus = completedInSite === totalInSite
+      ? 'completed'
+      : (inProgInSite > 0 || completedInSite > 0)
+        ? 'in_progress'
+        : (siteCircuits.some(x => x.status === 'issue') ? 'issue' : 'pending');
+    const badge = STATUS_BADGE[siteStatus] || STATUS_BADGE.pending;
+    const hasDraft = hasSiteSavedDraft(siteCircuits);
+    const siteHandoverCount = Math.max(...siteCircuits.map(x => Number(x.handover_scan_count || 0)), 0);
 
-    const pdfUrl = c.legacy_pdf_path ? `/${encodeURI(c.legacy_pdf_path)}` : null;
-    const provCircuitCount = provTotals[c.province] || 1;
-    const provIdx = provOrderMap[c.so_number] || 1;
-    const subBranchGroup = extractSubBranchGroup(c);
-    const distBadge = (typeof c._distKm === 'number' && c._distKm < 9000)
-      ? `<span class="text-[11px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300">📍 ห่าง ~${c._distKm.toFixed(1)} กม.</span>`
-      : '';
+    const circuitsRowsHtml = siteCircuits.map((c, idx) => {
+      const rModel = c.router_summary?.model || 'RB3011';
+      const rSn = c.router_summary?.serial_no || '-';
+      const apList = c.ap_summary || [];
+      const apRooms = apList.length > 0
+        ? apList.map(a => a.room || `AP ${a.ap_no}`).join(', ')
+        : 'ไม่มี AP';
+      const photosOk = c.onsite_photo_count ?? c.photo_count ?? 0;
+      const photosReq = c.onsite_required_count ?? c.expected_photo_count ?? 9;
+
+      return `
+        <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5">
+              <span class="font-bold text-slate-900 font-mono">${c.so_number}</span>
+              ${totalInSite > 1 ? `<span class="text-[11px] text-slate-500">(วงจรที่ ${idx + 1})</span>` : ''}
+            </div>
+            <span class="text-[11px] text-slate-500">รูป ${photosOk}/${photosReq}</span>
+          </div>
+          <div class="text-[11px] text-slate-600 flex items-center justify-between gap-2">
+            <span class="truncate">Router: <strong>${rModel}</strong> (${rSn})</span>
+            <span class="truncate text-slate-500">AP: ${apRooms}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
 
     return `
-      <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 hover:border-indigo-500 hover:shadow-md transition flex flex-col justify-between overflow-hidden">
-        <div class="p-4 space-y-2.5">
-          <!-- Card Top Row -->
+      <div class="bg-white rounded-xl border border-slate-200 hover:border-slate-400 transition flex flex-col justify-between">
+        <div class="p-4 space-y-3">
+          <!-- Site Header -->
           <div class="flex items-start justify-between gap-2">
-            <div class="space-y-1">
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <span class="text-xs font-extrabold bg-slate-900 text-white px-2.5 py-0.5 rounded-md font-mono">${c.so_number}</span>
-                <span class="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200 font-mono">Service: ${c.service_no || '-'}</span>
-                <span class="text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md">
-                  วงจรที่ ${provIdx}/${provCircuitCount} (${c.province})
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5 flex-wrap mb-1">
+                <span class="text-[11px] font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
+                  จ.${primary.province}
                 </span>
-                ${distBadge}
+                ${totalInSite > 1 ? `<span class="text-[11px] font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 rounded">${totalInSite} วงจร</span>` : ''}
+                ${hasDraft && siteStatus !== 'completed' ? `<span class="text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded">มีร่างบันทึกไว้</span>` : ''}
               </div>
-              <h3 class="font-extrabold text-slate-900 text-sm sm:text-base leading-snug pt-0.5">
-                ${c.branch_name || ('สำนักงานขนส่งจังหวัด' + c.province)}
+              <h3 class="font-bold text-slate-900 text-sm sm:text-base leading-snug">
+                ${siteName}
               </h3>
-              <p class="text-xs text-slate-500">
-                🏢 <strong class="text-indigo-700">${subBranchGroup}</strong> • 📍 จุดวาง MikroTik: <strong class="text-slate-800">${rLocText}</strong>
+              <p class="text-xs text-slate-500 mt-0.5">
+                ใบส่งมอบงาน: ${siteHandoverCount}/2 หน้า
+                ${primary.inspector_name ? ` • ช่าง: ${primary.inspector_name}` : ''}
               </p>
-              ${c.address ? `<p class="text-[11px] text-slate-400 line-clamp-1">🗺️ ${c.address}</p>` : ''}
             </div>
-            <span class="text-[11px] font-bold px-2.5 py-1 rounded-full border shrink-0 ${badge.cls}">
+            <span class="text-[11px] font-semibold px-2 py-0.5 rounded border shrink-0 ${badge.cls}">
               ${badge.label}
             </span>
           </div>
 
-          <!-- Equipment & Room Summary Box -->
-          <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-200/90 text-xs space-y-1.5">
-            <div class="flex items-center justify-between gap-2 flex-wrap">
-              <span class="text-slate-700 font-semibold">🖧 1. MikroTik: <strong class="text-slate-900">${rModel}</strong> (${rLocText})</span>
-              <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700 font-bold">${rSn}</span>
-            </div>
-            <div class="flex items-center gap-1 flex-wrap pt-0.5">
-              <span class="text-[11px] text-slate-500 font-medium mr-1">2–3. ห้อง AP (${apList.length}):</span>
-              ${apPillsHtml}
-            </div>
-            <div class="flex items-center justify-between pt-1.5 border-t border-slate-200/60 text-[11px] text-slate-500 flex-wrap gap-1">
-              <span>📷 รูปถ่าย: <strong class="${(c.photo_count || 0) >= (c.expected_photo_count || 9) ? 'text-emerald-700' : 'text-slate-800'}">${c.photo_count || 0}/${c.expected_photo_count || 9}</strong> รูป</span>
-              <span>👷 ช่าง: <strong class="text-slate-800">${c.inspector_name || '-'}</strong></span>
-              ${c.admin_status === 'approved' ? `<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold border border-emerald-300">🛡️ Admin อนุมัติ</span>` :
-                c.admin_status === 'pending_review' ? `<span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold border border-amber-300">⏳ รอ Admin ตรวจ</span>` :
-                c.admin_status === 'rejected' ? `<span class="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 font-bold border border-rose-300">⚠️ แก้ไขงาน</span>` : ''}
-            </div>
+          <!-- Circuits List -->
+          <div class="space-y-1.5">
+            ${circuitsRowsHtml}
           </div>
         </div>
 
-        <!-- Card Actions Footer (Large Mobile Tap Button) -->
-        <div class="bg-slate-50 px-4 py-2.5 border-t border-slate-200 flex items-center justify-between gap-2 flex-wrap">
-          <div class="flex items-center gap-1.5 flex-wrap">
-            ${pdfUrl ? `
-              <a href="${pdfUrl}" target="_blank" class="px-2 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition flex items-center gap-1" title="เปิดดูไฟล์ส่งมอบปีที่แล้ว">
-                📄 PDF ปี68
-              </a>
-            ` : `
-              <span class="px-2 py-1 rounded text-[11px] text-rose-500 bg-rose-50">ไม่มี PDF เดิม</span>
-            `}
-            <a href="/report.html?id=${encodeURIComponent(c.so_number)}" target="_blank" class="px-2 py-1.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition" title="เปิดหน้าใบส่งมอบและพิมพ์">
-              🖨️ ใบส่งมอบ
+        <!-- Clean Actions Footer -->
+        <div class="px-4 py-2.5 bg-slate-50 border-t border-slate-100 rounded-b-xl flex items-center justify-between gap-2">
+          <div class="flex items-center gap-1.5">
+            <a href="/report.html?id=${encodeURIComponent(primary.so_number)}" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-medium">
+              รายงาน PDF
             </a>
-            <a href="/api/circuits/${encodeURIComponent(c.so_number)}/report.docx" class="px-2.5 py-1.5 rounded-xl border border-blue-300 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-sm transition flex items-center gap-1" title="ดาวน์โหลดรายงาน MS Word (.docx)">
-              📝 Word
+            <a href="/api/circuits/${encodeURIComponent(primary.so_number)}/report.docx" class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-medium">
+              Word
             </a>
           </div>
 
-          <button onclick="openInspectionModal('${c.so_number}')" class="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white text-xs sm:text-sm font-extrabold shadow-sm transition text-center">
-            🔧 เข้าดำเนินการ →
+          <button onclick="openInspectionModal('${primary.so_number}')" class="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition">
+            ${hasDraft && siteStatus !== 'completed' ? 'ทำต่อจากร่าง →' : 'เข้าบันทึกงาน →'}
           </button>
         </div>
       </div>
@@ -965,10 +1001,10 @@ function filterByProvinceFromDash(region, province) {
 // ============================================================================
 // Inspection Workspace Modal (Steps 1 - 4 & Mobile Wizard Stepper)
 // ============================================================================
-const MODAL_STEPS_ORDER = ['step1', 'step23', 'step4', 'info', 'all'];
+const MODAL_STEPS_ORDER = ['info', 'step1', 'step23', 'step4', 'all'];
 
 function setModalStep(step) {
-  currentModalStep = step || 'step1';
+  currentModalStep = step || 'info';
   const sections = {
     info: document.getElementById('modalSectionInfo'),
     step1: document.getElementById('modalSectionStep1'),
@@ -988,18 +1024,19 @@ function setModalStep(step) {
   document.querySelectorAll('.modal-step-btn').forEach(btn => {
     const s = btn.getAttribute('data-step');
     if (s === currentModalStep) {
-      btn.className = 'modal-step-btn px-3 py-1.5 rounded-lg text-xs font-extrabold whitespace-nowrap bg-indigo-600 text-white shadow-sm transition';
+      btn.className = 'modal-step-btn px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap bg-slate-900 text-white transition';
     } else {
-      btn.className = 'modal-step-btn px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap bg-white text-slate-700 border border-slate-300 transition';
+      btn.className = 'modal-step-btn px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap bg-white text-slate-700 border border-slate-300 hover:bg-slate-100 transition';
     }
   });
 
-  const nextBtn = document.getElementById('btnModalNextStep');
+  const nextBtn = document.getElementById('btnNextStep');
   if (nextBtn) {
-    if (currentModalStep === 'step1') nextBtn.textContent = 'ไปข้อ 2–3 (AP) ➡️';
-    else if (currentModalStep === 'step23') nextBtn.textContent = 'ไปข้อ 4 (ลงนาม) ➡️';
-    else if (currentModalStep === 'step4') nextBtn.textContent = 'ดูครบทุกข้อ 📋';
-    else nextBtn.textContent = 'ไปข้อ 1 (MikroTik) ➡️';
+    if (currentModalStep === 'info') nextBtn.textContent = 'ถัดไป: 2. ตู้ Rack →';
+    else if (currentModalStep === 'step1') nextBtn.textContent = 'ถัดไป: 3. ห้อง AP →';
+    else if (currentModalStep === 'step23') nextBtn.textContent = 'ถัดไป: 4. ใบส่งมอบ →';
+    else if (currentModalStep === 'step4') nextBtn.textContent = 'ดูรวมทุกข้อ →';
+    else nextBtn.textContent = 'ไปข้อ 1 (Check-in) →';
   }
 
   const formPane = document.getElementById('modalFormPane');
@@ -1007,7 +1044,7 @@ function setModalStep(step) {
 }
 
 function goModalStepDelta(delta) {
-  const mainOrder = ['step1', 'step23', 'step4', 'all'];
+  const mainOrder = ['info', 'step1', 'step23', 'step4', 'all'];
   let idx = mainOrder.indexOf(currentModalStep);
   if (idx === -1) idx = 0;
   const nextIdx = Math.max(0, Math.min(mainOrder.length - 1, idx + delta));
@@ -1019,20 +1056,58 @@ async function openInspectionModal(soNumber) {
     const res = await fetch(`/api/circuits/${encodeURIComponent(soNumber)}`);
     if (!res.ok) throw new Error('ไม่พบข้อมูลวงจร');
     const data = await res.json();
-    currentCircuit = data.circuit || data;
+    const fetchedCircuit = data.circuit || data;
     addRecentCircuit(soNumber);
 
-    if (!currentCircuit.router_info) currentCircuit.router_info = {};
-    if (!Array.isArray(currentCircuit.access_points) || currentCircuit.access_points.length === 0) {
-      currentCircuit.access_points = [
-        createDefaultAp(1, currentCircuit.province, 'ห้อง GPS'),
-        createDefaultAp(2, currentCircuit.province, 'ห้อง GECC')
-      ];
-    }
+    // Determine all circuits belonging to this physical Site / Rack cabinet
+    const siteSummaries = Array.isArray(data.site_circuits) && data.site_circuits.length > 0
+      ? data.site_circuits
+      : getCircuitsForSite(fetchedCircuit);
+
+    const fullSiteList = await Promise.all(
+      siteSummaries.map(async item => {
+        if (item.so_number === fetchedCircuit.so_number) return fetchedCircuit;
+        const r = await fetch(`/api/circuits/${encodeURIComponent(item.so_number)}`);
+        if (!r.ok) return item;
+        const d = await r.json();
+        return d.circuit || d;
+      })
+    );
+
+    fullSiteList.sort((a, b) => String(a.so_number || '').localeCompare(String(b.so_number || '')));
+    fullSiteList.forEach(sc => {
+      if (!sc.router_info) sc.router_info = {};
+      if (!Array.isArray(sc.access_points) || sc.access_points.length === 0) {
+        sc.access_points = [
+          createDefaultAp(1, sc.province, 'ห้อง GPS'),
+          createDefaultAp(2, sc.province, 'ห้อง GECC')
+        ];
+      }
+    });
+
+    // Check if there is a newer local draft in localStorage (e.g. mobile browser tab reloaded while walking between rooms)
+    const restoredInfo = restoreSiteDraftFromLocalIfNewer(fullSiteList);
+
+    currentSiteCircuits = fullSiteList;
+    currentCircuit = currentSiteCircuits[0];
 
     populateInspectionModal();
-    // On mobile (< 768px), default to Step 1 wizard so it's super clean; on desktop default to 'all'
-    setModalStep(window.innerWidth < 768 ? 'step1' : 'all');
+    ensureModalAutoSaveListenerBound();
+    renderSiteRoomsQuickJumpBar();
+
+    if (restoredInfo.restored) {
+      updateDraftStatusUi('restored', restoredInfo.savedAtText);
+      showToast(`กู้คืนข้อมูลร่างล่าสุด (${restoredInfo.savedAtText}) เรียบร้อย`);
+    } else if (hasSiteSavedDraft(currentSiteCircuits)) {
+      const latestDraftIso = currentSiteCircuits.map(c => c.draft_saved_at || c.updated_at || '').filter(Boolean).sort().pop();
+      const timeStr = latestDraftIso ? new Date(latestDraftIso).toLocaleTimeString('th-TH') : 'ล่าสุด';
+      updateDraftStatusUi('saved', `ร่างล่าสุด ${timeStr}`);
+    } else {
+      updateDraftStatusUi('ready', 'บันทึกอัตโนมัติ');
+    }
+
+    // Start at Step 1: 1. ข้อมูลสาขา & Check-in
+    setModalStep('info');
     document.getElementById('inspectionModal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
   } catch (err) {
@@ -1041,11 +1116,326 @@ async function openInspectionModal(soNumber) {
 }
 
 function closeInspectionModal() {
+  if (currentCircuit) {
+    try {
+      saveSiteDraftToLocal('ปิดหน้าต่างชั่วคราว');
+    } catch (_) {}
+  }
   document.getElementById('inspectionModal').classList.add('hidden');
   document.getElementById('legacyPdfIframe').src = 'about:blank';
   splitPdfVisible = false;
   document.getElementById('modalPdfPane').classList.add('hidden');
   document.body.style.overflow = '';
+}
+
+// ============================================================================
+// Auto-Save Draft (2-Layer: LocalStorage + Server R2) & Room-by-Room Navigation
+// ============================================================================
+let autoSaveLocalTimer = null;
+let autoSaveServerTimer = null;
+let modalAutoSaveBound = false;
+let isSavingDraftInFlight = false;
+
+function getSiteDraftStorageKey(circuitOrSiteKey) {
+  if (!circuitOrSiteKey) return '';
+  const key = typeof circuitOrSiteKey === 'string'
+    ? circuitOrSiteKey
+    : getSiteKeyClient(circuitOrSiteKey);
+  return key ? `dlt_site_draft_v1_${key}` : '';
+}
+
+function hasSiteSavedDraft(siteCircuits) {
+  const list = Array.isArray(siteCircuits) ? siteCircuits : (siteCircuits ? [siteCircuits] : []);
+  if (list.length === 0) return false;
+  if (list.some(c => Boolean(c.is_draft) || (c.status === 'in_progress' && !c.checkout_time))) {
+    return true;
+  }
+  try {
+    const storageKey = getSiteDraftStorageKey(list[0]);
+    if (storageKey) {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.circuits) && parsed.circuits.length > 0) {
+          return true;
+        }
+      }
+    }
+  } catch (_) {}
+  return false;
+}
+
+function saveSiteDraftToLocal(reason = 'แก้ไขข้อมูล') {
+  if (!currentCircuit) return null;
+  try {
+    syncApInputsFromDom();
+    syncAdditionalSiteCircuitsFromDom();
+    const primaryPayload = collectFormPayload();
+
+    const snapshotCircuits = (Array.isArray(currentSiteCircuits) && currentSiteCircuits.length > 0 ? currentSiteCircuits : [currentCircuit]).map((sc, idx) => {
+      if (idx === 0) {
+        return {
+          ...sc,
+          ...primaryPayload,
+          is_draft: true,
+          draft_saved_at: new Date().toISOString()
+        };
+      }
+      return {
+        ...sc,
+        branch_name: primaryPayload.branch_name || sc.branch_name,
+        lat_long: primaryPayload.lat_long || sc.lat_long,
+        address: primaryPayload.address || sc.address,
+        inspector_name: primaryPayload.inspector_name || sc.inspector_name,
+        inspector_phone: primaryPayload.inspector_phone || sc.inspector_phone,
+        inspection_date: primaryPayload.inspection_date || sc.inspection_date,
+        is_draft: true,
+        draft_saved_at: new Date().toISOString()
+      };
+    });
+
+    const storageKey = getSiteDraftStorageKey(currentCircuit);
+    if (!storageKey) return null;
+    const savedAt = new Date().toISOString();
+    const record = {
+      site_key: getSiteKeyClient(currentCircuit),
+      saved_at: savedAt,
+      reason,
+      circuits: snapshotCircuits
+    };
+    localStorage.setItem(storageKey, JSON.stringify(record));
+    return record;
+  } catch (_) {
+    return null;
+  }
+}
+
+function restoreSiteDraftFromLocalIfNewer(siteList) {
+  if (!Array.isArray(siteList) || siteList.length === 0) return { restored: false };
+  try {
+    const storageKey = getSiteDraftStorageKey(siteList[0]);
+    if (!storageKey) return { restored: false };
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return { restored: false };
+    const localDraft = JSON.parse(raw);
+    if (!localDraft || !Array.isArray(localDraft.circuits) || !localDraft.saved_at) return { restored: false };
+
+    const localTs = Date.parse(localDraft.saved_at) || 0;
+    const serverTs = Math.max(
+      ...siteList.map(sc => Math.max(Date.parse(sc.draft_saved_at || '') || 0, Date.parse(sc.updated_at || '') || 0))
+    );
+
+    if (localTs > serverTs + 2000) {
+      for (let i = 0; i < siteList.length; i++) {
+        const sc = siteList[i];
+        const match = localDraft.circuits.find(lc => lc.so_number === sc.so_number);
+        if (!match) continue;
+        siteList[i] = {
+          ...sc,
+          ...match,
+          router_info: {
+            ...(sc.router_info || {}),
+            ...(match.router_info || {}),
+            photo_device: match.router_info?.photo_device || sc.router_info?.photo_device || '',
+            photo_lan2: match.router_info?.photo_lan2 || sc.router_info?.photo_lan2 || '',
+            photo_lan3: match.router_info?.photo_lan3 || sc.router_info?.photo_lan3 || '',
+            photo_handover_p1: match.router_info?.photo_handover_p1 || sc.router_info?.photo_handover_p1 || '',
+            photo_handover_p2: match.router_info?.photo_handover_p2 || sc.router_info?.photo_handover_p2 || ''
+          },
+          access_points: Array.isArray(match.access_points) && match.access_points.length > 0
+            ? match.access_points
+            : sc.access_points
+        };
+      }
+      const savedAtText = new Date(localDraft.saved_at).toLocaleTimeString('th-TH');
+      return { restored: true, savedAtText };
+    }
+  } catch (_) {}
+  return { restored: false };
+}
+
+function updateDraftStatusUi(state, detail = '') {
+  const topBadge = document.getElementById('modalTopDraftBadge');
+  const bannerText = document.getElementById('draftLiveStatusText');
+  const nowStr = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+
+  if (state === 'saving') {
+    if (topBadge) {
+      topBadge.classList.remove('hidden');
+      topBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200';
+      topBadge.textContent = 'กำลังเซฟร่าง...';
+    }
+    if (bannerText) bannerText.textContent = 'กำลังบันทึกร่างอัตโนมัติ...';
+  } else if (state === 'local_saved') {
+    if (topBadge) {
+      topBadge.classList.remove('hidden');
+      topBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200';
+      topBadge.textContent = `เซฟในเครื่อง ${nowStr}`;
+    }
+    if (bannerText) bannerText.textContent = `เซฟในเครื่องแล้ว (${nowStr})`;
+  } else if (state === 'saved' || state === 'restored') {
+    if (topBadge) {
+      topBadge.classList.remove('hidden');
+      topBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200';
+      topBadge.textContent = `เซฟร่างแล้ว ${nowStr}`;
+    }
+    if (bannerText) bannerText.textContent = `บันทึกร่างล่าสุด ${nowStr}`;
+  } else {
+    if (bannerText && detail) bannerText.textContent = detail;
+  }
+}
+
+function scheduleAutoSaveDraft(reason = 'แก้ไขข้อมูล', immediateServer = false) {
+  if (!currentCircuit) return;
+  if (autoSaveLocalTimer) clearTimeout(autoSaveLocalTimer);
+  autoSaveLocalTimer = setTimeout(() => {
+    saveSiteDraftToLocal(reason);
+    updateDraftStatusUi('local_saved', reason);
+    renderSiteRoomsQuickJumpBar();
+  }, 200);
+
+  if (autoSaveServerTimer) clearTimeout(autoSaveServerTimer);
+  const delayMs = immediateServer ? 350 : 2200;
+  autoSaveServerTimer = setTimeout(() => {
+    saveDraftInspection({ silent: true, isAuto: true, roomLabel: reason });
+  }, delayMs);
+}
+
+function ensureModalAutoSaveListenerBound() {
+  if (modalAutoSaveBound) return;
+  const formPane = document.getElementById('modalFormPane');
+  if (!formPane) return;
+  modalAutoSaveBound = true;
+
+  formPane.addEventListener('input', e => {
+    const t = e.target;
+    if (!t || t.type === 'file') return;
+    scheduleAutoSaveDraft('กรอกข้อมูลหน้างาน', false);
+  });
+
+  formPane.addEventListener('change', e => {
+    const t = e.target;
+    if (!t || t.type === 'file') return;
+    scheduleAutoSaveDraft('อัปเดตตัวเลือกหน้างาน', false);
+  });
+}
+
+async function saveDraftInspection(options = {}) {
+  const { silent = false, isAuto = false, roomLabel = '' } = options;
+  if (!currentCircuit) return false;
+  saveSiteDraftToLocal(roomLabel || 'กดบันทึกร่าง');
+  if (isSavingDraftInFlight && isAuto) return true;
+  isSavingDraftInFlight = true;
+  updateDraftStatusUi('saving', roomLabel || 'บันทึกร่างทั้ง Site');
+  try {
+    const ok = await saveCurrentInspection(true, {
+      isDraft: true,
+      isAuto,
+      roomLabel
+    });
+    const nowStr = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+    if (ok) {
+      updateDraftStatusUi('saved', `เซฟเมื่อ ${nowStr}`);
+      renderSiteRoomsQuickJumpBar();
+      if (!silent) {
+        showToast('บันทึกร่างเรียบร้อยแล้ว เดินไปห้องถัดไปได้เลย');
+      }
+    }
+    return ok;
+  } finally {
+    isSavingDraftInFlight = false;
+  }
+}
+
+async function saveRoomDraftAndNotify(roomLabel) {
+  await saveDraftInspection({ silent: true, isAuto: false, roomLabel });
+  showToast(`บันทึกร่าง "${roomLabel}" เรียบร้อย`);
+}
+
+function renderSiteRoomsQuickJumpBar() {
+  const bar = document.getElementById('siteRoomsQuickJumpBar');
+  if (!bar || !currentCircuit) return;
+  const siteList = Array.isArray(currentSiteCircuits) && currentSiteCircuits.length > 0 ? currentSiteCircuits : [currentCircuit];
+  const multi = siteList.length > 1;
+  const pills = [];
+
+  siteList.forEach((sc, cIdx) => {
+    const rt = sc.router_info || {};
+    const rPhotos = (rt.photo_device ? 1 : 0) + (rt.photo_lan2 ? 1 : 0) + (rt.photo_lan3 ? 1 : 0);
+    const rSn = cIdx === 0
+      ? (document.getElementById('rSerialNo')?.value.trim() || rt.serial_no || '')
+      : (document.getElementById(`sc_${cIdx}_rSn`)?.value.trim() || rt.serial_no || '');
+    const rRoom = cIdx === 0
+      ? (document.getElementById('rRoom')?.value.trim() || rt.room || 'วิชาการ')
+      : (document.getElementById(`sc_${cIdx}_rRoom`)?.value.trim() || rt.room || 'วิชาการ');
+
+    const rDone = rPhotos >= 3 && Boolean(rSn);
+    const rDraft = !rDone && (rPhotos > 0 || Boolean(rSn));
+    const rCls = rDone
+      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+      : rDraft
+        ? 'bg-amber-50 text-amber-800 border-amber-300'
+        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50';
+
+    const dot = multi ? `<span class="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0" style="${circuitBadgeStyle(cIdx)}">${cIdx + 1}</span>` : '';
+    pills.push(`
+      <button type="button" onclick="jumpToSiteRoom(${cIdx}, 'router', 0)" class="px-2 py-0.5 rounded border text-[11px] font-medium flex items-center gap-1 transition ${rCls}">
+        ${dot}<span>${multi ? `วงจร ${cIdx + 1}: ` : ''}Rack (${rRoom})</span>
+        <span class="font-bold">${rPhotos}/3</span>
+      </button>
+    `);
+
+    const aps = Array.isArray(sc.access_points) ? sc.access_points : [];
+    aps.forEach((ap, apIdx) => {
+      const spec = detectRoomSpec(ap.room);
+      const apPhotos = (ap.photo_device ? 1 : 0) + (ap.photo_wifi ? 1 : 0) + (ap.photo_lan ? 1 : 0);
+      const apDone = apPhotos >= 3 && Boolean(ap.serial_no);
+      const apDraft = !apDone && (apPhotos > 0 || Boolean(ap.serial_no));
+      const apCls = apDone
+        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+        : apDraft
+          ? 'bg-amber-50 text-amber-800 border-amber-300'
+          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50';
+
+      pills.push(`
+        <button type="button" onclick="jumpToSiteRoom(${cIdx}, 'ap', ${apIdx})" class="px-2 py-0.5 rounded border text-[11px] font-medium flex items-center gap-1 transition ${apCls}">
+          ${dot}<span>${multi ? `วงจร ${cIdx + 1}: ` : ''}${ap.room || spec.shortRoom}</span>
+          <span class="font-bold">${apPhotos}/3</span>
+        </button>
+      `);
+    });
+  });
+
+  bar.innerHTML = pills.join('');
+}
+
+function jumpToSiteRoom(cIdx, type, apIdx = 0) {
+  if (type === 'router') {
+    if (currentModalStep !== 'all' && currentModalStep !== 'step1') {
+      setModalStep('step1');
+    }
+    const targetId = cIdx === 0 ? 'modalSectionStep1' : `siteCircuitRouterCard_${cIdx}`;
+    const el = document.getElementById(targetId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      el.classList.add('ring-2', 'ring-slate-900');
+      setTimeout(() => el.classList.remove('ring-2', 'ring-slate-900'), 1400);
+    }
+    return;
+  }
+
+  if (type === 'ap') {
+    if (currentModalStep !== 'all' && currentModalStep !== 'step23') {
+      setModalStep('step23');
+    }
+    const targetId = cIdx === 0 ? `c1_apCard_${apIdx}` : `sc_${cIdx}_apCard_${apIdx}`;
+    const el = document.getElementById(targetId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      el.classList.add('ring-2', 'ring-slate-900');
+      setTimeout(() => el.classList.remove('ring-2', 'ring-slate-900'), 1400);
+    }
+  }
 }
 
 function toggleSplitLegacyPdf() {
@@ -1054,7 +1444,7 @@ function toggleSplitLegacyPdf() {
   const iframe = document.getElementById('legacyPdfIframe');
 
   if (!currentCircuit.legacy_pdf_path) {
-    showToast('วงจรนี้ไม่มีไฟล์ PDF ส่งมอบของปีที่แล้วในโฟลเดอร์ Onsite', true);
+    showToast('วงจรนี้ไม่มีไฟล์ PDF ของปีที่แล้ว', true);
     return;
   }
 
@@ -1065,7 +1455,7 @@ function toggleSplitLegacyPdf() {
     if (iframe.src !== location.origin + pdfUrl) {
       iframe.src = pdfUrl;
     }
-    document.getElementById('legacyPdfLabel').textContent = `📄 ไฟล์ปีที่แล้ว: ${currentCircuit.legacy_pdf_path}`;
+    document.getElementById('legacyPdfLabel').textContent = `ไฟล์ปีที่แล้ว: ${currentCircuit.legacy_pdf_path}`;
   } else {
     pane.classList.add('hidden');
   }
@@ -1080,19 +1470,21 @@ function createDefaultAp(apNo, province, roomName) {
     model: 'A3002RU',
     serial_no: '',
     ocr_serial_no: '',
-    asset_no: `สขจ.${province || ''}/${spec.code}`,
+    asset_no: '-',
     room: spec.shortRoom,
     room_type: spec.code,
     floor: '1',
     building: '1',
     sticker_done: false,
-    gecc_lan_mkt_port4: false,
     gecc_wan_to_lan: false,
+    gecc_remote_done: false,
+    gecc_anydesk_id: '',
     gecc_authen_wifi: false,
     speed_wifi_dl: '',
     speed_wifi_ul: '',
     speed_lan_dl: '',
     speed_lan_ul: '',
+    speed_note: '',
     photo_device: '',
     photo_wifi: '',
     photo_lan: ''
@@ -1103,13 +1495,13 @@ function compareSnStringsClient(manualSn, ocrSn) {
   const norm = v => String(v || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
   const m = norm(manualSn);
   const o = norm(ocrSn);
-  if (!m && !o) return { status: 'missing', label: '⚠️ ยังไม่ระบุ S/N', cls: 'bg-slate-200 text-slate-600' };
+  if (!m && !o) return { status: 'missing', label: 'ยังไม่ระบุ S/N', cls: 'bg-slate-100 text-slate-500' };
   if (m && o) {
-    if (m === o) return { status: 'matched', label: '✅ S/N ตรงกัน (Recheck ผ่าน)', cls: 'bg-emerald-100 text-emerald-800 border border-emerald-300' };
-    return { status: 'mismatch', label: `⚠️ ไม่ตรงกัน! (ช่าง: ${m} ≠ OCR: ${o})`, cls: 'bg-rose-100 text-rose-800 border border-rose-300 animate-pulse' };
+    if (m === o) return { status: 'matched', label: '✓ S/N ตรงกัน', cls: 'bg-emerald-50 text-emerald-700 border border-emerald-200' };
+    return { status: 'mismatch', label: `S/N ไม่ตรง (${m} ≠ ${o})`, cls: 'bg-rose-50 text-rose-700 border border-rose-200' };
   }
-  if (m && !o) return { status: 'manual_only', label: '✍️ ช่างกรอกเอง (ยังไม่มีค่า OCR)', cls: 'bg-blue-100 text-blue-800 border border-blue-200' };
-  return { status: 'ocr_only', label: '🤖 อ่านจาก OCR แล้ว (รอช่างกดยืนยัน)', cls: 'bg-amber-100 text-amber-800 border border-amber-300' };
+  if (m && !o) return { status: 'manual_only', label: 'ระบุ S/N แล้ว', cls: 'bg-slate-100 text-slate-700' };
+  return { status: 'ocr_only', label: 'อ่านจาก OCR แล้ว', cls: 'bg-amber-50 text-amber-700 border border-amber-200' };
 }
 
 function validateRouterSnRecheck() {
@@ -1118,7 +1510,7 @@ function validateRouterSnRecheck() {
   const badge = document.getElementById('rSnRecheckBadge');
   if (badge) {
     const cmp = compareSnStringsClient(manualVal, ocrVal);
-    badge.className = `px-2.5 py-0.5 rounded-full text-[11px] font-bold ${cmp.cls}`;
+    badge.className = `px-2 py-0.5 rounded text-[11px] font-semibold ${cmp.cls}`;
     badge.textContent = cmp.label;
   }
   if (currentCircuit && currentCircuit.router_info) {
@@ -1131,7 +1523,7 @@ function validateRouterSnRecheck() {
 function copyRouterOcrToManual() {
   const ocrVal = (document.getElementById('rOcrSerialNo')?.value || '').trim().toUpperCase();
   if (!ocrVal) {
-    showToast('ยังไม่มีค่า S/N จาก OCR กรุณาถ่ายรูปหรือกดปุ่มสแกน S/N ก่อน', true);
+    showToast('ยังไม่มีค่า S/N จาก OCR', true);
     return;
   }
   const manualEl = document.getElementById('rSerialNo');
@@ -1139,7 +1531,7 @@ function copyRouterOcrToManual() {
     manualEl.value = ocrVal;
     updateRouterStickerPreview();
     validateRouterSnRecheck();
-    showToast(`คัดลอกค่า OCR (${ocrVal}) ไปยังช่อง S/N ช่างกรอกแล้ว ✅`);
+    showToast(`คัดลอกค่า OCR (${ocrVal}) แล้ว`);
   }
 }
 
@@ -1148,76 +1540,116 @@ function copyApOcrToManual(idx) {
   const manualEl = document.getElementById(`apSn_${idx}`);
   const ocrVal = (ocrEl?.value || '').trim().toUpperCase();
   if (!ocrVal) {
-    showToast('ยังไม่มีค่า S/N จาก OCR สำหรับ AP จุดนี้', true);
+    showToast('ยังไม่มีค่า S/N จาก OCR', true);
     return;
   }
   if (manualEl) {
     manualEl.value = ocrVal;
     onApSpeedOrStickerInput(idx);
-    showToast(`ยืนยัน S/N ของ AP ตัวที่ ${idx + 1} (${ocrVal}) ตรงกับ OCR แล้ว ✅`);
+    showToast(`ยืนยัน S/N (${ocrVal}) แล้ว`);
   }
 }
 
 function renderModalCompletenessBar() {
   if (!currentCircuit) return;
-  const rt = currentCircuit.router_info || {};
-  const aps = Array.isArray(currentCircuit.access_points) ? currentCircuit.access_points : [];
-  const slots = [
-    { label: '1.1 รูป MikroTik', ok: Boolean(rt.photo_device) },
-    { label: '1.2 รูป LAN 2', ok: Boolean(rt.photo_lan2) },
-    { label: '1.3 รูป LAN 3', ok: Boolean(rt.photo_lan3) }
-  ];
-  aps.forEach((ap, i) => {
-    slots.push({ label: `2.${i + 1}.1 รูป AP#${i + 1}`, ok: Boolean(ap.photo_device) });
-    slots.push({ label: `2.${i + 1}.2 WiFi AP#${i + 1}`, ok: Boolean(ap.photo_wifi) });
-    slots.push({ label: `2.${i + 1}.3 LAN AP#${i + 1}`, ok: Boolean(ap.photo_lan) });
-  });
-  slots.push({ label: '4.1 สำเนาใบส่งมอบ (หน้า 1/2)', ok: Boolean(rt.photo_handover_p1 || rt.photo_signed_doc) });
-  slots.push({ label: '4.2 สำเนาใบส่งมอบ (หน้า 2/2 ประทับตรา)', ok: Boolean(rt.photo_handover_p2) });
+  const siteList = Array.isArray(currentSiteCircuits) && currentSiteCircuits.length > 0 ? currentSiteCircuits : [currentCircuit];
+  const multi = siteList.length > 1;
 
-  const uploaded = slots.filter(s => s.ok).length;
-  const total = slots.length;
+  const onsiteSlots = [];
+  let siteP1Url = '';
+  let siteP2Url = '';
+
+  siteList.forEach((sc, cIdx) => {
+    const prefix = multi ? `[วงจร ${cIdx + 1}] ` : '';
+    const rt = sc.router_info || {};
+    const aps = Array.isArray(sc.access_points) ? sc.access_points : [];
+
+    onsiteSlots.push({ label: `${prefix}MikroTik`, ok: Boolean(rt.photo_device), isHandover: false });
+    onsiteSlots.push({ label: `${prefix}Port 2`, ok: Boolean(rt.photo_lan2), isHandover: false });
+    onsiteSlots.push({ label: `${prefix}Port 3`, ok: Boolean(rt.photo_lan3), isHandover: false });
+
+    aps.forEach((ap, i) => {
+      const rm = detectRoomSpec(ap.room);
+      onsiteSlots.push({ label: `${prefix}AP#${i + 1} (${rm.code})`, ok: Boolean(ap.photo_device), isHandover: false });
+      onsiteSlots.push({ label: `${prefix}WiFi (${rm.code})`, ok: Boolean(ap.photo_wifi), isHandover: false });
+      onsiteSlots.push({ label: `${prefix}LAN (${rm.code})`, ok: Boolean(ap.photo_lan), isHandover: false });
+    });
+
+    if (!siteP1Url && (rt.photo_handover_p1 || rt.photo_signed_doc)) {
+      siteP1Url = rt.photo_handover_p1 || rt.photo_signed_doc;
+    }
+    if (!siteP2Url && rt.photo_handover_p2) {
+      siteP2Url = rt.photo_handover_p2;
+    }
+  });
+
+  const handoverSlots = [
+    { label: `ใบส่งมอบ หน้า 1/2`, ok: Boolean(siteP1Url), isHandover: true },
+    { label: `ใบส่งมอบ หน้า 2/2`, ok: Boolean(siteP2Url), isHandover: true }
+  ];
+
+  const slots = [...onsiteSlots, ...handoverSlots];
+  const onsiteUploaded = onsiteSlots.filter(s => s.ok).length;
+  const onsiteTotal = onsiteSlots.length;
+  const handoverUploaded = handoverSlots.filter(s => s.ok).length;
 
   const photoBadge = document.getElementById('modalPhotoCompletenessBadge');
   if (photoBadge) {
-    if (uploaded >= total) {
-      photoBadge.className = 'text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300';
-      photoBadge.textContent = `📷 รูปถ่ายครบ ${uploaded}/${total} รูป ✅`;
+    if (onsiteUploaded >= onsiteTotal && handoverUploaded >= 2) {
+      photoBadge.className = 'text-[11px] font-semibold px-2.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200';
+      photoBadge.textContent = `✓ รูปหน้างาน ${onsiteUploaded}/${onsiteTotal} • ใบส่งมอบ 2/2 หน้า`;
     } else {
-      photoBadge.className = 'text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300';
-      photoBadge.textContent = `📷 รูปถ่าย: ${uploaded} / ${total} รูป (ขาดอีก ${total - uploaded} รูป)`;
+      photoBadge.className = 'text-[11px] font-semibold px-2.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200';
+      photoBadge.textContent = `รูปหน้างาน ${onsiteUploaded}/${onsiteTotal} • ใบส่งมอบ ${handoverUploaded}/2 หน้า`;
+    }
+  }
+
+  const hCount0 = (siteP1Url ? 1 : 0) + (siteP2Url ? 1 : 0);
+  const scannerBadge = document.getElementById('scannerHandoverStatusBadge');
+  if (scannerBadge) {
+    if (hCount0 >= 2) {
+      scannerBadge.className = 'px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-[11px] font-semibold text-emerald-700';
+      scannerBadge.textContent = '✓ สแกนครบ 2/2 หน้า';
+    } else {
+      scannerBadge.className = 'px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[11px] font-medium text-slate-600';
+      scannerBadge.textContent = `สแกนแล้ว ${hCount0}/2 หน้า`;
     }
   }
 
   const missingBar = document.getElementById('modalMissingPhotosBar');
   if (missingBar) {
     missingBar.innerHTML = slots.map(s => `
-      <span class="px-2 py-0.5 rounded-md border text-[11px] font-semibold ${
-        s.ok ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-white border-slate-300 text-slate-500'
-      }">${s.ok ? '✅' : '⬜'} ${s.label}</span>
+      <span class="px-2 py-0.5 rounded border text-[11px] ${
+        s.ok
+          ? 'bg-emerald-50 border-emerald-200 text-emerald-700 font-medium'
+          : 'bg-white border-slate-200 text-slate-500'
+      }">${s.ok ? '✓' : '·'} ${s.label}</span>
     `).join('');
   }
 
+  const savedProfile = loadGlobalTechProfile();
   const quickName = document.getElementById('modalQuickTechName');
-  if (quickName && currentCircuit.inspector_name && !quickName.value) {
-    quickName.value = currentCircuit.inspector_name;
+  if (quickName) {
+    if (currentCircuit.inspector_name) quickName.value = currentCircuit.inspector_name;
+    else if (!quickName.value && savedProfile.name) quickName.value = savedProfile.name;
   }
   const quickPhone = document.getElementById('modalQuickTechPhone');
-  if (quickPhone && currentCircuit.inspector_phone && !quickPhone.value) {
-    quickPhone.value = currentCircuit.inspector_phone;
+  if (quickPhone) {
+    if (currentCircuit.inspector_phone) quickPhone.value = currentCircuit.inspector_phone;
+    else if (!quickPhone.value && savedProfile.phone) quickPhone.value = savedProfile.phone;
   }
 
   const checkinText = document.getElementById('modalCheckinStatusText');
   if (checkinText) {
     if (currentCircuit.checkout_time) {
-      checkinText.className = 'text-xs font-extrabold text-emerald-700';
-      checkinText.textContent = `🏁 Check-out ส่งงานแล้วเมื่อ ${new Date(currentCircuit.checkout_time).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}`;
+      checkinText.className = 'text-xs font-semibold text-emerald-700';
+      checkinText.textContent = `ส่งตรวจแล้ว (${new Date(currentCircuit.checkout_time).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })})`;
     } else if (currentCircuit.checkin_time) {
-      checkinText.className = 'text-xs font-extrabold text-blue-700';
-      checkinText.textContent = `📍 Check-in เข้าหน้างานแล้วเมื่อ ${new Date(currentCircuit.checkin_time).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}`;
+      checkinText.className = 'text-xs font-semibold text-blue-700';
+      checkinText.textContent = `Check-in แล้ว (${new Date(currentCircuit.checkin_time).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })})`;
     } else {
-      checkinText.className = 'text-xs font-bold text-slate-600';
-      checkinText.textContent = 'ยังไม่ได้กด Check-in เข้าหน้างาน';
+      checkinText.className = 'text-xs text-slate-500';
+      checkinText.textContent = `ยังไม่ Check-in (${siteList.length} วงจร)`;
     }
   }
 
@@ -1225,49 +1657,69 @@ function renderModalCompletenessBar() {
   if (adminBadge) {
     const st = currentCircuit.admin_status || '';
     if (st === 'approved') {
-      adminBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300';
-      adminBadge.textContent = `🛡️ Admin อนุมัติแล้ว (${currentCircuit.admin_name || 'Admin'})`;
+      adminBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200';
+      adminBadge.textContent = `✓ อนุมัติแล้ว`;
     } else if (st === 'pending_review') {
-      adminBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300';
-      adminBadge.textContent = '⏳ รอ Admin ตรวจสอบความถูกต้อง';
+      adminBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200';
+      adminBadge.textContent = 'รอตรวจรับ';
     } else if (st === 'rejected') {
-      adminBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-rose-100 text-rose-800 border border-rose-300';
-      adminBadge.textContent = `⚠️ Admin ให้แก้ไข: ${currentCircuit.admin_comment || ''}`;
+      adminBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200';
+      adminBadge.textContent = `แก้ไข: ${currentCircuit.admin_comment || currentCircuit.admin_review_note || ''}`;
     } else {
-      adminBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600';
-      adminBadge.textContent = 'สถานะ Admin: รอส่งงาน';
+      adminBadge.className = 'px-2 py-0.5 rounded text-[11px] text-slate-500 bg-slate-100';
+      adminBadge.textContent = 'รอส่งงาน';
     }
   }
+  renderSiteRoomsQuickJumpBar();
+  renderSiteCircuitsInfo();
 }
 
 async function checkInCurrentModalCircuit() {
   if (!currentCircuit) return;
+  const savedProfile = loadGlobalTechProfile();
   const quickName = document.getElementById('modalQuickTechName')?.value.trim();
   const formName = document.getElementById('fInspectorName')?.value.trim();
-  const techName = quickName || formName || currentCircuit.inspector_name || prompt('กรุณาระบุชื่อช่างผู้เข้าหน้างาน (Check-in):', 'ช่างหน้างาน 1');
+  const techName = quickName || formName || currentCircuit.inspector_name || savedProfile.name || prompt('กรุณาระบุชื่อช่างผู้เข้าหน้างาน (Check-in ทั้ง Site):', 'ช่างหน้างาน');
   if (!techName) return;
 
   if (document.getElementById('fInspectorName')) document.getElementById('fInspectorName').value = techName;
   if (document.getElementById('modalQuickTechName')) document.getElementById('modalQuickTechName').value = techName;
 
-  const techPhone = document.getElementById('modalQuickTechPhone')?.value.trim() || document.getElementById('fInspectorPhone')?.value.trim() || currentCircuit.inspector_phone || '';
+  const techPhone = document.getElementById('modalQuickTechPhone')?.value.trim() || document.getElementById('fInspectorPhone')?.value.trim() || currentCircuit.inspector_phone || savedProfile.phone || '';
   if (document.getElementById('fInspectorPhone') && techPhone) document.getElementById('fInspectorPhone').value = techPhone;
+  if (document.getElementById('modalQuickTechPhone') && techPhone) document.getElementById('modalQuickTechPhone').value = techPhone;
+  saveGlobalTechProfile();
 
   const latLong = document.getElementById('fLatLong')?.value.trim() || currentCircuit.lat_long || '';
+  const linkSoNumbers = (currentSiteCircuits || []).map(c => c.so_number);
 
   try {
     const res = await fetch(`/api/circuits/${encodeURIComponent(currentCircuit.so_number)}/checkin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tech_name: techName, tech_phone: techPhone, lat_long: latLong })
+      body: JSON.stringify({
+        tech_name: techName,
+        tech_phone: techPhone,
+        lat_long: latLong,
+        link_so_numbers: linkSoNumbers
+      })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Check-in ไม่สำเร็จ');
     currentCircuit = data.circuit;
+    const nowIso = currentCircuit.checkin_time || new Date().toISOString();
+    (currentSiteCircuits || []).forEach(sc => {
+      sc.inspector_name = techName;
+      sc.inspector_phone = techPhone;
+      sc.checkin_status = 'checked_in';
+      sc.checkin_time = nowIso;
+      if (sc.status === 'pending') sc.status = 'in_progress';
+    });
     const radioInProg = document.querySelector('input[name="circuitStatus"][value="in_progress"]');
     if (radioInProg) radioInProg.checked = true;
     renderModalCompletenessBar();
-    showToast(`📍 Check-in เข้าหน้างานวงจร ${currentCircuit.so_number} สำเร็จ!`);
+    const allSos = (currentSiteCircuits || [currentCircuit]).map(x => x.so_number).join(', ');
+    showToast(`📍 Check-in ทั้ง Site สำเร็จ! (${allSos})`);
     await refreshAllData();
   } catch (err) {
     showToast(err.message, true);
@@ -1288,13 +1740,15 @@ async function checkOutCurrentModalCircuit() {
     if (!res.ok || !data.ok) {
       const c = data.completeness;
       if (c) {
-        const missingText = (c.missingPhotoLabels || []).join('\n- ') || 'ไม่มี';
+        const missingOnsite = c.missingOnsitePhotoLabels || c.missingPhotoLabels || [];
+        const missingText = missingOnsite.join('\n- ') || 'ไม่มี';
         const confirmForce = confirm(
-          `⚠️ ระบบตรวจสอบพบว่าข้อมูลยังไม่ครบถ้วนก่อน Check-out:\n` +
-          `📷 รูปถ่ายที่ส่งแล้ว: ${c.uploadedPhotos}/${c.requiredPhotos} รูป\n` +
-          (c.missingPhotoLabels?.length ? `- ขาดรูป:\n- ${missingText}\n` : '') +
+          `⚠️ ระบบตรวจสอบพบว่าข้อมูลอุปกรณ์หน้างานใน Site นี้ยังไม่ครบถ้วนก่อนแจ้งผู้ตรวจรับงาน:\n` +
+          `📷 รูปอุปกรณ์+ผลเทสหน้างาน: ${c.onsiteUploadedCount ?? c.uploadedPhotos ?? 0}/${c.onsiteRequiredCount ?? c.requiredPhotos ?? 8} รูป\n` +
+          (missingOnsite.length ? `- ขาดรูปหน้างาน:\n- ${missingText}\n` : '') +
           (c.hasMissingSn ? `- ยังไม่ได้กรอกยืนยันรหัส S/N ให้ครบทุกอุปกรณ์\n` : '') +
-          `\nต้องการยืนยัน Check-out ส่งให้ Admin ตรวจสอบทันทีหรือไม่?`
+          `(หมายเหตุ: ใบแบบส่งมอบงานประจำ Site หน้า 1 และ 2 สามารถใช้ Scanner สแกนตามหลังได้)\n` +
+          `\nต้องการยืนยันส่งข้อมูลทั้ง Site ให้เจ้าหน้าที่ตรวจรับงานของบริษัทตรวจสอบทันทีหรือไม่?`
         );
         if (!confirmForce) return;
 
@@ -1304,54 +1758,75 @@ async function checkOutCurrentModalCircuit() {
           body: JSON.stringify({ force: true })
         });
         const dataForce = await resForce.json();
-        if (!resForce.ok) throw new Error(dataForce.error || 'Check-out ไม่สำเร็จ');
+        if (!resForce.ok) throw new Error(dataForce.error || 'ส่งตรวจงานไม่สำเร็จ');
         currentCircuit = dataForce.circuit;
       } else {
-        throw new Error(data.error || 'Check-out ไม่สำเร็จ');
+        throw new Error(data.error || 'ส่งตรวจงานไม่สำเร็จ');
       }
     } else {
       currentCircuit = data.circuit;
     }
 
+    const nowIso = currentCircuit.checkout_time || new Date().toISOString();
+    (currentSiteCircuits || []).forEach(sc => {
+      sc.checkin_status = 'checked_out';
+      sc.checkout_time = nowIso;
+      sc.admin_status = 'pending_review';
+    });
+
     const radioComp = document.querySelector('input[name="circuitStatus"][value="completed"]');
     if (radioComp) radioComp.checked = true;
     renderModalCompletenessBar();
-    showToast(`🏁 Check-out สำเร็จ! ส่งงานวงจร ${currentCircuit.so_number} เข้าคิวให้ Admin ตรวจสอบแล้ว`);
+    const allSos = (currentSiteCircuits || [currentCircuit]).map(x => x.so_number).join(', ');
+    showToast(`🏁 ส่งงานทั้ง Site (${allSos}) ให้เจ้าหน้าที่ตรวจรับงานตรวจสอบแล้ว!`);
     await refreshAllData();
   } catch (err) {
     showToast(err.message, true);
   }
 }
 
-async function downloadWordReportFromModal() {
+async function downloadWordReportFromModal(targetSo = '') {
   if (!currentCircuit) return;
   await saveCurrentInspection(true);
-  window.location.href = `/api/circuits/${encodeURIComponent(currentCircuit.so_number)}/report.docx`;
+  const so = targetSo || currentCircuit.so_number;
+  window.location.href = `/api/circuits/${encodeURIComponent(so)}/report.docx`;
 }
 
 function populateInspectionModal() {
   const c = currentCircuit;
-  document.getElementById('modalSoBadge').textContent = c.so_number;
-  document.getElementById('modalTitle').textContent = c.branch_name || `สำนักงานขนส่งจังหวัด${c.province}`;
-  document.getElementById('modalSubtitle').textContent = `Service No: ${c.service_no || '-'} | ${c.region} • จังหวัด${c.province}`;
+  const siteList = Array.isArray(currentSiteCircuits) && currentSiteCircuits.length > 0 ? currentSiteCircuits : [c];
+  const siteName = extractSiteNameClient(c);
+  const allSosComma = siteList.map(sc => sc.so_number).join(', ');
 
-  // Render same-province multi-circuit bar with clear building/sub-branch labels
-  const sameProv = allCircuits.filter(item => item.province === c.province);
+  document.getElementById('modalSoBadge').textContent = siteList.length > 1
+    ? `${siteList.length} วงจร (${allSosComma})`
+    : c.so_number;
+  document.getElementById('modalTitle').textContent = siteName;
+  document.getElementById('modalSubtitle').textContent = `${c.region} • จังหวัด${c.province} • S/O: ${allSosComma}`;
+
+  const rackSummaryEl = document.getElementById('modalSiteRackSummaryLabel');
+  if (rackSummaryEl) {
+    rackSummaryEl.textContent = `${siteList.length} วงจร (${allSosComma})`;
+  }
+
+  const s1Badge = document.getElementById('step1Circuit1Badge');
+  if (s1Badge) s1Badge.textContent = `วงจรที่ 1: ${c.so_number}`;
+  const s1Text = document.getElementById('step1PrimarySoText');
+  if (s1Text) s1Text.textContent = `วงจรที่ 1: ${c.so_number}`;
+  const s23Badge = document.getElementById('step23Circuit1Badge');
+  if (s23Badge) s23Badge.textContent = `วงจรที่ 1: ${c.so_number}`;
+  const s23Text = document.getElementById('step23PrimarySoText');
+  if (s23Text) s23Text.textContent = `วงจรที่ 1: ${c.so_number}`;
+  const s4Text = document.getElementById('step4PrimarySoText');
+  if (s4Text) s4Text.textContent = `รวมทั้ง Site (${siteList.length} วงจร)`;
+  const stBarSo = document.getElementById('statusBarSoLabel');
+  if (stBarSo) stBarSo.textContent = `${siteName} (${allSosComma})`;
+
+  // Render Site Rack Circuit jump pills + other Sites in the same province
   const sameBar = document.getElementById('sameProvinceCircuitsBar');
-  sameBar.innerHTML = sameProv.map((item, idx) => {
-    const active = item.so_number === c.so_number;
-    const dotCls = item.status === 'completed' ? 'bg-emerald-400' : item.status === 'in_progress' ? 'bg-amber-400' : 'bg-slate-400';
-    const shortLabel = extractShortSubBranchLabel(item);
-    return `
-      <button type="button" onclick="switchCircuitInModal('${item.so_number}')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
-        active ? 'bg-rose-600 text-white shadow' : 'bg-indigo-900/80 hover:bg-indigo-800 text-slate-200 border border-indigo-700'
-      }">
-        <span class="w-2 h-2 rounded-full ${dotCls}"></span>
-        <span>#${idx + 1} ${item.so_number}</span>
-        <span class="opacity-85 font-normal">(${shortLabel})</span>
-      </button>
-    `;
-  }).join('');
+  if (sameBar) {
+    sameBar.innerHTML = '';
+  }
 
   const linkPdf = document.getElementById('linkOpenLegacyNewTab');
   if (c.legacy_pdf_path) {
@@ -1363,7 +1838,7 @@ function populateInspectionModal() {
 
   if (splitPdfVisible && c.legacy_pdf_path) {
     document.getElementById('legacyPdfIframe').src = '/' + encodeURI(c.legacy_pdf_path);
-    document.getElementById('legacyPdfLabel').textContent = `📄 ไฟล์ปีที่แล้ว: ${c.legacy_pdf_path}`;
+    document.getElementById('legacyPdfLabel').textContent = `ไฟล์ปีที่แล้ว: ${c.legacy_pdf_path}`;
   }
 
   // Status radio
@@ -1378,7 +1853,7 @@ function populateInspectionModal() {
   document.getElementById('fLatLong').value = c.lat_long || '';
   document.getElementById('fAddress').value = c.address || '';
 
-  // Step 1: Router (MikroTik)
+  // Step 1: Router (MikroTik) for Circuit #1
   const rt = c.router_info || {};
   document.getElementById('chkMktSticker').checked = Boolean(rt.sticker_done);
   document.getElementById('chkMktSpeed').checked = Boolean(rt.speed_tested);
@@ -1387,17 +1862,19 @@ function populateInspectionModal() {
   const rRadios = document.querySelectorAll('input[name="routerModel"]');
   let matchedRadio = false;
   rRadios.forEach(r => {
-    if (r.value === rModelVal) {
+    if (r.value === rModelVal || (rModelVal.includes('750') && r.value.includes('750')) || (rModelVal.includes('D52G') && r.value.includes('D52G'))) {
       r.checked = true;
       matchedRadio = true;
     }
   });
-  if (!matchedRadio && rRadios[0]) rRadios[0].checked = true;
+  if (!matchedRadio && rRadios[rRadios.length - 1]) rRadios[rRadios.length - 1].checked = true;
+  const customModelEl = document.getElementById('rCustomModel');
+  if (customModelEl) customModelEl.value = rModelVal;
 
   document.getElementById('rSerialNo').value = rt.serial_no || '';
   const ocrEl = document.getElementById('rOcrSerialNo');
   if (ocrEl) ocrEl.value = rt.ocr_serial_no || '';
-  document.getElementById('rAssetNo').value = rt.asset_no || `สขจ.${c.province}`;
+  document.getElementById('rAssetNo').value = displayRouterAssetNo(rt.asset_no);
   document.getElementById('rRoom').value = rt.room || 'วิชาการ';
   document.getElementById('rFloor').value = rt.floor || '1';
   document.getElementById('rBuilding').value = rt.building || '1';
@@ -1410,61 +1887,251 @@ function populateInspectionModal() {
   validateRouterSnRecheck();
   validateRouterSpeeds();
 
-  renderPhotoSlot('slotRouterDevice', 'router_device', '1.1 รูปถ่ายอุปกรณ์ MikroTik (เห็น Sticker ใหม่ชัดเจน)', rt.photo_device, url => {
+  renderPhotoSlot('slotRouterDevice', 'router_device', `1) รูปอุปกรณ์ MikroTik + Sticker (${c.so_number})`, rt.photo_device, url => {
     currentCircuit.router_info.photo_device = url;
     renderModalCompletenessBar();
   });
-  renderPhotoSlot('slotRouterLan2', 'router_lan2', '1.2 รูปผลทดสอบความเร็ว Port LAN 2 (≥ 650/350M)', rt.photo_lan2, url => {
+  renderPhotoSlot('slotRouterLan2', 'router_lan2', `2) รูปผลทดสอบ Port 2 (${c.so_number})`, rt.photo_lan2, url => {
     currentCircuit.router_info.photo_lan2 = url;
     renderModalCompletenessBar();
   });
-  renderPhotoSlot('slotRouterLan3', 'router_lan3', '1.2 รูปผลทดสอบความเร็ว Port LAN 3 (≥ 650/350M)', rt.photo_lan3, url => {
+  renderPhotoSlot('slotRouterLan3', 'router_lan3', `3) รูปผลทดสอบ Port 3 (${c.so_number})`, rt.photo_lan3, url => {
     currentCircuit.router_info.photo_lan3 = url;
     renderModalCompletenessBar();
   });
 
-  // Steps 2 & 3: Access Points
+  // Steps 2 & 3: Access Points for Circuit #1
   renderAccessPointCards();
 
-  // Step 4: Scanned Paper Handover Form Copies (Page 1/2 & Page 2/2)
-  document.getElementById('chkDocFilled').checked = Boolean(rt.doc_filled);
-  document.getElementById('chkDocStamped').checked = Boolean(rt.doc_stamped);
+  // Step 4: 1 Shared Scanned Paper Handover Form per Site (Page 1/2 & Page 2/2 covering up to 4 circuits)
+  let sharedP1 = rt.photo_handover_p1 || rt.photo_signed_doc || '';
+  let sharedP2 = rt.photo_handover_p2 || '';
+  for (const sc of siteList) {
+    const srt = sc.router_info || {};
+    if (!sharedP1 && (srt.photo_handover_p1 || srt.photo_signed_doc)) sharedP1 = srt.photo_handover_p1 || srt.photo_signed_doc;
+    if (!sharedP2 && srt.photo_handover_p2) sharedP2 = srt.photo_handover_p2;
+  }
+  rt.photo_handover_p1 = sharedP1;
+  rt.photo_signed_doc = sharedP1;
+  rt.photo_handover_p2 = sharedP2;
+
+  document.getElementById('chkDocFilled').checked = Boolean(rt.doc_filled || sharedP1);
+  document.getElementById('chkDocStamped').checked = Boolean(rt.doc_stamped || sharedP2);
   renderPhotoSlot(
     'slotSignedDocPhoto',
     'handover_page1',
-    '📄 4.1 สำเนาเอกสาร "แบบส่งมอบงาน" หน้าที่ 1/2 (รายละเอียดสถานที่และอุปกรณ์ที่ช่างเขียน)',
-    rt.photo_handover_p1 || rt.photo_signed_doc || '',
+    `1) สำเนาแบบส่งมอบงาน หน้าที่ 1/2`,
+    sharedP1,
     url => {
-      currentCircuit.router_info.photo_handover_p1 = url;
-      currentCircuit.router_info.photo_signed_doc = url;
+      (currentSiteCircuits || [currentCircuit]).forEach(sc => {
+        if (!sc.router_info) sc.router_info = {};
+        sc.router_info.photo_handover_p1 = url;
+        sc.router_info.photo_signed_doc = url;
+        if (url) sc.router_info.doc_filled = true;
+      });
       renderModalCompletenessBar();
     }
   );
   renderPhotoSlot(
     'slotSignedDocPage2Photo',
     'handover_page2',
-    '📄 4.2 สำเนาเอกสาร "แบบส่งมอบงาน" หน้าที่ 2/2 (หน้าที่มีลายเซ็นผู้ส่งมอบ & ผู้รับมอบพร้อมประทับตรา)',
-    rt.photo_handover_p2 || '',
+    `2) สำเนาแบบส่งมอบงาน หน้าที่ 2/2 (พร้อมตราประทับ)`,
+    sharedP2,
     url => {
-      currentCircuit.router_info.photo_handover_p2 = url;
+      (currentSiteCircuits || [currentCircuit]).forEach(sc => {
+        if (!sc.router_info) sc.router_info = {};
+        sc.router_info.photo_handover_p2 = url;
+        if (url) sc.router_info.doc_stamped = true;
+      });
       renderModalCompletenessBar();
     }
   );
 
   const todayThai = formatThaiDateToday();
+  const savedProfile = loadGlobalTechProfile();
   document.getElementById('fRemarks').value = c.remarks || '';
-  document.getElementById('fInspectorName').value = c.inspector_name || '';
-  document.getElementById('fInspectorPhone').value = c.inspector_phone || '';
+  document.getElementById('fInspectorName').value = c.inspector_name || savedProfile.name || '';
+  document.getElementById('fInspectorPhone').value = c.inspector_phone || savedProfile.phone || '';
   document.getElementById('fInspectionDate').value = c.inspection_date || todayThai;
-  document.getElementById('fReceiverName').value = c.receiver_name || '';
-  document.getElementById('fReceiverPosition').value = c.receiver_position || '';
-  document.getElementById('fReceiverPhone').value = c.receiver_phone || '';
-  document.getElementById('fReceivedDate').value = c.received_date || todayThai;
+  if (document.getElementById('fReceiverName')) document.getElementById('fReceiverName').value = c.receiver_name || '';
+  if (document.getElementById('fReceiverPosition')) document.getElementById('fReceiverPosition').value = c.receiver_position || '';
+  if (document.getElementById('fReceiverPhone')) document.getElementById('fReceiverPhone').value = c.receiver_phone || '';
+  if (document.getElementById('fReceivedDate')) document.getElementById('fReceivedDate').value = c.received_date || todayThai;
 
   loadSignatureToCanvas('sigInspector', c.inspector_signature);
   loadSignatureToCanvas('sigReceiver', c.receiver_signature);
-  document.getElementById('modalSaveStatus').textContent = c.updated_at ? `อัปเดตล่าสุด: ${new Date(c.updated_at).toLocaleString('th-TH')}` : 'ยังไม่มีประวัติการบันทึกในปีนี้';
+  document.getElementById('modalSaveStatus').textContent = c.updated_at ? `อัปเดตล่าสุด: ${new Date(c.updated_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}` : 'ยังไม่เคยบันทึก';
+
+  // Render Circuit #2, #3... directly in the same modal page (Step 1, Step 2-3, Step 5-6)
+  renderAdditionalSiteCircuitsInModal();
   renderModalCompletenessBar();
+  updateHandoverPaperCheatSheet();
+  renderSiteCircuitsInfo();
+  colorizeSiteCircuitFrames();
+}
+
+// Router asset numbers in the data are auto-filled placeholders (province / company name), not real asset numbers → show "-"
+function displayRouterAssetNo(raw) {
+  const v = String(raw ?? '').trim();
+  if (!v || v === '-' || /^สขจ\.[^/]*$/.test(v) || /^1\s*to\s*all$/i.test(v)) return '-';
+  return v;
+}
+
+// Same for Access Point asset numbers: the data holds "<สาขา>/<ห้อง>" placeholders (e.g. สขจ.นครพนม/GECC) → show "-"
+function displayApAssetNo(raw) {
+  const v = String(raw ?? '').trim();
+  if (!v || v === '-' || /^สข[^/]*\/[A-Za-z]+\d*$/.test(v)) return '-';
+  return v;
+}
+
+// One colour per circuit (cycles after 5) so each circuit is easy to tell apart at a glance
+const CIRCUIT_COLORS = [
+  { solid: '#2563eb', line: '#3b82f6', mid: '#dbeafe', soft: '#eff6ff', ink: '#1e3a8a' }, // blue
+  { solid: '#047857', line: '#10b981', mid: '#d1fae5', soft: '#ecfdf5', ink: '#064e3b' }, // green
+  { solid: '#b45309', line: '#f59e0b', mid: '#fde68a', soft: '#fffbeb', ink: '#78350f' }, // amber
+  { solid: '#7c3aed', line: '#8b5cf6', mid: '#ede9fe', soft: '#f5f3ff', ink: '#4c1d95' }, // violet
+  { solid: '#be123c', line: '#f43f5e', mid: '#ffe4e6', soft: '#fff1f2', ink: '#881337' }  // rose
+];
+function circuitColorOf(idx) {
+  return CIRCUIT_COLORS[((idx % CIRCUIT_COLORS.length) + CIRCUIT_COLORS.length) % CIRCUIT_COLORS.length];
+}
+// Inline-style helpers so every tab uses the same colour for the same circuit
+const circuitFrameStyle = idx => `border:2px solid ${circuitColorOf(idx).line};background:${circuitColorOf(idx).soft};`;
+const circuitBadgeStyle = idx => `background:${circuitColorOf(idx).solid};color:#fff;`;
+
+// Access Point cards inside a circuit: same hue as the circuit, a different shade per AP (solid → dark → light)
+function apToneOf(cIdx, apIdx) {
+  const c = circuitColorOf(cIdx);
+  return [
+    { band: c.solid, text: '#fff', border: c.solid },
+    { band: c.ink, text: '#fff', border: c.ink },
+    { band: c.line, text: c.ink, border: c.line }
+  ][((apIdx % 3) + 3) % 3];
+}
+// Odd APs (2nd, 4th…) also get a tinted body so neighbouring AP cards are told apart at a glance
+const apCardStyle = (cIdx, apIdx) => `border:2px solid ${apToneOf(cIdx, apIdx).border};background:${apIdx % 2 ? circuitColorOf(cIdx).mid : '#fff'};`;
+const apCardClass = apIdx => (apIdx % 2 ? 'circuit-tint' : '');
+const apPillStyle = (cIdx, apIdx) => `background:${apToneOf(cIdx, apIdx).band};color:${apToneOf(cIdx, apIdx).text};`;
+// 8px colour bar across the top of the card; negative margins cancel the card padding (px)
+const apTopBarHtml = (cIdx, apIdx, pad) => `<div style="height:8px;background:${apToneOf(cIdx, apIdx).band};margin:-${pad}px -${pad}px 12px"></div>`;
+
+function circuitLabelHtml(idx, text) {
+  const col = circuitColorOf(idx);
+  return `<div class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg" style="background:${col.mid}">
+    <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style="background:${col.solid}">${idx + 1}</span>
+    <span class="text-sm font-bold" style="color:${col.ink}">${text}</span>
+  </div>`;
+}
+
+// Circuit #1 blocks live in static HTML: colour them only when the Site has more than 1 circuit
+function colorizeSiteCircuitFrames() {
+  const multi = Array.isArray(currentSiteCircuits) && currentSiteCircuits.length > 1 && currentCircuit;
+  const col = circuitColorOf(0);
+  const so = multi ? currentSiteCircuits[0].so_number : '';
+  [['circuit1RouterFrame', 'วงจรที่ 1 · Router (ตู้ Rack)'], ['circuit1ApsFrame', 'วงจรที่ 1 · Access Point']].forEach(([id, label]) => {
+    const frame = document.getElementById(id);
+    const lab = document.getElementById(`${id}Label`);
+    if (!frame || !lab) return;
+    frame.classList.toggle('circuit-tint', Boolean(multi));
+    if (multi) {
+      frame.style.cssText = `${circuitFrameStyle(0)} border-radius:12px; padding:12px;`;
+      lab.innerHTML = circuitLabelHtml(0, `${label} · ${so}`);
+      lab.classList.remove('hidden');
+    } else {
+      frame.style.cssText = '';
+      lab.innerHTML = '';
+      lab.classList.add('hidden');
+    }
+  });
+  ['step1Circuit1Badge', 'step23Circuit1Badge'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.cssText = multi ? `background:${col.solid};color:#fff;border-color:${col.solid};` : '';
+  });
+}
+
+// Tab 1: summary of every circuit in this Site (only when the Site has more than 1 circuit)
+function renderSiteCircuitsInfo() {
+  const box = document.getElementById('siteCircuitsInfoBox');
+  if (!box) return;
+  const list = Array.isArray(currentSiteCircuits) ? currentSiteCircuits : [];
+  if (list.length <= 1) {
+    box.classList.add('hidden');
+    box.innerHTML = '';
+    return;
+  }
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  const row = (label, value) => `
+    <div class="flex gap-2 text-xs leading-snug">
+      <span class="w-24 shrink-0 text-slate-600">${label}</span>
+      <span class="min-w-0 flex-1 text-slate-800 break-words">${value || '<span class="text-slate-400">-</span>'}</span>
+    </div>`;
+  const fmtTime = iso => iso ? new Date(iso).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }) : '';
+
+  const cards = list.map((sc, idx) => {
+    const rt = sc.router_info || {};
+    const aps = (Array.isArray(sc.access_points) ? sc.access_points : []).filter(ap => ap && ap.checked !== false);
+    const st = STATUS_BADGE[sc.status] || STATUS_BADGE.pending;
+
+    // Photo progress for this circuit: router 3 + AP 3 each
+    let have = [rt.photo_device, rt.photo_lan2, rt.photo_lan3].filter(Boolean).length;
+    let need = 3;
+    aps.forEach(ap => {
+      need += 3;
+      have += [ap.photo_device, ap.photo_wifi, ap.photo_lan].filter(Boolean).length;
+    });
+
+    const rack = [rt.room && `ห้อง${String(rt.room).replace(/^ห้อง\s*/, '')}`, rt.floor && `ชั้น ${rt.floor}`, rt.building && `อาคาร ${rt.building}`].filter(Boolean).join(' ');
+    const router = [rt.model || 'RB3011', rt.serial_no && `S/N ${rt.serial_no}`].filter(Boolean).join(' · ');
+    const apLines = aps.length
+      ? aps.map((ap, i) => {
+          const room = ap.room_type ? `ห้อง ${ap.room_type}` : (ap.room || `จุดที่ ${i + 1}`);
+          const dev = [ap.brand, ap.model].filter(Boolean).join(' ');
+          return `<div>${esc(room)}${dev ? ` · ${esc(dev)}` : ''}${ap.serial_no ? ` · S/N ${esc(ap.serial_no)}` : ''}</div>`;
+        }).join('')
+      : '';
+    const checkin = sc.checkin_time
+      ? `Check-in ${fmtTime(sc.checkin_time)}${sc.checkout_time ? ` · ส่งตรวจ ${fmtTime(sc.checkout_time)}` : ''}`
+      : 'ยังไม่ได้ Check-in';
+
+    const col = circuitColorOf(idx);
+    const isOpen = sc.so_number === currentCircuit.so_number;
+    const jumpBtn = (step, label) => `<button type="button" onclick="setModalStep('${step}'); scrollToSiteCircuitCard(${idx});" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold" style="background:${col.soft};color:${col.ink};border:1px solid ${col.line}">${label}</button>`;
+
+    return `
+      <div class="rounded-xl overflow-hidden circuit-tint" style="border:2px solid ${col.line};background:${col.soft}">
+        <div class="flex items-center justify-between gap-2 flex-wrap px-3 py-2" style="background:${col.mid}">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style="background:${col.solid}">${idx + 1}</span>
+            <span class="text-sm font-bold" style="color:${col.ink}">วงจรที่ ${idx + 1} · ${esc(sc.so_number)}</span>
+            ${isOpen ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-white" style="color:${col.ink};border:1px solid ${col.line}">กำลังเปิดอยู่</span>` : ''}
+          </div>
+          <span class="px-2 py-0.5 rounded border text-[11px] font-semibold ${st.cls}">${st.label}</span>
+        </div>
+        <div class="p-3 space-y-1.5">
+          ${row('Service No.', esc(sc.service_no))}
+          ${row('ความเร็วสัญญา', esc(sc.speed_pkg))}
+          ${row('สถานที่', esc(sc.branch_name))}
+          ${row('ตู้ Rack', esc(rack))}
+          ${row('Router', esc(router))}
+          ${row('Access Point', apLines ? `${apLines}` : '')}
+          ${row('รูปหน้างาน', `<span class="font-semibold" style="color:${have >= need ? '#047857' : col.ink}">${have}/${need} รูป</span>`)}
+          ${row('สถานะเข้างาน', esc(checkin))}
+          <div class="pt-1.5 flex gap-1.5 flex-wrap">
+            ${jumpBtn('step1', 'ไปที่ Router วงจรนี้ →')}
+            ${jumpBtn('step23', 'ไปที่ Access Point →')}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  box.innerHTML = `
+    <div class="flex items-center justify-between gap-2">
+      <h4 class="text-xs font-bold text-slate-900">ข้อมูลทุกวงจรใน Site นี้ (${list.length} วงจร)</h4>
+      <span class="text-[11px] text-slate-500">สรุปอ่านอย่างเดียว</span>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-2.5">${cards}</div>`;
+  box.classList.remove('hidden');
 }
 
 async function switchCircuitInModal(soNumber) {
@@ -1474,18 +2141,39 @@ async function switchCircuitInModal(soNumber) {
 
 function setRouterRoom(roomName) {
   document.getElementById('rRoom').value = roomName;
+  updateHandoverPaperCheatSheet();
+}
+
+function onRouterModelPresetChange(modelVal) {
+  const customEl = document.getElementById('rCustomModel');
+  if (customEl) customEl.value = modelVal;
+  updateRouterStickerPreview();
+}
+
+function resetRouterForNewDevice() {
+  if (!confirm('ยืนยันการล้างรหัส S/N เดิมของ MikroTik เพื่อกรอกข้อมูลเครื่องใหม่ที่เปลี่ยนระหว่างปีหรือไม่?')) return;
+  const snEl = document.getElementById('rSerialNo');
+  const ocrEl = document.getElementById('rOcrSerialNo');
+  if (snEl) snEl.value = '';
+  if (ocrEl) ocrEl.value = '';
+  updateRouterStickerPreview();
+  validateRouterSnRecheck();
+  if (snEl) snEl.focus();
+  showToast('🔄 ล้างรหัส S/N เดิมแล้ว กรุณาเลือกรุ่นและสแกน/กรอก S/N ของเครื่อง MikroTik ใหม่');
 }
 
 function updateRouterStickerPreview() {
   const so = document.getElementById('fSoNumber')?.value || '-';
   const asset = document.getElementById('rAssetNo')?.value || '-';
+  const customModel = document.getElementById('rCustomModel')?.value.trim();
   const modelEl = document.querySelector('input[name="routerModel"]:checked');
-  const model = modelEl ? modelEl.value : 'RB3011';
+  const model = customModel || (modelEl ? modelEl.value : 'RB3011');
   const sn = document.getElementById('rSerialNo')?.value || '-';
   const preview = document.getElementById('routerStickerPreview');
   if (preview) {
     preview.innerHTML = `เลขที่วงจร: <strong>${so}</strong> | เลขครุภัณฑ์: <strong>${asset}</strong> | ยี่ห้อ/รุ่น: <strong>MikroTik ${model}</strong> | SN: <strong>${sn}</strong>`;
   }
+  updateHandoverPaperCheatSheet();
 }
 
 function validateRouterSpeeds() {
@@ -1523,7 +2211,7 @@ function validateRouterSpeeds() {
 }
 
 // ============================================================================
-// Dynamic Access Points (Steps 2 & 3: DLS / GPS / VICC & GECC)
+// Dynamic Access Points & Rooms (Steps 2 & 3: ปรับเพิ่ม / ยุบห้อง / เปลี่ยนอุปกรณ์ระหว่างปี)
 // ============================================================================
 function syncApInputsFromDom() {
   if (!currentCircuit || !Array.isArray(currentCircuit.access_points)) return;
@@ -1543,15 +2231,20 @@ function syncApInputsFromDom() {
     ap.speed_wifi_ul = document.getElementById(`apWifiUl_${idx}`).value.trim();
     ap.speed_lan_dl = document.getElementById(`apLanDl_${idx}`).value.trim();
     ap.speed_lan_ul = document.getElementById(`apLanUl_${idx}`).value.trim();
+    const noteEl = document.getElementById(`apSpeedNote_${idx}`);
+    if (noteEl) ap.speed_note = noteEl.value.trim();
 
     const chkSticker = document.getElementById(`apChkSticker_${idx}`);
     if (chkSticker) ap.sticker_done = chkSticker.checked;
 
-    const chkMkt4 = document.getElementById(`apGeccMktPort4_${idx}`);
-    if (chkMkt4) ap.gecc_lan_mkt_port4 = chkMkt4.checked;
-
     const chkWanLan = document.getElementById(`apGeccWanToLan_${idx}`);
     if (chkWanLan) ap.gecc_wan_to_lan = chkWanLan.checked;
+
+    const chkRemoteDone = document.getElementById(`apGeccRemoteDone_${idx}`);
+    if (chkRemoteDone) ap.gecc_remote_done = chkRemoteDone.checked;
+
+    const anydeskEl = document.getElementById(`apGeccAnydesk_${idx}`);
+    if (anydeskEl) ap.gecc_anydesk_id = anydeskEl.value.trim();
 
     const chkAuthen = document.getElementById(`apGeccAuthen_${idx}`);
     if (chkAuthen) ap.gecc_authen_wifi = chkAuthen.checked;
@@ -1565,18 +2258,65 @@ function addAccessPointByRoomType(roomTypeCode) {
   currentCircuit.access_points.push(createDefaultAp(nextNo, currentCircuit.province, spec.shortRoom));
   renderAccessPointCards();
   renderModalCompletenessBar();
+  scheduleAutoSaveDraft(`เพิ่มห้อง ${spec.shortRoom}`, true);
+  showToast(`➕ เพิ่ม ${spec.fullLabel} (AP ตัวที่ ${nextNo}) เรียบร้อยแล้ว`);
+}
+
+function addCustomRoomAccessPoint() {
+  syncApInputsFromDom();
+  const customRoom = prompt('ระบุชื่อห้องที่เพิ่มใหม่ในปีนี้ (เช่น ห้องอบรม DLS 2, ห้องงานทะเบียน, ห้องสอบใบขับขี่):', 'ห้องอบรม DLS 2');
+  if (!customRoom || !customRoom.trim()) return;
+  const nextNo = currentCircuit.access_points.length + 1;
+  currentCircuit.access_points.push(createDefaultAp(nextNo, currentCircuit.province, customRoom.trim()));
+  renderAccessPointCards();
+  renderModalCompletenessBar();
+  scheduleAutoSaveDraft(`เพิ่มห้อง ${customRoom.trim()}`, true);
+  showToast(`➕ เพิ่มห้อง "${customRoom.trim()}" (AP ตัวที่ ${nextNo}) เรียบร้อยแล้ว`);
 }
 
 function removeAccessPointSlot(idx) {
-  if (currentCircuit.access_points.length <= 1) {
-    showToast('ต้องมี Access Point อย่างน้อย 1 ตัวต่อวงจร', true);
-    return;
-  }
   syncApInputsFromDom();
+  const targetAp = currentCircuit.access_points[idx];
+  const roomName = targetAp?.room || `ตัวที่ ${idx + 1}`;
+  const confirmed = confirm(
+    `ยืนยันการ "ยุบห้อง / ลบอุปกรณ์ Access Point ตัวที่ ${idx + 1} (${roomName})" ออกจากวงจรนี้หรือไม่?\n` +
+    `(ระบบจะปรับลดจำนวนรูปถ่ายและปรับตารางในรายงาน PDF/Word ตามจำนวนห้องจริงทันที)`
+  );
+  if (!confirmed) return;
+
   currentCircuit.access_points.splice(idx, 1);
   currentCircuit.access_points.forEach((ap, i) => { ap.ap_no = i + 1; });
   renderAccessPointCards();
   renderModalCompletenessBar();
+  scheduleAutoSaveDraft(`ยุบห้อง ${roomName}`, true);
+  showToast(`🗑️ ยุบห้อง / ลบ AP (${roomName}) เรียบร้อยแล้ว — ปัจจุบันเหลือ AP ${currentCircuit.access_points.length} จุด`);
+}
+
+function resetApForNewDevice(idx) {
+  syncApInputsFromDom();
+  const targetAp = currentCircuit.access_points[idx];
+  if (!targetAp) return;
+  if (!confirm(`ยืนยันการล้างรหัส S/N เดิมของ AP ตัวที่ ${idx + 1} (${targetAp.room || ''}) เพื่อกรอกเครื่องใหม่ที่เปลี่ยนระหว่างปีหรือไม่?`)) return;
+  targetAp.serial_no = '';
+  targetAp.ocr_serial_no = '';
+  renderAccessPointCards();
+  scheduleAutoSaveDraft(`ล้าง S/N AP ตัวที่ ${idx + 1}`, true);
+  const snEl = document.getElementById(`apSn_${idx}`);
+  if (snEl) snEl.focus();
+  showToast(`🔄 ล้างรหัส S/N เดิมของ AP ตัวที่ ${idx + 1} แล้ว กรุณาเลือกยี่ห้อ/รุ่นและสแกน S/N เครื่องใหม่`);
+}
+
+function moveAccessPointSlot(idx, delta) {
+  syncApInputsFromDom();
+  const newIdx = idx + delta;
+  if (newIdx < 0 || newIdx >= currentCircuit.access_points.length) return;
+  const temp = currentCircuit.access_points[idx];
+  currentCircuit.access_points[idx] = currentCircuit.access_points[newIdx];
+  currentCircuit.access_points[newIdx] = temp;
+  currentCircuit.access_points.forEach((ap, i) => { ap.ap_no = i + 1; });
+  renderAccessPointCards();
+  renderModalCompletenessBar();
+  scheduleAutoSaveDraft('จัดลำดับห้อง AP', true);
 }
 
 function setApBrand(idx, brand) {
@@ -1587,6 +2327,7 @@ function setApBrand(idx, brand) {
     currentCircuit.access_points[idx].model = presets[0];
   }
   renderAccessPointCards();
+  scheduleAutoSaveDraft(`เปลี่ยนยี่ห้อ AP ตัวที่ ${idx + 1}`, false);
 }
 
 function setApRoomQuick(idx, roomCode) {
@@ -1595,9 +2336,19 @@ function setApRoomQuick(idx, roomCode) {
   currentCircuit.access_points[idx].room = spec.shortRoom;
   currentCircuit.access_points[idx].room_type = spec.code;
   if (currentCircuit) {
-    currentCircuit.access_points[idx].asset_no = `สขจ.${currentCircuit.province}/${spec.code}`;
+    currentCircuit.access_points[idx].asset_no = '-';
   }
   renderAccessPointCards();
+  renderModalCompletenessBar();
+  scheduleAutoSaveDraft(`เปลี่ยนประเภทห้องเป็น ${spec.shortRoom}`, true);
+}
+
+function setApSpeedNoteQuick(idx, noteText) {
+  const el = document.getElementById(`apSpeedNote_${idx}`);
+  if (el) {
+    el.value = noteText;
+    syncApInputsFromDom();
+  }
 }
 
 function validateApSpeedBadge(dlStr, ulStr, minDl, minUl) {
@@ -1620,7 +2371,7 @@ function onApSpeedOrStickerInput(idx) {
 
   const stickerEl = document.getElementById(`apStickerPreview_${idx}`);
   if (stickerEl) {
-    stickerEl.innerHTML = `เลขที่วงจร: <strong>${so}</strong> | เลขครุภัณฑ์: <strong>${ap.asset_no || '-'}</strong> | ยี่ห้อ/รุ่น: <strong>${ap.brand || ''} ${ap.model || ''}</strong> | SN: <strong>${ap.serial_no || '-'}</strong>`;
+    stickerEl.innerHTML = `เลขที่วงจร: <strong>${so}</strong> | เลขครุภัณฑ์: <strong>${displayApAssetNo(ap.asset_no)}</strong> | ยี่ห้อ/รุ่น: <strong>${ap.brand || ''} ${ap.model || ''}</strong> | SN: <strong>${ap.serial_no || '-'}</strong>`;
   }
 
   const snBadgeEl = document.getElementById(`apSnRecheckBadge_${idx}`);
@@ -1639,6 +2390,80 @@ function onApSpeedOrStickerInput(idx) {
   if (lanBadgeEl) {
     lanBadgeEl.innerHTML = validateApSpeedBadge(ap.speed_lan_dl, ap.speed_lan_ul, spec.lanMinDl, spec.lanMinUl);
   }
+
+  updateHandoverPaperCheatSheet();
+}
+
+function updateHandoverPaperCheatSheet() {
+  const box = document.getElementById('handoverPaperCheatSheetBox');
+  if (!box || !currentCircuit) return;
+
+  const siteList = Array.isArray(currentSiteCircuits) && currentSiteCircuits.length > 0 ? currentSiteCircuits : [currentCircuit];
+  const siteName = extractSiteNameClient(currentCircuit);
+  const address = document.getElementById('fAddress')?.value.trim() || currentCircuit.address || '-';
+  const latLong = document.getElementById('fLatLong')?.value.trim() || currentCircuit.lat_long || '-';
+
+  const circuitsHtml = siteList.map((sc, idx) => {
+    const isPrimary = idx === 0;
+    const so = isPrimary ? (document.getElementById('fSoNumber')?.value.trim() || sc.so_number || '-') : (sc.so_number || '-');
+    const svc = isPrimary ? (document.getElementById('fServiceNo')?.value.trim() || sc.service_no || '-') : (sc.service_no || '-');
+    const pkg = isPrimary ? (document.getElementById('fSpeedPkg')?.value.trim() || sc.speed_pkg || '1000Mbps/500Mbps') : (sc.speed_pkg || '1000Mbps/500Mbps');
+    const rt = sc.router_info || {};
+    const rModel = isPrimary
+      ? (document.getElementById('rCustomModel')?.value.trim() || document.querySelector('input[name="routerModel"]:checked')?.value || rt.model || 'RB3011')
+      : (rt.model || 'RB3011');
+    const rSn = isPrimary
+      ? (document.getElementById('rSerialNo')?.value.trim().toUpperCase() || rt.serial_no || '-')
+      : (rt.serial_no || '-');
+    const rAsset = isPrimary
+      ? (document.getElementById('rAssetNo')?.value.trim() || displayRouterAssetNo(rt.asset_no))
+      : displayRouterAssetNo(rt.asset_no);
+    const rRoom = isPrimary
+      ? (document.getElementById('rRoom')?.value.trim() || rt.room || '-')
+      : (rt.room || '-');
+    const rFloor = isPrimary
+      ? (document.getElementById('rFloor')?.value.trim() || rt.floor || '1')
+      : (rt.floor || '1');
+    const rBldg = isPrimary
+      ? (document.getElementById('rBuilding')?.value.trim() || rt.building || '1')
+      : (rt.building || '1');
+
+    const aps = Array.isArray(sc.access_points) ? sc.access_points : [];
+    const apLines = aps.length > 0
+      ? aps.map((ap, i) => `
+          <div class="pl-3 border-l-2 border-slate-300 text-slate-700">
+            • <strong>AP ${i + 1} (${ap.room || '-'} ชั้น ${ap.floor || '1'} อาคาร ${ap.building || '1'}):</strong> ${ap.brand || '-'} ${ap.model || '-'} | S/N: <strong class="font-mono">${ap.serial_no || '-'}</strong> | ครุภัณฑ์: ${displayApAssetNo(ap.asset_no)}
+          </div>
+        `).join('')
+      : `<div class="pl-3 text-slate-400">ไม่มี Access Point</div>`;
+
+    const multiSite = siteList.length > 1;
+    const ccol = circuitColorOf(idx);
+    return `
+      <div class="p-2.5 rounded-lg space-y-1 ${multiSite ? '' : 'bg-slate-50 border border-slate-200'}" style="${multiSite ? `border:2px solid ${ccol.line};background:${ccol.soft};` : ''}">
+        <div class="flex items-center justify-between flex-wrap gap-1">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            ${multiSite ? `<span class="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0" style="background:${ccol.solid}">${idx + 1}</span>` : ''}
+            <strong ${multiSite ? `style="color:${ccol.ink}"` : ''}>วงจรที่ ${idx + 1}:</strong> <span class="font-mono font-bold text-slate-900">${so}</span> (Service: ${svc}) • ${pkg}
+          </div>
+          <span class="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 text-[10px] font-semibold">${idx < 3 ? 'หน้า 1/2' : 'หน้า 2/2'}</span>
+        </div>
+        <div class="pl-3 border-l-2 border-slate-400 text-slate-700">
+          • <strong>Router (ห้อง${rRoom} ชั้น ${rFloor} อาคาร ${rBldg}):</strong> MikroTik ${rModel} | S/N: <strong class="font-mono">${rSn}</strong> | ครุภัณฑ์: ${rAsset}
+        </div>
+        ${apLines}
+      </div>
+    `;
+  }).join('');
+
+  box.innerHTML = `
+    <div class="p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-700">
+      <strong>สาขา:</strong> ${siteName} (จ.${currentCircuit.province || '-'}) | <strong>ที่อยู่:</strong> ${address} | <strong>พิกัด:</strong> ${latLong}
+    </div>
+    <div class="space-y-2 mt-1.5">
+      ${circuitsHtml}
+    </div>
+  `;
 }
 
 function renderAccessPointCards() {
@@ -1646,173 +2471,167 @@ function renderAccessPointCards() {
   const aps = currentCircuit.access_points || [];
   const so = document.getElementById('fSoNumber')?.value || currentCircuit.so_number;
 
+  const countBadge = document.getElementById('apRoomCountSummaryBadge');
+  if (countBadge) {
+    countBadge.textContent = `จำนวนห้อง AP: ${aps.length} จุด`;
+  }
+
+  if (aps.length === 0) {
+    container.innerHTML = `
+      <div class="border border-dashed border-slate-300 rounded-xl p-6 text-center bg-white space-y-1">
+        <div class="text-sm font-bold text-slate-700">ไม่มีอุปกรณ์ Access Point ในวงจรนี้</div>
+        <div class="text-xs text-slate-500">กดปุ่ม "+ ห้อง..." ด้านบนเพื่อเพิ่มห้องตามหน้างานจริง</div>
+      </div>
+    `;
+    updateHandoverPaperCheatSheet();
+    return;
+  }
+
   container.innerHTML = aps.map((ap, idx) => {
     const models = AP_MODEL_PRESETS[ap.brand] || ['A3002RU', 'Archer C6', 'DIR-825'];
     const spec = detectRoomSpec(ap.room);
     const snCmp = compareSnStringsClient(ap.serial_no, ap.ocr_serial_no);
+    const roomPhotoCount = (ap.photo_device ? 1 : 0) + (ap.photo_wifi ? 1 : 0) + (ap.photo_lan ? 1 : 0);
 
     return `
-      <div class="border-2 ${spec.isGecc ? 'border-amber-400 bg-amber-50/20' : 'border-slate-200 bg-slate-50/40'} rounded-xl p-4 space-y-3.5">
-        <!-- AP Header & Room Type Selector -->
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 pb-2.5 gap-2">
+      <div id="c1_apCard_${idx}" class="${apCardClass(idx)} rounded-xl p-4 space-y-3 transition overflow-hidden" style="${apCardStyle(0, idx)}">
+        ${apTopBarHtml(0, idx, 16)}
+        <!-- AP Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-2.5 gap-2">
           <div class="flex items-center gap-2 flex-wrap">
-            <span class="px-2.5 py-1 rounded-lg ${spec.isGecc ? 'bg-amber-600' : 'bg-emerald-600'} text-white text-xs font-bold">
-              Access Point ตัวที่ ${idx + 1}: ${spec.fullLabel}
+            <span class="px-2.5 py-1 rounded-md text-xs font-bold" style="${apPillStyle(0, idx)}">
+              AP #${idx + 1}: ${ap.room || spec.fullLabel}
             </span>
-            <span class="text-xs font-bold px-2 py-0.5 rounded bg-white border border-slate-300 text-slate-700">
-              SSID: ${spec.ssid} | LAN ≥ ${spec.lanMinDl}/${spec.lanMinUl}M | WiFi ≥ ${spec.wifiMinDl}/${spec.wifiMinUl}M
+            <span class="text-xs text-slate-500">
+              SSID: <strong class="text-slate-700">${spec.ssid}</strong> • LAN ≥ ${spec.lanMinDl}/${spec.lanMinUl}M • WiFi ≥ ${spec.wifiMinDl}/${spec.wifiMinUl}M
+            </span>
+            <span class="text-[11px] font-semibold px-2 py-0.5 rounded ${roomPhotoCount >= 3 && ap.serial_no ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'}">
+              รูป ${roomPhotoCount}/3
             </span>
           </div>
-          <button type="button" onclick="removeAccessPointSlot(${idx})" class="text-xs text-rose-600 hover:underline font-semibold self-end sm:self-auto">
-            🗑️ ลบจุดนี้
-          </button>
-        </div>
-
-        <!-- Room Type Quick Selector (2.3.1 DLS, 2.3.2 GPS, 2.3.3 VICC, 3. GECC) -->
-        <div class="flex items-center gap-1.5 flex-wrap text-xs">
-          <span class="font-bold text-slate-600">เลือกประเภทห้องของ AP ตัวที่ ${idx + 1}:</span>
-          <button type="button" onclick="setApRoomQuick(${idx}, 'GPS')" class="px-2.5 py-1 rounded-lg border font-semibold ${spec.code === 'GPS' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'}">
-            2.3.2 ศูนย์เดินรถ GPS (LAN 350/200M)
-          </button>
-          <button type="button" onclick="setApRoomQuick(${idx}, 'GECC')" class="px-2.5 py-1 rounded-lg border font-semibold ${spec.code === 'GECC' ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'}">
-            3. ห้องประชาสัมพันธ์ GECC (ย้ายสาย + Authen + LAN 300/150M)
-          </button>
-          <button type="button" onclick="setApRoomQuick(${idx}, 'DLS')" class="px-2.5 py-1 rounded-lg border font-semibold ${spec.code === 'DLS' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'}">
-            2.3.1 ห้องอบรม DLS (LAN 300/150M)
-          </button>
-          <button type="button" onclick="setApRoomQuick(${idx}, 'VICC')" class="px-2.5 py-1 rounded-lg border font-semibold ${spec.code === 'VICC' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'}">
-            2.3.3 ตรวจสภาพ VICC (LAN 350/200M)
-          </button>
-        </div>
-
-        <!-- Step 2.2 / 3.2 Checklist + Special Step 3.3 - 3.5 Checklist for GECC Room -->
-        <div class="${spec.isGecc ? 'bg-amber-100/80 border-amber-400' : 'bg-emerald-50/70 border-emerald-200'} border rounded-xl p-3 space-y-2 text-xs">
-          <div class="font-bold ${spec.isGecc ? 'text-amber-950' : 'text-emerald-950'}">
-            ${spec.isGecc ? '⚠️ ขั้นตอนบังคับสำหรับ ห้อง GECC (ข้อ 3.1 – 3.6):' : `✅ ขั้นตอนปฏิบัติงานช่างสำหรับ ${spec.fullLabel} (ข้อ 2.1 – 2.3):`}
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <div class="flex items-center gap-1 mr-1">
+              ${['DLS', 'GPS', 'VICC', 'GECC'].map(code => `
+                <button type="button" onclick="setApRoomQuick(${idx}, '${code}')" class="px-2 py-0.5 rounded border text-[11px] font-semibold ${spec.code === code ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}">${code}</button>
+              `).join('')}
+            </div>
+            <button type="button" onclick="resetApForNewDevice(${idx})" class="px-2 py-1 rounded border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-[11px] font-medium">
+              ล้าง S/N
+            </button>
+            <button type="button" onclick="removeAccessPointSlot(${idx})" class="px-2 py-1 rounded border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-medium">
+              ลบห้อง
+            </button>
           </div>
+        </div>
 
-          <label class="flex items-start gap-2 text-slate-800 cursor-pointer">
-            <input id="apChkSticker_${idx}" type="checkbox" ${ap.sticker_done ? 'checked' : ''} onchange="syncApInputsFromDom()" class="mt-0.5 rounded border-slate-400" />
-            <span><strong>${spec.isGecc ? '3.2' : '2.2'}</strong> ลอก Sticker เก่า และติด Sticker ใหม่ เขียนรายละเอียด <strong>(เลขที่วงจร / เลขครุภัณฑ์ / ยี่ห้อ,รุ่น / SN)</strong> พร้อมถ่ายรูปอุปกรณ์ให้เห็น Sticker ชัดเจน</span>
+        <!-- Checklist (1 line + GECC Authen note if GECC) -->
+        <div class="flex flex-wrap items-center gap-4 text-xs text-slate-700 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200/80">
+          <label class="flex items-center gap-1.5 cursor-pointer">
+            <input id="apChkSticker_${idx}" type="checkbox" ${ap.sticker_done ? 'checked' : ''} onchange="syncApInputsFromDom()" class="rounded border-slate-300" />
+            <span>ติด Sticker ใหม่และถ่ายรูปเห็นชัดเจน</span>
           </label>
-
           ${spec.isGecc ? `
-            <label class="flex items-start gap-2 text-amber-950 font-semibold cursor-pointer">
-              <input id="apGeccMktPort4_${idx}" type="checkbox" ${ap.gecc_lan_mkt_port4 ? 'checked' : ''} onchange="syncApInputsFromDom()" class="mt-0.5 rounded border-amber-500 text-amber-700" />
-              <span><strong>3.3</strong> ย้ายสายแลน ที่ MikroTik จาก <strong>Port 5 หรือ 6 หลัง MikroTik ➔ ไปยัง Port 4</strong> เรียบร้อยแล้ว</span>
-            </label>
-            <label class="flex items-start gap-2 text-amber-950 font-semibold cursor-pointer">
-              <input id="apGeccWanToLan_${idx}" type="checkbox" ${ap.gecc_wan_to_lan ? 'checked' : ''} onchange="syncApInputsFromDom()" class="mt-0.5 rounded border-amber-500 text-amber-700" />
-              <span><strong>3.4</strong> ย้ายสายแลน ที่ AP ห้อง GECC จาก <strong>Port WAN (ที่มาจาก MikroTik) ➔ ไปยัง Port LAN ที่ว่างอยู่</strong> เรียบร้อยแล้ว</span>
-            </label>
-            <label class="flex items-start gap-2 text-amber-950 font-semibold cursor-pointer">
-              <input id="apGeccAuthen_${idx}" type="checkbox" ${ap.gecc_authen_wifi ? 'checked' : ''} onchange="syncApInputsFromDom()" class="mt-0.5 rounded border-amber-500 text-amber-700" />
-              <span><strong>3.5</strong> ทดสอบเข้าใช้งานระบบ <strong>Authen WiFi</strong> สำเร็จเรียบร้อยแล้ว</span>
+            <label class="flex items-center gap-1.5 cursor-pointer text-amber-900 font-semibold">
+              <input id="apGeccAuthen_${idx}" type="checkbox" ${ap.gecc_authen_wifi ? 'checked' : ''} onchange="syncApInputsFromDom()" class="rounded border-amber-400" />
+              <span>ห้อง GECC: ลงทะเบียนใช้งานระบบ Authen ก่อนต่อ LAN / WiFi แล้ว</span>
             </label>
           ` : ''}
         </div>
 
         <!-- Brand & Model & Room & Floor -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
           <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">ยี่ห้อ Access Point</label>
-            <select id="apBrand_${idx}" onchange="setApBrand(${idx}, this.value)" class="w-full px-2.5 py-2 rounded-lg border border-slate-300 text-sm font-bold bg-white">
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">ยี่ห้อ AP</label>
+            <select id="apBrand_${idx}" onchange="setApBrand(${idx}, this.value)" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold bg-white">
               <option value="TOTOLINK" ${ap.brand === 'TOTOLINK' ? 'selected' : ''}>TOTOLINK</option>
               <option value="D-LINK" ${ap.brand === 'D-LINK' ? 'selected' : ''}>D-LINK</option>
               <option value="TP-LINK" ${ap.brand === 'TP-LINK' ? 'selected' : ''}>TP-LINK</option>
+              <option value="อื่นๆ" ${!['TOTOLINK', 'D-LINK', 'TP-LINK'].includes(ap.brand) ? 'selected' : ''}>อื่นๆ</option>
             </select>
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">รุ่น (Model)</label>
-            <input id="apModel_${idx}" list="apModelsList_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.model || ''}" placeholder="เช่น A3002RU" class="w-full px-2.5 py-2 rounded-lg border border-slate-300 text-sm bg-white" />
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">รุ่น (Model)</label>
+            <input id="apModel_${idx}" list="apModelsList_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.model || ''}" placeholder="เช่น A3002RU" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white" />
             <datalist id="apModelsList_${idx}">
               ${models.map(m => `<option value="${m}">`).join('')}
             </datalist>
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">เลขครุภัณฑ์ AP ตัวที่ ${idx + 1}</label>
-            <input id="apAsset_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.asset_no || ''}" placeholder="เช่น สขจ.จังหวัด/GPS" class="w-full px-2.5 py-2 rounded-lg border border-slate-300 text-sm bg-white" />
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">เลขครุภัณฑ์</label>
+            <input id="apAsset_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${displayApAssetNo(ap.asset_no)}" placeholder="-" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white" />
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">สถานที่ติดตั้ง (ห้อง)</label>
-            <input id="apRoom_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.room || ''}" placeholder="เช่น ห้อง GPS" class="w-full px-2.5 py-2 rounded-lg border border-slate-300 text-sm bg-white" />
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">ชื่อห้อง</label>
+            <input id="apRoom_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.room || ''}" placeholder="เช่น ห้อง GPS" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white font-semibold" />
           </div>
           <div class="grid grid-cols-2 gap-1.5">
             <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">ชั้น</label>
-              <input id="apFloor_${idx}" type="text" value="${ap.floor || '1'}" class="w-full px-2 py-2 rounded-lg border border-slate-300 text-sm text-center bg-white" />
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">ชั้น</label>
+              <input id="apFloor_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.floor || '1'}" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-xs text-center bg-white" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">อาคาร</label>
-              <input id="apBuilding_${idx}" type="text" value="${ap.building || '1'}" class="w-full px-2 py-2 rounded-lg border border-slate-300 text-sm text-center bg-white" />
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">อาคาร</label>
+              <input id="apBuilding_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.building || '1'}" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-xs text-center bg-white" />
             </div>
           </div>
         </div>
 
-        <!-- AP S/N OCR vs Technician Manual Input Recheck Box -->
-        <div class="bg-white rounded-xl p-3 border-2 border-slate-200 space-y-2">
+        <!-- AP S/N Row -->
+        <div class="bg-slate-50 rounded-lg p-3 border border-slate-200 space-y-2">
           <div class="flex items-center justify-between flex-wrap gap-2">
-            <span class="text-xs font-extrabold text-slate-800">🔍 ระบบตรวจสอบความถูกต้อง S/N (AP ตัวที่ ${idx + 1}: ช่างกรอก vs ระบบแปลง OCR)</span>
-            <span id="apSnRecheckBadge_${idx}" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold ${snCmp.cls}">${snCmp.label}</span>
+            <span class="text-xs font-bold text-slate-700">Serial No. (S/N)</span>
+            <span id="apSnRecheckBadge_${idx}" class="px-2 py-0.5 rounded text-[11px] font-semibold ${snCmp.cls}">${snCmp.label}</span>
           </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <div>
-              <label class="block text-[11px] font-bold text-slate-700 mb-1">1) S/N ที่ช่างกรอกยืนยัน (Manual Input)</label>
-              <input id="apSn_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.serial_no || ''}" placeholder="เช่น A3002RU191B05936" class="w-full px-2.5 py-2 rounded-lg border border-slate-300 text-sm font-mono uppercase bg-white" />
-            </div>
-            <div>
-              <label class="block text-[11px] font-bold text-indigo-800 mb-1">2) S/N ที่ระบบแปลงจากรูป (OCR Auto-Extract)</label>
-              <div class="flex gap-1.5">
-                <input id="apOcrSn_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.ocr_serial_no || ''}" placeholder="รออัปโหลดรูปหรือกดสแกน S/N..." class="flex-1 px-2.5 py-2 rounded-lg border border-indigo-200 bg-indigo-50/50 text-sm font-mono uppercase text-indigo-900" />
-                <button type="button" onclick="openSnScanner('ap_${idx}')" class="px-2.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shrink-0 shadow-sm flex items-center gap-1" title="ถ่ายรูปสติ๊กเกอร์เพื่อแปลงเป็น S/N อัตโนมัติ">
-                  📷 สแกน OCR
-                </button>
-                <button type="button" onclick="copyApOcrToManual(${idx})" class="px-2 py-2 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-indigo-800 text-xs font-bold shrink-0" title="คัดลอกค่า OCR ไปใส่ช่องช่างกรอก">
-                  ⬅️ ใช้ค่านี้
-                </button>
-              </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <input id="apSn_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.serial_no || ''}" placeholder="รหัส S/N อุปกรณ์ AP" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-mono uppercase bg-white font-bold" />
+            <div class="flex gap-1.5">
+              <input id="apOcrSn_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.ocr_serial_no || ''}" placeholder="ค่า S/N จาก OCR" class="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-mono uppercase text-slate-600" />
+              <button type="button" onclick="openSnScanner('ap_${idx}')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold shrink-0">
+                สแกน S/N
+              </button>
+              <button type="button" onclick="copyApOcrToManual(${idx})" class="px-2 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold shrink-0">
+                ใช้ค่านี้
+              </button>
             </div>
           </div>
           <div id="apSnCandidates_${idx}" class="flex items-center gap-1 flex-wrap text-[11px]"></div>
-        </div>
-
-        <!-- Sticker Text Helper for AP -->
-        <div class="bg-white p-2.5 rounded-xl border border-slate-200 text-xs space-y-1">
-          <div class="font-bold text-slate-600">🏷️ ข้อความสำหรับเขียนลงบน Sticker ใหม่ (AP ตัวที่ ${idx + 1}):</div>
-          <div id="apStickerPreview_${idx}" class="font-mono text-xs text-slate-800 bg-amber-50 px-2.5 py-1.5 rounded border border-amber-200">
-            เลขที่วงจร: <strong>${so}</strong> | เลขครุภัณฑ์: <strong>${ap.asset_no || '-'}</strong> | ยี่ห้อ/รุ่น: <strong>${ap.brand || ''} ${ap.model || ''}</strong> | SN: <strong>${ap.serial_no || '-'}</strong>
+          <div id="apStickerPreview_${idx}" class="text-[11px] text-slate-500 font-mono pt-1 border-t border-slate-200/70">
+            ข้อความ Sticker: <strong>${so}</strong> | <strong>${displayApAssetNo(ap.asset_no)}</strong> | <strong>${ap.brand || ''} ${ap.model || ''}</strong> | SN: <strong>${ap.serial_no || '-'}</strong>
           </div>
         </div>
 
-        <!-- AP Speed Tests (WiFi & LAN) with Room-Specific Threshold Validation -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white p-3.5 rounded-xl border border-slate-200">
-          <div>
+        <!-- AP Speed Tests (WiFi & LAN) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          <div class="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
             <div class="flex items-center justify-between mb-1.5">
-              <span class="text-xs font-bold text-slate-700">📶 ทดสอบ WiFi (SSID: ${spec.ssid} | เกณฑ์ ≥ ${spec.wifiMinDl}/${spec.wifiMinUl}M)</span>
+              <span class="text-xs font-semibold text-slate-700">ผลทดสอบ WiFi (≥ ${spec.wifiMinDl}/${spec.wifiMinUl}M)</span>
               <span id="apWifiBadge_${idx}">${validateApSpeedBadge(ap.speed_wifi_dl, ap.speed_wifi_ul, spec.wifiMinDl, spec.wifiMinUl)}</span>
             </div>
             <div class="grid grid-cols-2 gap-2">
-              <input id="apWifiDl_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.speed_wifi_dl || ''}" placeholder="Download (≥ ${spec.wifiMinDl}M)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs" />
-              <input id="apWifiUl_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.speed_wifi_ul || ''}" placeholder="Upload (≥ ${spec.wifiMinUl}M)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs" />
+              <input id="apWifiDl_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.speed_wifi_dl || ''}" placeholder="Download (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
+              <input id="apWifiUl_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.speed_wifi_ul || ''}" placeholder="Upload (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
             </div>
           </div>
-          <div>
+          <div class="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
             <div class="flex items-center justify-between mb-1.5">
-              <span class="text-xs font-bold text-slate-700">🔌 ทดสอบสาย LAN (Port ไหนก็ได้ | เกณฑ์ ≥ ${spec.lanMinDl}/${spec.lanMinUl}M)</span>
+              <span class="text-xs font-semibold text-slate-700">ผลทดสอบ Port LAN (≥ ${spec.lanMinDl}/${spec.lanMinUl}M)</span>
               <span id="apLanBadge_${idx}">${validateApSpeedBadge(ap.speed_lan_dl, ap.speed_lan_ul, spec.lanMinDl, spec.lanMinUl)}</span>
             </div>
             <div class="grid grid-cols-2 gap-2">
-              <input id="apLanDl_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.speed_lan_dl || ''}" placeholder="Download (≥ ${spec.lanMinDl}M)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs" />
-              <input id="apLanUl_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.speed_lan_ul || ''}" placeholder="Upload (≥ ${spec.lanMinUl}M)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs" />
+              <input id="apLanDl_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.speed_lan_dl || ''}" placeholder="Download (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
+              <input id="apLanUl_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.speed_lan_ul || ''}" placeholder="Upload (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
             </div>
           </div>
         </div>
+        <div>
+          <input id="apSpeedNote_${idx}" type="text" value="${ap.speed_note || ''}" oninput="syncApInputsFromDom()" placeholder="หมายเหตุความเร็ว (ถ้ามี เช่น ห้อง DLS ติดสอบ)..." class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-slate-50" />
+        </div>
 
         <!-- AP 3 Photo Upload Slots -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div id="slotApDevice_${idx}" class="border border-dashed border-slate-300 rounded-xl p-3 text-center bg-white"></div>
-          <div id="slotApWifi_${idx}" class="border border-dashed border-slate-300 rounded-xl p-3 text-center bg-white"></div>
-          <div id="slotApLan_${idx}" class="border border-dashed border-slate-300 rounded-xl p-3 text-center bg-white"></div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div id="slotApDevice_${idx}" class="border border-dashed border-slate-300 rounded-lg p-2.5 text-center bg-slate-50/50"></div>
+          <div id="slotApWifi_${idx}" class="border border-dashed border-slate-300 rounded-lg p-2.5 text-center bg-slate-50/50"></div>
+          <div id="slotApLan_${idx}" class="border border-dashed border-slate-300 rounded-lg p-2.5 text-center bg-slate-50/50"></div>
         </div>
       </div>
     `;
@@ -1821,75 +2640,88 @@ function renderAccessPointCards() {
   // Render photo uploaders for each AP
   aps.forEach((ap, idx) => {
     const spec = detectRoomSpec(ap.room);
-    renderPhotoSlot(`slotApDevice_${idx}`, `ap${idx + 1}_device`, `1. รูปถ่าย AP ตัวที่ ${idx + 1} (${ap.room || ''}) เห็น Sticker ชัดเจน`, ap.photo_device, url => {
+    renderPhotoSlot(`slotApDevice_${idx}`, `ap${idx + 1}_device`, `1) รูปอุปกรณ์ AP + Sticker (${ap.room || spec.code})`, ap.photo_device, url => {
       currentCircuit.access_points[idx].photo_device = url;
       renderModalCompletenessBar();
     });
-    renderPhotoSlot(`slotApWifi_${idx}`, `ap${idx + 1}_wifi`, `2. รูปผลทดสอบ WiFi (${spec.ssid} ≥ ${spec.wifiMinDl}/${spec.wifiMinUl}M)`, ap.photo_wifi, url => {
+    renderPhotoSlot(`slotApWifi_${idx}`, `ap${idx + 1}_wifi`, `2) รูปผลทดสอบ WiFi (${spec.ssid})`, ap.photo_wifi, url => {
       currentCircuit.access_points[idx].photo_wifi = url;
       renderModalCompletenessBar();
     });
-    renderPhotoSlot(`slotApLan_${idx}`, `ap${idx + 1}_lan`, `3. รูปผลทดสอบสาย LAN (${spec.code} ≥ ${spec.lanMinDl}/${spec.lanMinUl}M)`, ap.photo_lan, url => {
+    renderPhotoSlot(`slotApLan_${idx}`, `ap${idx + 1}_lan`, `3) รูปผลทดสอบ Port LAN (${spec.code})`, ap.photo_lan, url => {
       currentCircuit.access_points[idx].photo_lan = url;
       renderModalCompletenessBar();
     });
   });
+
+  updateHandoverPaperCheatSheet();
 }
 
 // ============================================================================
 // Photo Upload Helper (with Auto S/N OCR on Device Sticker Photos!)
+// Supports both Primary Circuit (cIdx=0) and Additional Site Circuits (cIdx>=1)
 // ============================================================================
-function renderPhotoSlot(containerId, slotKey, label, currentUrl, onUploaded) {
+function renderPhotoSlot(containerId, slotKey, label, currentUrl, onUploaded, customSoNumber = null, customSnTarget = null) {
   const el = document.getElementById(containerId);
   if (!el) return;
 
   const isDeviceStickerSlot = slotKey === 'router_device' || /^ap\d+_device$/.test(slotKey);
-  const snTarget = slotKey === 'router_device'
-    ? 'router'
-    : /^ap(\d+)_device$/.test(slotKey)
-      ? `ap_${ Number(slotKey.match(/^ap(\d+)_device$/)[1]) - 1 }`
-      : null;
+  const isHandoverSlot = slotKey === 'handover_page1' || slotKey === 'handover_page2';
+  const snTarget = customSnTarget || (
+    slotKey === 'router_device'
+      ? 'router'
+      : /^ap(\d+)_device$/.test(slotKey)
+        ? `ap_${Number(slotKey.match(/^ap(\d+)_device$/)[1]) - 1}`
+        : null
+  );
 
   const inputId = `fileInput_${containerId}`;
+  const acceptTypes = isHandoverSlot ? 'image/*,application/pdf' : 'image/*';
   el.innerHTML = `
-    <div class="text-xs font-bold text-slate-700 mb-2">${label}</div>
+    <div class="text-xs font-semibold text-slate-700 mb-1.5">${label}</div>
     ${currentUrl ? `
       <div class="relative group mb-2">
-        <img src="${currentUrl}" class="w-full h-36 object-cover rounded-lg border border-slate-200 mx-auto" />
+        <img src="${currentUrl}" class="w-full h-32 object-cover rounded-lg border border-slate-200 mx-auto" />
         <div class="flex items-center justify-center gap-3 mt-1.5">
           ${isDeviceStickerSlot ? `
-            <button type="button" onclick="readSnFromExistingPhoto('${currentUrl}', '${snTarget}')" class="text-[11px] bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold px-2.5 py-0.5 rounded border border-amber-300">
-              🔍 อ่านค่า S/N จากรูปนี้
+            <button type="button" onclick="readSnFromExistingPhoto('${currentUrl}', '${snTarget}')" class="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-2 py-0.5 rounded border border-slate-300">
+              อ่าน S/N
             </button>
           ` : ''}
-          <button type="button" id="removeBtn_${containerId}" class="text-[11px] text-rose-600 hover:underline font-semibold">ลบรูปนี้</button>
+          <button type="button" id="removeBtn_${containerId}" class="text-[11px] text-rose-600 hover:underline font-medium">ลบรูป</button>
         </div>
       </div>
     ` : `
-      <div class="h-28 flex flex-col items-center justify-center text-slate-400 text-xs bg-slate-100/70 rounded-lg mb-2 border border-slate-200/60">
-        <span class="text-xl mb-1">📷</span>
-        <span>${isDeviceStickerSlot ? 'ถ่ายรูปสติ๊กเกอร์ ระบบจะอ่าน S/N ให้อัตโนมัติ' : 'ยังไม่มีรูปภาพ'}</span>
+      <div class="h-24 flex flex-col items-center justify-center text-slate-400 text-[11px] bg-white rounded-lg mb-2 border border-slate-200 px-2">
+        <span>ยังไม่มีรูปภาพ</span>
       </div>
     `}
-    <label for="${inputId}" class="cursor-pointer inline-block w-full py-1.5 px-3 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs border border-indigo-200 transition">
-      ${currentUrl ? '🔄 เปลี่ยนรูปถ่าย / อัปโหลดใหม่' : (isDeviceStickerSlot ? '📸 ถ่ายรูปอุปกรณ์ (พร้อมอ่าน S/N อัตโนมัติ)' : '📸 ถ่ายรูป / เลือกไฟล์รูปภาพ')}
+    <label for="${inputId}" class="cursor-pointer inline-block w-full py-1.5 px-2.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs border border-slate-300 transition">
+      ${currentUrl ? 'เปลี่ยนรูป / อัปโหลดใหม่' : (isHandoverSlot ? 'เลือกไฟล์สแกน / รูปภาพ' : 'ถ่ายรูป / เลือกรูปภาพ')}
     </label>
-    <input id="${inputId}" type="file" accept="image/*" class="hidden" />
+    <input id="${inputId}" type="file" accept="${acceptTypes}" class="hidden" />
   `;
 
   const fileInput = document.getElementById(inputId);
   fileInput.addEventListener('change', async e => {
     const file = e.target.files?.[0];
     if (!file || !currentCircuit) return;
+    const targetSo = customSoNumber || currentCircuit.so_number;
     try {
-      showToast('กำลังอัปโหลดรูปภาพ...');
-      const compressedDataUrl = await compressImageFile(file, 1400, 0.85);
+      showToast(`กำลังอัปโหลด (${targetSo})...`);
+      let compressedDataUrl = '';
+      if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '')) {
+        const preferredPage = slotKey === 'handover_page2' ? 2 : 1;
+        compressedDataUrl = await renderPdfPageToDataUrl(file, preferredPage);
+      } else {
+        compressedDataUrl = await compressImageFile(file, 1400, 0.85);
+      }
       const res = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          circuitId: currentCircuit.so_number,
-          so_number: currentCircuit.so_number,
+          circuitId: targetSo,
+          so_number: targetSo,
           slot: slotKey,
           category: slotKey,
           dataUrl: compressedDataUrl,
@@ -1899,16 +2731,16 @@ function renderPhotoSlot(containerId, slotKey, label, currentUrl, onUploaded) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Upload failed');
       onUploaded(data.url);
-      renderPhotoSlot(containerId, slotKey, label, data.url, onUploaded);
-      renderModalCompletenessBar(currentCircuit);
+      renderPhotoSlot(containerId, slotKey, label, data.url, onUploaded, customSoNumber, customSnTarget);
+      renderModalCompletenessBar();
 
-      // If this is a device sticker photo (MikroTik or AP), automatically extract S/N!
       if (isDeviceStickerSlot && snTarget) {
-        showToast('อัปโหลดสำเร็จ — กำลังอ่านรหัส S/N จากรูปถ่ายอัตโนมัติ...');
+        showToast('กำลังอ่านรหัส S/N จากรูปถ่าย...');
         await autoExtractSnToField(compressedDataUrl, snTarget);
       } else {
-        showToast('อัปโหลดรูปภาพเรียบร้อยแล้ว');
+        showToast('อัปโหลดเรียบร้อยแล้ว');
       }
+      scheduleAutoSaveDraft('อัปโหลดรูปภาพ', true);
     } catch (err) {
       showToast('อัปโหลดไม่สำเร็จ: ' + err.message, true);
     }
@@ -1918,8 +2750,9 @@ function renderPhotoSlot(containerId, slotKey, label, currentUrl, onUploaded) {
   if (removeBtn) {
     removeBtn.addEventListener('click', () => {
       onUploaded('');
-      renderPhotoSlot(containerId, slotKey, label, '', onUploaded);
-      renderModalCompletenessBar(currentCircuit);
+      renderPhotoSlot(containerId, slotKey, label, '', onUploaded, customSoNumber, customSnTarget);
+      renderModalCompletenessBar();
+      scheduleAutoSaveDraft('ลบรูปภาพ', true);
     });
   }
 }
@@ -1949,6 +2782,874 @@ function compressImageFile(file, maxWidth = 1280, quality = 0.82) {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+// ============================================================================
+// Multi-Circuit Site & Same Rack Cabinet Workspace Functions (วงจรที่ 2, 3...)
+// ============================================================================
+function scrollToSiteCircuitCard(cIdx) {
+  if (cIdx === 0) {
+    const el = document.getElementById('modalSectionStep1');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  const targetId = currentModalStep === 'step23'
+    ? `siteCircuitApsCard_${cIdx}`
+    : currentModalStep === 'step4'
+      ? `siteCircuitHandoverCard_${cIdx}`
+      : `siteCircuitRouterCard_${cIdx}`;
+  const el = document.getElementById(targetId) || document.getElementById(`siteCircuitRouterCard_${cIdx}`);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    el.classList.add('ring-4', 'ring-amber-400');
+    setTimeout(() => el.classList.remove('ring-4', 'ring-amber-400'), 1800);
+  }
+}
+
+function syncRackLocationAcrossSite() {
+  syncApInputsFromDom();
+  syncAdditionalSiteCircuitsFromDom();
+  const room = document.getElementById('rRoom')?.value.trim() || 'วิชาการ';
+  const floor = document.getElementById('rFloor')?.value.trim() || '1';
+  const building = document.getElementById('rBuilding')?.value.trim() || '1';
+
+  if (!Array.isArray(currentSiteCircuits) || currentSiteCircuits.length <= 1) {
+    showToast(`บันทึกตำแหน่งตู้ Rack: ห้อง${room} ชั้น ${floor} อาคาร ${building} แล้ว`);
+    return;
+  }
+
+  for (let i = 1; i < currentSiteCircuits.length; i++) {
+    const sc = currentSiteCircuits[i];
+    if (!sc.router_info) sc.router_info = {};
+    sc.router_info.room = room;
+    sc.router_info.floor = floor;
+    sc.router_info.building = building;
+  }
+  renderAdditionalSiteCircuitsInModal();
+  showToast(`📌 ซิงค์ตำแหน่งตู้ Rack (ห้อง${room} ชั้น ${floor} อาคาร ${building}) ให้ครบทั้ง ${currentSiteCircuits.length} วงจรใน Site นี้แล้ว!`);
+}
+
+function syncAdditionalSiteCircuitsFromDom() {
+  if (!Array.isArray(currentSiteCircuits) || currentSiteCircuits.length <= 1) return;
+  for (let cIdx = 1; cIdx < currentSiteCircuits.length; cIdx++) {
+    const sc = currentSiteCircuits[cIdx];
+    if (!sc) continue;
+    if (!sc.router_info) sc.router_info = {};
+    const rt = sc.router_info;
+
+    const svcEl = document.getElementById(`sc_${cIdx}_serviceNo`);
+    if (svcEl) sc.service_no = svcEl.value.trim();
+    const pkgEl = document.getElementById(`sc_${cIdx}_speedPkg`);
+    if (pkgEl) sc.speed_pkg = pkgEl.value.trim();
+
+    const chkSticker = document.getElementById(`sc_${cIdx}_chkSticker`);
+    if (chkSticker) rt.sticker_done = chkSticker.checked;
+    const chkSpeed = document.getElementById(`sc_${cIdx}_chkSpeed`);
+    if (chkSpeed) rt.speed_tested = chkSpeed.checked;
+
+    const modelEl = document.getElementById(`sc_${cIdx}_rModel`);
+    if (modelEl) rt.model = modelEl.value.trim() || 'RB3011';
+    const snEl = document.getElementById(`sc_${cIdx}_rSn`);
+    if (snEl) rt.serial_no = snEl.value.trim().toUpperCase();
+    const ocrEl = document.getElementById(`sc_${cIdx}_rOcrSn`);
+    if (ocrEl) rt.ocr_serial_no = ocrEl.value.trim().toUpperCase();
+    const assetEl = document.getElementById(`sc_${cIdx}_rAsset`);
+    if (assetEl) rt.asset_no = assetEl.value.trim();
+    const roomEl = document.getElementById(`sc_${cIdx}_rRoom`);
+    if (roomEl) rt.room = roomEl.value.trim();
+    const floorEl = document.getElementById(`sc_${cIdx}_rFloor`);
+    if (floorEl) rt.floor = floorEl.value.trim();
+    const bldEl = document.getElementById(`sc_${cIdx}_rBuilding`);
+    if (bldEl) rt.building = bldEl.value.trim();
+
+    const l2d = document.getElementById(`sc_${cIdx}_lan2Dl`);
+    if (l2d) rt.speed_lan2_dl = l2d.value.trim();
+    const l2u = document.getElementById(`sc_${cIdx}_lan2Ul`);
+    if (l2u) rt.speed_lan2_ul = l2u.value.trim();
+    const l3d = document.getElementById(`sc_${cIdx}_lan3Dl`);
+    if (l3d) rt.speed_lan3_dl = l3d.value.trim();
+    const l3u = document.getElementById(`sc_${cIdx}_lan3Ul`);
+    if (l3u) rt.speed_lan3_ul = l3u.value.trim();
+
+    const chkDoc1 = document.getElementById(`sc_${cIdx}_chkDocFilled`);
+    if (chkDoc1) rt.doc_filled = chkDoc1.checked;
+    const chkDoc2 = document.getElementById(`sc_${cIdx}_chkDocStamped`);
+    if (chkDoc2) rt.doc_stamped = chkDoc2.checked;
+
+    const remEl = document.getElementById(`sc_${cIdx}_remarks`);
+    if (remEl) sc.remarks = remEl.value.trim();
+
+    // Sync APs of this additional circuit
+    if (Array.isArray(sc.access_points)) {
+      sc.access_points.forEach((ap, apIdx) => {
+        const bEl = document.getElementById(`sc_${cIdx}_apBrand_${apIdx}`);
+        if (!bEl) return;
+        ap.brand = bEl.value;
+        ap.model = (document.getElementById(`sc_${cIdx}_apModel_${apIdx}`)?.value || '').trim();
+        ap.serial_no = (document.getElementById(`sc_${cIdx}_apSn_${apIdx}`)?.value || '').trim().toUpperCase();
+        ap.ocr_serial_no = (document.getElementById(`sc_${cIdx}_apOcrSn_${apIdx}`)?.value || '').trim().toUpperCase();
+        ap.asset_no = (document.getElementById(`sc_${cIdx}_apAsset_${apIdx}`)?.value || '').trim();
+        ap.room = (document.getElementById(`sc_${cIdx}_apRoom_${apIdx}`)?.value || '').trim();
+        ap.floor = (document.getElementById(`sc_${cIdx}_apFloor_${apIdx}`)?.value || '').trim();
+        ap.building = (document.getElementById(`sc_${cIdx}_apBuilding_${apIdx}`)?.value || '').trim();
+        ap.speed_wifi_dl = (document.getElementById(`sc_${cIdx}_apWifiDl_${apIdx}`)?.value || '').trim();
+        ap.speed_wifi_ul = (document.getElementById(`sc_${cIdx}_apWifiUl_${apIdx}`)?.value || '').trim();
+        ap.speed_lan_dl = (document.getElementById(`sc_${cIdx}_apLanDl_${apIdx}`)?.value || '').trim();
+        ap.speed_lan_ul = (document.getElementById(`sc_${cIdx}_apLanUl_${apIdx}`)?.value || '').trim();
+        ap.speed_note = (document.getElementById(`sc_${cIdx}_apNote_${apIdx}`)?.value || '').trim();
+
+        const cSt = document.getElementById(`sc_${cIdx}_apChkSticker_${apIdx}`);
+        if (cSt) ap.sticker_done = cSt.checked;
+        const cWl = document.getElementById(`sc_${cIdx}_apGeccWanToLan_${apIdx}`);
+        if (cWl) ap.gecc_wan_to_lan = cWl.checked;
+        const cRm = document.getElementById(`sc_${cIdx}_apGeccRemoteDone_${apIdx}`);
+        if (cRm) ap.gecc_remote_done = cRm.checked;
+        const cAd = document.getElementById(`sc_${cIdx}_apGeccAnydesk_${apIdx}`);
+        if (cAd) ap.gecc_anydesk_id = cAd.value.trim();
+        const cAu = document.getElementById(`sc_${cIdx}_apGeccAuthen_${apIdx}`);
+        if (cAu) ap.gecc_authen_wifi = cAu.checked;
+      });
+    }
+  }
+}
+
+function onAdditionalCircuitInput(cIdx) {
+  syncAdditionalSiteCircuitsFromDom();
+  const sc = currentSiteCircuits[cIdx];
+  if (!sc) return;
+  const rt = sc.router_info || {};
+
+  // Update Router Sticker Preview
+  const stEl = document.getElementById(`sc_${cIdx}_routerStickerPreview`);
+  if (stEl) {
+    stEl.innerHTML = `เลขที่วงจร: <strong>${sc.so_number}</strong> | เลขครุภัณฑ์: <strong>${rt.asset_no || '-'}</strong> | ยี่ห้อ/รุ่น: <strong>MikroTik ${rt.model || 'RB3011'}</strong> | SN: <strong>${rt.serial_no || '-'}</strong>`;
+  }
+
+  // Update Router S/N Recheck Badge
+  const snBadge = document.getElementById(`sc_${cIdx}_rSnBadge`);
+  if (snBadge) {
+    const cmp = compareSnStringsClient(rt.serial_no, rt.ocr_serial_no);
+    snBadge.className = `px-2.5 py-0.5 rounded-full text-[11px] font-bold ${cmp.cls}`;
+    snBadge.textContent = cmp.label;
+  }
+
+  // Update Router Port 2 & Port 3 speed badges
+  const p2Badge = document.getElementById(`sc_${cIdx}_lan2Badge`);
+  if (p2Badge) p2Badge.innerHTML = validateApSpeedBadge(rt.speed_lan2_dl, rt.speed_lan2_ul, 650, 350);
+  const p3Badge = document.getElementById(`sc_${cIdx}_lan3Badge`);
+  if (p3Badge) p3Badge.innerHTML = validateApSpeedBadge(rt.speed_lan3_dl, rt.speed_lan3_ul, 650, 350);
+
+  // Update AP badges & sticker previews
+  (sc.access_points || []).forEach((ap, apIdx) => {
+    const spec = detectRoomSpec(ap.room);
+    const apSt = document.getElementById(`sc_${cIdx}_apSticker_${apIdx}`);
+    if (apSt) {
+      apSt.innerHTML = `เลขที่วงจร: <strong>${sc.so_number}</strong> | เลขครุภัณฑ์: <strong>${displayApAssetNo(ap.asset_no)}</strong> | ยี่ห้อ/รุ่น: <strong>${ap.brand || ''} ${ap.model || ''}</strong> | SN: <strong>${ap.serial_no || '-'}</strong>`;
+    }
+    const apSnB = document.getElementById(`sc_${cIdx}_apSnBadge_${apIdx}`);
+    if (apSnB) {
+      const cmp = compareSnStringsClient(ap.serial_no, ap.ocr_serial_no);
+      apSnB.className = `px-2.5 py-0.5 rounded-full text-[11px] font-bold ${cmp.cls}`;
+      apSnB.textContent = cmp.label;
+    }
+    const wB = document.getElementById(`sc_${cIdx}_apWifiBadge_${apIdx}`);
+    if (wB) wB.innerHTML = validateApSpeedBadge(ap.speed_wifi_dl, ap.speed_wifi_ul, spec.wifiMinDl, spec.wifiMinUl);
+    const lB = document.getElementById(`sc_${cIdx}_apLanBadge_${apIdx}`);
+    if (lB) lB.innerHTML = validateApSpeedBadge(ap.speed_lan_dl, ap.speed_lan_ul, spec.lanMinDl, spec.lanMinUl);
+  });
+
+  // Update unified Site Handover Cheat Sheet (รวมทุกวงจรในใบเดียว)
+  updateHandoverPaperCheatSheet();
+  renderModalCompletenessBar();
+}
+
+function buildCircuitCheatSheetHtml(sc) {
+  const rt = sc.router_info || {};
+  const aps = Array.isArray(sc.access_points) ? sc.access_points : [];
+  const apLines = aps.length > 0
+    ? aps.map((ap, i) => `
+        <div class="pl-2 border-l-2 border-emerald-400">
+          • <strong>Access Point ตัวที่ ${i + 1}:</strong> ยี่ห้อ <strong>${ap.brand || '-'}</strong> รุ่น <strong>${ap.model || '-'}</strong> | ครุภัณฑ์: <strong>${displayApAssetNo(ap.asset_no)}</strong> | S/N: <strong class="text-indigo-700">${ap.serial_no || '(ยังไม่ระบุ)'}</strong> | ห้อง <strong>${ap.room || '-'}</strong> ชั้น <strong>${ap.floor || '1'}</strong> อาคาร <strong>${ap.building || '1'}</strong>
+        </div>
+      `).join('')
+    : `<div class="pl-2 text-rose-600 font-bold">• ไม่มีอุปกรณ์ Access Point ในวงจรนี้ (ยุบห้องแล้ว)</div>`;
+
+  return `
+    <div>📍 <strong>สถานที่ติดตั้ง:</strong> ${sc.branch_name || '-'} | <strong>พิกัด:</strong> ${sc.lat_long || currentCircuit?.lat_long || '-'}</div>
+    <div>🔌 <strong>หมายเลข S/O:</strong> <span class="text-rose-700 font-bold">${sc.so_number}</span> | <strong>Service No:</strong> ${sc.service_no || '-'} | <strong>ความเร็ว:</strong> ${sc.speed_pkg || '1000Mbps/500Mbps'}</div>
+    <div class="pl-2 border-l-2 border-indigo-400">
+      • <strong>Router (MikroTik):</strong> รุ่น <strong>${rt.model || 'RB3011'}</strong> | ครุภัณฑ์: <strong>${displayRouterAssetNo(rt.asset_no)}</strong> | S/N: <strong class="text-indigo-700">${rt.serial_no || '-'}</strong> | ห้อง <strong>${rt.room || '-'}</strong> ชั้น <strong>${rt.floor || '1'}</strong> อาคาร <strong>${rt.building || '1'}</strong>
+    </div>
+    ${apLines}
+  `;
+}
+
+function setSiteCircuitRouterModel(cIdx, modelVal) {
+  syncAdditionalSiteCircuitsFromDom();
+  const el = document.getElementById(`sc_${cIdx}_rModel`);
+  if (el) el.value = modelVal;
+  onAdditionalCircuitInput(cIdx);
+}
+
+function copySiteCircuitRouterOcr(cIdx) {
+  const ocrVal = (document.getElementById(`sc_${cIdx}_rOcrSn`)?.value || '').trim().toUpperCase();
+  if (!ocrVal) {
+    showToast('ยังไม่มีค่า S/N จาก OCR กรุณาถ่ายรูปหรือกดสแกน OCR ก่อน', true);
+    return;
+  }
+  const mEl = document.getElementById(`sc_${cIdx}_rSn`);
+  if (mEl) {
+    mEl.value = ocrVal;
+    onAdditionalCircuitInput(cIdx);
+    showToast(`คัดลอกค่า OCR (${ocrVal}) ไปยังช่อง S/N ช่างกรอกของวงจรที่ ${cIdx + 1} แล้ว ✅`);
+  }
+}
+
+function copySiteCircuitApOcr(cIdx, apIdx) {
+  const ocrVal = (document.getElementById(`sc_${cIdx}_apOcrSn_${apIdx}`)?.value || '').trim().toUpperCase();
+  if (!ocrVal) {
+    showToast('ยังไม่มีค่า S/N จาก OCR สำหรับ AP จุดนี้', true);
+    return;
+  }
+  const mEl = document.getElementById(`sc_${cIdx}_apSn_${apIdx}`);
+  if (mEl) {
+    mEl.value = ocrVal;
+    onAdditionalCircuitInput(cIdx);
+    showToast(`ยืนยัน S/N ของ AP ตัวที่ ${apIdx + 1} (วงจรที่ ${cIdx + 1}) ตรงกับ OCR แล้ว ✅`);
+  }
+}
+
+function addSiteCircuitApByRoom(cIdx, roomTypeCode) {
+  syncAdditionalSiteCircuitsFromDom();
+  const sc = currentSiteCircuits[cIdx];
+  if (!sc) return;
+  if (!Array.isArray(sc.access_points)) sc.access_points = [];
+  const nextNo = sc.access_points.length + 1;
+  const spec = ROOM_SPECS[roomTypeCode] || ROOM_SPECS.GPS;
+  sc.access_points.push(createDefaultAp(nextNo, sc.province, spec.shortRoom));
+  renderAdditionalSiteCircuitsInModal();
+  renderModalCompletenessBar();
+  showToast(`➕ เพิ่ม ${spec.fullLabel} ในวงจรที่ ${cIdx + 1} (${sc.so_number}) เรียบร้อยแล้ว`);
+}
+
+function addSiteCircuitCustomAp(cIdx) {
+  syncAdditionalSiteCircuitsFromDom();
+  const sc = currentSiteCircuits[cIdx];
+  if (!sc) return;
+  const customRoom = prompt(`ระบุชื่อห้องที่เพิ่มใหม่ในวงจรที่ ${cIdx + 1} (${sc.so_number}):`, 'ห้องอบรม DLS 2');
+  if (!customRoom || !customRoom.trim()) return;
+  if (!Array.isArray(sc.access_points)) sc.access_points = [];
+  const nextNo = sc.access_points.length + 1;
+  sc.access_points.push(createDefaultAp(nextNo, sc.province, customRoom.trim()));
+  renderAdditionalSiteCircuitsInModal();
+  renderModalCompletenessBar();
+  showToast(`➕ เพิ่มห้อง "${customRoom.trim()}" ในวงจรที่ ${cIdx + 1} (${sc.so_number}) เรียบร้อยแล้ว`);
+}
+
+function removeSiteCircuitAp(cIdx, apIdx) {
+  syncAdditionalSiteCircuitsFromDom();
+  const sc = currentSiteCircuits[cIdx];
+  if (!sc || !Array.isArray(sc.access_points)) return;
+  const targetAp = sc.access_points[apIdx];
+  if (!confirm(`ยืนยันการยุบห้อง / ลบ AP ตัวที่ ${apIdx + 1} (${targetAp?.room || ''}) ออกจากวงจรที่ ${cIdx + 1} (${sc.so_number}) หรือไม่?`)) return;
+  sc.access_points.splice(apIdx, 1);
+  sc.access_points.forEach((a, i) => { a.ap_no = i + 1; });
+  renderAdditionalSiteCircuitsInModal();
+  renderModalCompletenessBar();
+  showToast(`🗑️ ยุบห้อง / ลบ AP ออกจากวงจรที่ ${cIdx + 1} (${sc.so_number}) เรียบร้อยแล้ว`);
+}
+
+function setSiteCircuitApRoomQuick(cIdx, apIdx, roomCode) {
+  syncAdditionalSiteCircuitsFromDom();
+  const sc = currentSiteCircuits[cIdx];
+  if (!sc || !sc.access_points?.[apIdx]) return;
+  const spec = ROOM_SPECS[roomCode] || ROOM_SPECS.GPS;
+  sc.access_points[apIdx].room = spec.shortRoom;
+  sc.access_points[apIdx].room_type = spec.code;
+  sc.access_points[apIdx].asset_no = '-';
+  renderAdditionalSiteCircuitsInModal();
+}
+
+async function handleSiteCircuitScannerUpload(cIdx, inputEl) {
+  const files = Array.from(inputEl?.files || []);
+  if (!files.length) return;
+  const sc = currentSiteCircuits[cIdx];
+  if (!sc) return;
+  if (!sc.router_info) sc.router_info = {};
+
+  try {
+    showToast(`🖨️ กำลังแยกหน้าไฟล์สแกนใบส่งมอบงานของวงจรที่ ${cIdx + 1} (${sc.so_number})...`);
+    let page1DataUrl = '';
+    let page2DataUrl = '';
+
+    const firstFile = files[0];
+    const isPdf = firstFile.type === 'application/pdf' || /\.pdf$/i.test(firstFile.name || '');
+
+    if (isPdf) {
+      page1DataUrl = await renderPdfPageToDataUrl(firstFile, 1);
+      const ab = await firstFile.arrayBuffer();
+      const pdfDoc = await window.pdfjsLib.getDocument({ data: ab }).promise;
+      if (pdfDoc.numPages >= 2) {
+        page2DataUrl = await renderPdfPageToDataUrl(firstFile, 2);
+      } else if (files.length >= 2) {
+        const secondFile = files[1];
+        const isSecondPdf = secondFile.type === 'application/pdf' || /\.pdf$/i.test(secondFile.name || '');
+        page2DataUrl = isSecondPdf
+          ? await renderPdfPageToDataUrl(secondFile, 1)
+          : await compressImageFile(secondFile, 1400, 0.85);
+      }
+    } else {
+      page1DataUrl = await compressImageFile(firstFile, 1400, 0.85);
+      if (files.length >= 2) {
+        const secondFile = files[1];
+        const isSecondPdf = secondFile.type === 'application/pdf' || /\.pdf$/i.test(secondFile.name || '');
+        page2DataUrl = isSecondPdf
+          ? await renderPdfPageToDataUrl(secondFile, 1)
+          : await compressImageFile(secondFile, 1400, 0.85);
+      }
+    }
+
+    if (page1DataUrl) {
+      const res1 = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          circuitId: sc.so_number,
+          so_number: sc.so_number,
+          slot: 'handover_page1',
+          category: 'handover_page1',
+          dataUrl: page1DataUrl,
+          data_url: page1DataUrl
+        })
+      });
+      const d1 = await res1.json();
+      if (!res1.ok) throw new Error(d1.error || 'อัปโหลดหน้าที่ 1 ไม่สำเร็จ');
+      sc.router_info.photo_handover_p1 = d1.url;
+      sc.router_info.photo_signed_doc = d1.url;
+      sc.router_info.doc_filled = true;
+    }
+
+    if (page2DataUrl) {
+      const res2 = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          circuitId: sc.so_number,
+          so_number: sc.so_number,
+          slot: 'handover_page2',
+          category: 'handover_page2',
+          dataUrl: page2DataUrl,
+          data_url: page2DataUrl
+        })
+      });
+      const d2 = await res2.json();
+      if (!res2.ok) throw new Error(d2.error || 'อัปโหลดหน้าที่ 2 ไม่สำเร็จ');
+      sc.router_info.photo_handover_p2 = d2.url;
+      sc.router_info.doc_stamped = true;
+    }
+
+    renderAdditionalSiteCircuitsInModal();
+    renderModalCompletenessBar();
+    await saveCurrentInspection(true);
+    showToast(`✅ อัปโหลดไฟล์สแกนใบส่งมอบงานของวงจรที่ ${cIdx + 1} (${sc.so_number}) สำเร็จ!`);
+  } catch (err) {
+    showToast('อัปโหลดไฟล์สแกนไม่สำเร็จ: ' + err.message, true);
+  } finally {
+    inputEl.value = '';
+  }
+}
+
+function renderAdditionalSiteCircuitsInModal() {
+  const routersBox = document.getElementById('additionalSiteRoutersContainer');
+  const apsBox = document.getElementById('additionalSiteApsContainer');
+  const handoversBox = document.getElementById('additionalSiteHandoversContainer');
+  if (!routersBox || !apsBox || !handoversBox) return;
+
+  if (!Array.isArray(currentSiteCircuits) || currentSiteCircuits.length <= 1) {
+    routersBox.innerHTML = '';
+    apsBox.innerHTML = '';
+    handoversBox.innerHTML = '';
+    return;
+  }
+
+  let routersHtml = '';
+  let apsHtml = '';
+  let handoversHtml = '';
+
+  for (let cIdx = 1; cIdx < currentSiteCircuits.length; cIdx++) {
+    const sc = currentSiteCircuits[cIdx];
+    const rt = sc.router_info || {};
+    const aps = Array.isArray(sc.access_points) ? sc.access_points : [];
+    const snCmp = compareSnStringsClient(rt.serial_no, rt.ocr_serial_no);
+    const h1 = Boolean(rt.photo_handover_p1 || rt.photo_signed_doc);
+    const h2 = Boolean(rt.photo_handover_p2);
+
+    // 1. Router Card in Step 1 (Same Rack Cabinet)
+    routersHtml += `
+      <div id="siteCircuitRouterCard_${cIdx}" class="circuit-tint rounded-xl p-4 sm:p-5 space-y-4 shadow-sm transition" style="${circuitFrameStyle(cIdx)}">
+        ${circuitLabelHtml(cIdx, `วงจรที่ ${cIdx + 1} · Router (ตู้ Rack) · ${sc.so_number}`)}
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="px-2.5 py-1 rounded-md text-xs font-bold" style="${circuitBadgeStyle(cIdx)}">
+              วงจรที่ ${cIdx + 1}: ${sc.so_number}
+            </span>
+            <span class="text-xs font-medium text-slate-600 font-mono">
+              Service No: ${sc.service_no || '-'}
+            </span>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            ${sc.legacy_pdf_path ? `<a href="/${encodeURI(sc.legacy_pdf_path)}" target="_blank" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-semibold">PDF ปีที่แล้ว (${sc.so_number})</a>` : ''}
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">หมายเลข S/O</label>
+            <input type="text" value="${sc.so_number}" readonly class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-mono font-bold bg-slate-50" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Service No.</label>
+            <input id="sc_${cIdx}_serviceNo" type="text" value="${sc.service_no || ''}" oninput="onAdditionalCircuitInput(${cIdx})" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-mono font-semibold bg-white" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">ความเร็วตามสัญญา</label>
+            <input id="sc_${cIdx}_speedPkg" type="text" value="${sc.speed_pkg || '1000Mbps/500Mbps'}" oninput="onAdditionalCircuitInput(${cIdx})" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white" />
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-4 text-xs text-slate-700 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200/80">
+          <label class="flex items-center gap-1.5 cursor-pointer">
+            <input id="sc_${cIdx}_chkSticker" type="checkbox" ${rt.sticker_done ? 'checked' : ''} onchange="onAdditionalCircuitInput(${cIdx})" class="rounded border-slate-300" />
+            <span>ติด Sticker ใหม่และถ่ายรูปเห็นชัดเจน</span>
+          </label>
+          <label class="flex items-center gap-1.5 cursor-pointer">
+            <input id="sc_${cIdx}_chkSpeed" type="checkbox" ${rt.speed_tested ? 'checked' : ''} onchange="onAdditionalCircuitInput(${cIdx})" class="rounded border-slate-300" />
+            <span>ทดสอบความเร็ว Port 2 และ Port 3 (≥ 650/350 Mbps)</span>
+          </label>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">รุ่น Router MikroTik</label>
+            <input id="sc_${cIdx}_rModel" type="text" value="${rt.model || 'RB3011'}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="เช่น RB3011" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold bg-white" />
+            <div class="flex items-center gap-1 flex-wrap mt-1">
+              ${['RB3011', 'RB4011', 'RBD52G (hAP ac2)'].map(m => `
+                <button type="button" onclick="setSiteCircuitRouterModel(${cIdx}, '${m}')" class="px-1.5 py-0.5 rounded border text-[10px] font-medium ${rt.model === m ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200'}">${m}</button>
+              `).join('')}
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">เลขครุภัณฑ์</label>
+            <input id="sc_${cIdx}_rAsset" type="text" value="${displayRouterAssetNo(rt.asset_no)}" oninput="onAdditionalCircuitInput(${cIdx})" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">ห้องที่ติดตั้งอุปกรณ์</label>
+            <input id="sc_${cIdx}_rRoom" type="text" value="${rt.room || 'วิชาการ'}" oninput="onAdditionalCircuitInput(${cIdx})" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white" />
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">ชั้น</label>
+              <input id="sc_${cIdx}_rFloor" type="text" value="${rt.floor || '1'}" oninput="onAdditionalCircuitInput(${cIdx})" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-xs text-center bg-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">อาคาร</label>
+              <input id="sc_${cIdx}_rBuilding" type="text" value="${rt.building || '1'}" oninput="onAdditionalCircuitInput(${cIdx})" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-xs text-center bg-white" />
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
+          <div class="flex items-center justify-between flex-wrap gap-1">
+            <span class="text-xs font-bold text-slate-700">Serial No. (S/N) ของ MikroTik</span>
+            <span id="sc_${cIdx}_rSnBadge" class="px-2 py-0.5 rounded text-[11px] font-semibold ${snCmp.cls}">${snCmp.label}</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div class="flex gap-1.5">
+              <input id="sc_${cIdx}_rSn" type="text" value="${rt.serial_no || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="รหัส S/N อุปกรณ์ MikroTik" class="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-mono uppercase font-bold bg-white" />
+              <button type="button" onclick="openSnScanner('site_${cIdx}_router')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold shrink-0">
+                สแกน S/N
+              </button>
+            </div>
+            <div class="flex gap-1.5">
+              <input id="sc_${cIdx}_rOcrSn" type="text" value="${rt.ocr_serial_no || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="ค่า S/N จาก OCR" class="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-mono uppercase bg-white text-slate-600" />
+              <button type="button" onclick="copySiteCircuitRouterOcr(${cIdx})" class="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold shrink-0">
+                ใช้ค่านี้
+              </button>
+            </div>
+          </div>
+          <div id="sc_${cIdx}_routerStickerPreview" class="text-[11px] text-slate-500 font-mono pt-1 border-t border-slate-200/70">
+            ข้อความ Sticker: <strong>${sc.so_number}</strong> | <strong>${displayRouterAssetNo(rt.asset_no)}</strong> | <strong>MikroTik ${rt.model || 'RB3011'}</strong> | SN: <strong>${rt.serial_no || '-'}</strong>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-xs font-semibold text-slate-700">ผลทดสอบ Port 2 (≥ 650/350M)</span>
+              <span id="sc_${cIdx}_lan2Badge">${validateApSpeedBadge(rt.speed_lan2_dl, rt.speed_lan2_ul, 650, 350)}</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <input id="sc_${cIdx}_lan2Dl" type="text" value="${rt.speed_lan2_dl || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Download (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
+              <input id="sc_${cIdx}_lan2Ul" type="text" value="${rt.speed_lan2_ul || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Upload (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
+            </div>
+          </div>
+          <div class="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-xs font-semibold text-slate-700">ผลทดสอบ Port 3 (≥ 650/350M)</span>
+              <span id="sc_${cIdx}_lan3Badge">${validateApSpeedBadge(rt.speed_lan3_dl, rt.speed_lan3_ul, 650, 350)}</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <input id="sc_${cIdx}_lan3Dl" type="text" value="${rt.speed_lan3_dl || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Download (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
+              <input id="sc_${cIdx}_lan3Ul" type="text" value="${rt.speed_lan3_ul || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Upload (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div id="sc_${cIdx}_slotRouterDevice" class="border border-dashed border-slate-300 rounded-lg p-2.5 text-center bg-slate-50/50"></div>
+          <div id="sc_${cIdx}_slotRouterLan2" class="border border-dashed border-slate-300 rounded-lg p-2.5 text-center bg-slate-50/50"></div>
+          <div id="sc_${cIdx}_slotRouterLan3" class="border border-dashed border-slate-300 rounded-lg p-2.5 text-center bg-slate-50/50"></div>
+        </div>
+      </div>
+    `;
+
+    // 2. Access Points Section in Step 2-3 for Circuit #2, #3...
+    const apCardsInnerHtml = aps.length === 0
+      ? `<div class="border border-dashed border-slate-300 rounded-xl p-5 text-center bg-white text-xs text-slate-500">ไม่มีอุปกรณ์ Access Point ในวงจรที่ ${cIdx + 1} (${sc.so_number})</div>`
+      : aps.map((ap, apIdx) => {
+          const spec = detectRoomSpec(ap.room);
+          const apSnCmp = compareSnStringsClient(ap.serial_no, ap.ocr_serial_no);
+          const roomPhotoCount = (ap.photo_device ? 1 : 0) + (ap.photo_wifi ? 1 : 0) + (ap.photo_lan ? 1 : 0);
+          return `
+            <div id="sc_${cIdx}_apCard_${apIdx}" class="${apCardClass(apIdx)} rounded-xl p-3.5 space-y-3 transition overflow-hidden" style="${apCardStyle(cIdx, apIdx)}">
+              ${apTopBarHtml(cIdx, apIdx, 14)}
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-2 gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="px-2.5 py-1 rounded-md text-xs font-bold" style="${apPillStyle(cIdx, apIdx)}">
+                    [วงจร ${cIdx + 1}] AP #${apIdx + 1}: ${ap.room || spec.fullLabel}
+                  </span>
+                  <span class="text-xs text-slate-500">
+                    SSID: <strong class="text-slate-700">${spec.ssid}</strong> • LAN ≥ ${spec.lanMinDl}/${spec.lanMinUl}M • WiFi ≥ ${spec.wifiMinDl}/${spec.wifiMinUl}M
+                  </span>
+                  <span class="text-[11px] font-semibold px-2 py-0.5 rounded ${roomPhotoCount >= 3 && ap.serial_no ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'}">
+                    รูป ${roomPhotoCount}/3
+                  </span>
+                </div>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <div class="flex items-center gap-1 mr-1">
+                    ${['DLS', 'GPS', 'VICC', 'GECC'].map(code => `
+                      <button type="button" onclick="setSiteCircuitApRoomQuick(${cIdx}, ${apIdx}, '${code}')" class="px-2 py-0.5 rounded border text-[11px] font-semibold ${spec.code === code ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200'}">${code}</button>
+                    `).join('')}
+                  </div>
+                  <button type="button" onclick="removeSiteCircuitAp(${cIdx}, ${apIdx})" class="px-2 py-1 rounded border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-medium">
+                    ลบห้อง
+                  </button>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-4 text-xs text-slate-700 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200/80">
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input id="sc_${cIdx}_apChkSticker_${apIdx}" type="checkbox" ${ap.sticker_done ? 'checked' : ''} onchange="onAdditionalCircuitInput(${cIdx})" class="rounded border-slate-300" />
+                  <span>ติด Sticker ใหม่และถ่ายรูปเห็นชัดเจน</span>
+                </label>
+                ${spec.isGecc ? `
+                  <label class="flex items-center gap-1.5 cursor-pointer text-amber-900 font-semibold">
+                    <input id="sc_${cIdx}_apGeccAuthen_${apIdx}" type="checkbox" ${ap.gecc_authen_wifi ? 'checked' : ''} onchange="onAdditionalCircuitInput(${cIdx})" class="rounded border-amber-400" />
+                    <span>ห้อง GECC: ลงทะเบียนใช้งานระบบ Authen ก่อนต่อ LAN / WiFi แล้ว</span>
+                  </label>
+                ` : ''}
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">ยี่ห้อ AP</label>
+                  <select id="sc_${cIdx}_apBrand_${apIdx}" onchange="onAdditionalCircuitInput(${cIdx})" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold bg-white">
+                    <option value="TOTOLINK" ${ap.brand === 'TOTOLINK' ? 'selected' : ''}>TOTOLINK</option>
+                    <option value="D-LINK" ${ap.brand === 'D-LINK' ? 'selected' : ''}>D-LINK</option>
+                    <option value="TP-LINK" ${ap.brand === 'TP-LINK' ? 'selected' : ''}>TP-LINK</option>
+                    <option value="อื่นๆ" ${!['TOTOLINK', 'D-LINK', 'TP-LINK'].includes(ap.brand) ? 'selected' : ''}>อื่นๆ</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">รุ่น (Model)</label>
+                  <input id="sc_${cIdx}_apModel_${apIdx}" type="text" value="${ap.model || ''}" oninput="onAdditionalCircuitInput(${cIdx})" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-xs bg-white" />
+                </div>
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">เลขครุภัณฑ์</label>
+                  <input id="sc_${cIdx}_apAsset_${apIdx}" type="text" value="${displayApAssetNo(ap.asset_no)}" oninput="onAdditionalCircuitInput(${cIdx})" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-xs bg-white" />
+                </div>
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">ชื่อห้อง</label>
+                  <input id="sc_${cIdx}_apRoom_${apIdx}" type="text" value="${ap.room || ''}" oninput="onAdditionalCircuitInput(${cIdx})" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold bg-white" />
+                </div>
+                <div class="grid grid-cols-2 gap-1.5">
+                  <div>
+                    <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">ชั้น</label>
+                    <input id="sc_${cIdx}_apFloor_${apIdx}" type="text" value="${ap.floor || '1'}" oninput="onAdditionalCircuitInput(${cIdx})" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-xs text-center bg-white" />
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">อาคาร</label>
+                    <input id="sc_${cIdx}_apBuilding_${apIdx}" type="text" value="${ap.building || '1'}" oninput="onAdditionalCircuitInput(${cIdx})" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-xs text-center bg-white" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-slate-50 rounded-lg p-2.5 border border-slate-200 space-y-2">
+                <div class="flex items-center justify-between flex-wrap gap-1">
+                  <span class="text-xs font-bold text-slate-700">Serial No. (S/N)</span>
+                  <span id="sc_${cIdx}_apSnBadge_${apIdx}" class="px-2 py-0.5 rounded text-[11px] font-semibold ${apSnCmp.cls}">${apSnCmp.label}</span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input id="sc_${cIdx}_apSn_${apIdx}" type="text" value="${ap.serial_no || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="รหัส S/N อุปกรณ์ AP" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-mono uppercase font-bold bg-white" />
+                  <div class="flex gap-1">
+                    <input id="sc_${cIdx}_apOcrSn_${apIdx}" type="text" value="${ap.ocr_serial_no || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="ค่า S/N จาก OCR" class="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-mono uppercase text-slate-600" />
+                    <button type="button" onclick="openSnScanner('site_${cIdx}_ap_${apIdx}')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 text-white text-xs font-semibold shrink-0">สแกน S/N</button>
+                    <button type="button" onclick="copySiteCircuitApOcr(${cIdx}, ${apIdx})" class="px-2 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold shrink-0">ใช้ค่านี้</button>
+                  </div>
+                </div>
+                <div id="sc_${cIdx}_apSticker_${apIdx}" class="text-[11px] text-slate-500 font-mono pt-1 border-t border-slate-200/70">
+                  ข้อความ Sticker: <strong>${sc.so_number}</strong> | <strong>${displayApAssetNo(ap.asset_no)}</strong> | <strong>${ap.brand || ''} ${ap.model || ''}</strong> | SN: <strong>${ap.serial_no || '-'}</strong>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div class="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-semibold text-slate-700">ผลทดสอบ WiFi (≥ ${spec.wifiMinDl}/${spec.wifiMinUl}M)</span>
+                    <span id="sc_${cIdx}_apWifiBadge_${apIdx}">${validateApSpeedBadge(ap.speed_wifi_dl, ap.speed_wifi_ul, spec.wifiMinDl, spec.wifiMinUl)}</span>
+                  </div>
+                  <div class="grid grid-cols-2 gap-1.5">
+                    <input id="sc_${cIdx}_apWifiDl_${apIdx}" type="text" value="${ap.speed_wifi_dl || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Download (Mbps)" class="px-2 py-1 rounded border border-slate-300 text-xs bg-white" />
+                    <input id="sc_${cIdx}_apWifiUl_${apIdx}" type="text" value="${ap.speed_wifi_ul || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Upload (Mbps)" class="px-2 py-1 rounded border border-slate-300 text-xs bg-white" />
+                  </div>
+                </div>
+                <div class="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-semibold text-slate-700">ผลทดสอบ Port LAN (≥ ${spec.lanMinDl}/${spec.lanMinUl}M)</span>
+                    <span id="sc_${cIdx}_apLanBadge_${apIdx}">${validateApSpeedBadge(ap.speed_lan_dl, ap.speed_lan_ul, spec.lanMinDl, spec.lanMinUl)}</span>
+                  </div>
+                  <div class="grid grid-cols-2 gap-1.5">
+                    <input id="sc_${cIdx}_apLanDl_${apIdx}" type="text" value="${ap.speed_lan_dl || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Download (Mbps)" class="px-2 py-1 rounded border border-slate-300 text-xs bg-white" />
+                    <input id="sc_${cIdx}_apLanUl_${apIdx}" type="text" value="${ap.speed_lan_ul || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Upload (Mbps)" class="px-2 py-1 rounded border border-slate-300 text-xs bg-white" />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <input id="sc_${cIdx}_apNote_${apIdx}" type="text" value="${ap.speed_note || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="หมายเหตุความเร็ว (ถ้ามี)..." class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-slate-50" />
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div id="sc_${cIdx}_slotApDevice_${apIdx}" class="border border-dashed border-slate-300 rounded-lg p-2.5 text-center bg-slate-50/50"></div>
+                <div id="sc_${cIdx}_slotApWifi_${apIdx}" class="border border-dashed border-slate-300 rounded-lg p-2.5 text-center bg-slate-50/50"></div>
+                <div id="sc_${cIdx}_slotApLan_${apIdx}" class="border border-dashed border-slate-300 rounded-lg p-2.5 text-center bg-slate-50/50"></div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+    apsHtml += `
+      <div id="siteCircuitApsCard_${cIdx}" class="circuit-tint rounded-xl p-4 sm:p-5 space-y-3.5 shadow-sm transition" style="${circuitFrameStyle(cIdx)}">
+        ${circuitLabelHtml(cIdx, `วงจรที่ ${cIdx + 1} · Access Point · ${sc.so_number}`)}
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="px-2.5 py-1 rounded-md text-xs font-bold" style="${circuitBadgeStyle(cIdx)}">
+              ห้อง Access Point วงจรที่ ${cIdx + 1}: ${sc.so_number}
+            </span>
+            <span class="text-xs text-slate-500">จำนวนห้อง AP: ${aps.length} จุด</span>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <button type="button" onclick="addSiteCircuitApByRoom(${cIdx}, 'DLS')" class="px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold">+ ห้อง DLS</button>
+            <button type="button" onclick="addSiteCircuitApByRoom(${cIdx}, 'GPS')" class="px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold">+ ห้อง GPS</button>
+            <button type="button" onclick="addSiteCircuitApByRoom(${cIdx}, 'VICC')" class="px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold">+ ห้อง VICC</button>
+            <button type="button" onclick="addSiteCircuitApByRoom(${cIdx}, 'GECC')" class="px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold">+ ห้อง GECC</button>
+            <button type="button" onclick="addSiteCircuitCustomAp(${cIdx})" class="px-2.5 py-1 rounded-lg bg-slate-800 text-white text-xs font-semibold">+ ห้องอื่นๆ</button>
+          </div>
+        </div>
+        <div class="space-y-3">
+          ${apCardsInnerHtml}
+        </div>
+      </div>
+    `;
+
+    // 3. Compact Remarks for Circuit #2, #3... (since 1 Site shares 1 Handover Form & 1 Report)
+    handoversHtml += `
+      <div id="siteCircuitHandoverCard_${cIdx}" class="rounded-lg p-3 space-y-1.5" style="${circuitFrameStyle(cIdx)} background:${circuitColorOf(cIdx).soft};">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <span class="text-xs font-bold" style="color:${circuitColorOf(cIdx).ink}">
+            หมายเหตุเพิ่มเติมของวงจรที่ ${cIdx + 1} (${sc.so_number})
+          </span>
+          <span class="text-[11px] text-slate-500">
+            ใช้ใบส่งมอบงานร่วมกับทั้ง Site ด้านบน
+          </span>
+        </div>
+        <input id="sc_${cIdx}_remarks" type="text" value="${sc.remarks || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="ระบุหมายเหตุของวงจรที่ ${cIdx + 1} (ถ้ามี)..." class="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs bg-white" />
+      </div>
+    `;
+  }
+
+  routersBox.innerHTML = routersHtml;
+  apsBox.innerHTML = apsHtml;
+  handoversBox.innerHTML = handoversHtml;
+  colorizeSiteCircuitFrames();
+
+  // Bind photo upload slots for all additional circuits (Router + APs only; Handover is 1 shared per Site)
+  for (let cIdx = 1; cIdx < currentSiteCircuits.length; cIdx++) {
+    const sc = currentSiteCircuits[cIdx];
+    const rt = sc.router_info || {};
+    const aps = Array.isArray(sc.access_points) ? sc.access_points : [];
+
+    renderPhotoSlot(
+      `sc_${cIdx}_slotRouterDevice`,
+      'router_device',
+      `1) รูปอุปกรณ์ MikroTik + Sticker (${sc.so_number})`,
+      rt.photo_device,
+      url => { sc.router_info.photo_device = url; renderModalCompletenessBar(); },
+      sc.so_number,
+      `site_${cIdx}_router`
+    );
+    renderPhotoSlot(
+      `sc_${cIdx}_slotRouterLan2`,
+      'router_lan2',
+      `2) รูปผลทดสอบ Port 2 (${sc.so_number})`,
+      rt.photo_lan2,
+      url => { sc.router_info.photo_lan2 = url; renderModalCompletenessBar(); },
+      sc.so_number
+    );
+    renderPhotoSlot(
+      `sc_${cIdx}_slotRouterLan3`,
+      'router_lan3',
+      `3) รูปผลทดสอบ Port 3 (${sc.so_number})`,
+      rt.photo_lan3,
+      url => { sc.router_info.photo_lan3 = url; renderModalCompletenessBar(); },
+      sc.so_number
+    );
+
+    aps.forEach((ap, apIdx) => {
+      const spec = detectRoomSpec(ap.room);
+      renderPhotoSlot(
+        `sc_${cIdx}_slotApDevice_${apIdx}`,
+        `ap${apIdx + 1}_device`,
+        `1) รูปอุปกรณ์ AP + Sticker (${ap.room || spec.code})`,
+        ap.photo_device,
+        url => { sc.access_points[apIdx].photo_device = url; renderModalCompletenessBar(); },
+        sc.so_number,
+        `site_${cIdx}_ap_${apIdx}`
+      );
+      renderPhotoSlot(
+        `sc_${cIdx}_slotApWifi_${apIdx}`,
+        `ap${apIdx + 1}_wifi`,
+        `2) รูปผลทดสอบ WiFi (${spec.ssid})`,
+        ap.photo_wifi,
+        url => { sc.access_points[apIdx].photo_wifi = url; renderModalCompletenessBar(); },
+        sc.so_number
+      );
+      renderPhotoSlot(
+        `sc_${cIdx}_slotApLan_${apIdx}`,
+        `ap${apIdx + 1}_lan`,
+        `3) รูปผลทดสอบ Port LAN (${spec.code})`,
+        ap.photo_lan,
+        url => { sc.access_points[apIdx].photo_lan = url; renderModalCompletenessBar(); },
+        sc.so_number
+      );
+    });
+  }
+}
+
+async function quickAddCircuitToSiteFromCard(baseSo) {
+  await openInspectionModal(baseSo);
+  setTimeout(() => {
+    promptAddCircuitToCurrentSite();
+  }, 250);
+}
+
+async function promptAddCircuitToCurrentSite() {
+  if (!currentCircuit) return;
+  syncApInputsFromDom();
+  syncAdditionalSiteCircuitsFromDom();
+
+  const siteName = extractSiteNameClient(currentCircuit);
+  const existingSos = (currentSiteCircuits || [currentCircuit]).map(x => x.so_number).join(', ');
+  const otherInProv = allCircuits
+    .filter(x => x.province === currentCircuit.province && !(currentSiteCircuits || []).some(sc => sc.so_number === x.so_number))
+    .map(x => `${x.so_number} (${extractSiteNameClient(x)})`);
+
+  const hintText = otherInProv.length > 0
+    ? `\nวงจรอื่นใน จ.${currentCircuit.province} ที่สามารถดึงเข้ามารวมในตู้ Rack นี้ได้:\n- ${otherInProv.slice(0, 6).join('\n- ')}`
+    : '';
+
+  const rawSo = prompt(
+    `➕ เพิ่มวงจรเข้าใน Site "${siteName}" (ตู้ Rack เดียวกัน)\n` +
+    `ปัจจุบันใน Site นี้มี: ${existingSos}${hintText}\n\n` +
+    `กรุณาระบุหมายเลข S/O ของวงจรที่ต้องการเพิ่มเข้าในตู้ Rack นี้ (เช่น BINF3480xxx):`
+  );
+  if (!rawSo || !rawSo.trim()) return;
+  const targetSo = rawSo.trim().toUpperCase();
+
+  if ((currentSiteCircuits || []).some(x => x.so_number === targetSo)) {
+    showToast(`วงจร ${targetSo} อยู่ใน Site / ตู้ Rack นี้แล้ว`);
+    return;
+  }
+
+  try {
+    const existingCircuit = allCircuits.find(x => x.so_number === targetSo);
+    if (existingCircuit) {
+      // Link existing circuit into the current Site & Rack
+      const fullRes = await fetch(`/api/circuits/${encodeURIComponent(targetSo)}`);
+      const fullData = await fullRes.json();
+      const cObj = fullData.circuit || existingCircuit;
+      const rt = cObj.router_info || {};
+      rt.room = document.getElementById('rRoom')?.value.trim() || currentCircuit.router_info?.room || rt.room || 'วิชาการ';
+      rt.floor = document.getElementById('rFloor')?.value.trim() || currentCircuit.router_info?.floor || rt.floor || '1';
+      rt.building = document.getElementById('rBuilding')?.value.trim() || currentCircuit.router_info?.building || rt.building || '1';
+
+      const putRes = await fetch(`/api/circuits/${encodeURIComponent(targetSo)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...cObj,
+          site_name: siteName,
+          site_key: getSiteKeyClient(currentCircuit),
+          customer_site_name: `${siteName} วงจรที่ ${(currentSiteCircuits?.length || 1) + 1}`,
+          branch_name: currentCircuit.branch_name,
+          address: document.getElementById('fAddress')?.value.trim() || currentCircuit.address,
+          lat_long: document.getElementById('fLatLong')?.value.trim() || currentCircuit.lat_long,
+          router_info: rt
+        })
+      });
+      if (!putRes.ok) throw new Error('เชื่อมวงจรเข้ากับ Site ไม่สำเร็จ');
+      showToast(`🔗 รวมวงจร ${targetSo} เข้ามาใน Site "${siteName}" (ตู้ Rack เดียวกัน) เรียบร้อยแล้ว!`);
+    } else {
+      // Create a brand new circuit inside this Site & Rack
+      const svcNo = prompt(`ระบุ Service No. ของวงจรใหม่ ${targetSo} (เว้นว่างได้):`, '') || '';
+      const postRes = await fetch('/api/circuits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          so_number: targetSo,
+          service_no: svcNo.trim().toUpperCase(),
+          region: currentCircuit.region,
+          province: currentCircuit.province,
+          branch_name: currentCircuit.branch_name,
+          site_name: siteName,
+          site_key: getSiteKeyClient(currentCircuit),
+          customer_site_name: `${siteName} วงจรที่ ${(currentSiteCircuits?.length || 1) + 1}`,
+          address: document.getElementById('fAddress')?.value.trim() || currentCircuit.address,
+          lat_long: document.getElementById('fLatLong')?.value.trim() || currentCircuit.lat_long,
+          router_room: document.getElementById('rRoom')?.value.trim() || currentCircuit.router_info?.room || 'วิชาการ',
+          router_floor: document.getElementById('rFloor')?.value.trim() || currentCircuit.router_info?.floor || '1',
+          router_building: document.getElementById('rBuilding')?.value.trim() || currentCircuit.router_info?.building || '1'
+        })
+      });
+      const postData = await postRes.json();
+      if (!postRes.ok) throw new Error(postData.error || 'สร้างวงจรใหม่ใน Site ไม่สำเร็จ');
+      showToast(`➕ เพิ่มวงจรใหม่ ${targetSo} เข้าใน Site "${siteName}" (ตู้ Rack เดียวกัน) เรียบร้อยแล้ว!`);
+    }
+
+    await refreshAllData();
+    await openInspectionModal(currentCircuit.so_number);
+  } catch (err) {
+    showToast(err.message, true);
+  }
 }
 
 // ============================================================================
@@ -2038,7 +3739,7 @@ function getSignatureDataUrl(canvasId) {
 }
 
 // ============================================================================
-// Save Current Circuit Inspection
+// Save Current Site Inspection (Saves Circuit #1 AND Circuit #2, #3... in Site)
 // ============================================================================
 function collectFormPayload() {
   syncApInputsFromDom();
@@ -2057,7 +3758,7 @@ function collectFormPayload() {
     status: statusEl ? statusEl.value : 'pending',
     router_info: {
       checked: true,
-      model: routerModelEl ? routerModelEl.value : 'RB3011',
+      model: (document.getElementById('rCustomModel')?.value || '').trim() || (routerModelEl ? routerModelEl.value : 'RB3011'),
       serial_no: document.getElementById('rSerialNo').value.trim().toUpperCase(),
       ocr_serial_no: (document.getElementById('rOcrSerialNo')?.value || '').trim().toUpperCase(),
       asset_no: document.getElementById('rAssetNo').value.trim(),
@@ -2080,55 +3781,139 @@ function collectFormPayload() {
       photo_signed_doc: handoverP1
     },
     access_points: currentCircuit.access_points,
-    remarks: document.getElementById('fRemarks').value.trim(),
-    inspector_name: document.getElementById('fInspectorName').value.trim(),
-    inspector_phone: document.getElementById('fInspectorPhone').value.trim(),
-    inspection_date: document.getElementById('fInspectionDate').value.trim(),
+    remarks: (document.getElementById('fRemarks')?.value || '').trim(),
+    inspector_name: (document.getElementById('fInspectorName')?.value || '').trim(),
+    inspector_phone: (document.getElementById('fInspectorPhone')?.value || '').trim(),
+    inspection_date: (document.getElementById('fInspectionDate')?.value || '').trim(),
     inspector_signature: getSignatureDataUrl('sigInspector') || currentCircuit.inspector_signature || '',
-    receiver_name: document.getElementById('fReceiverName').value.trim(),
-    receiver_position: document.getElementById('fReceiverPosition').value.trim(),
-    receiver_phone: document.getElementById('fReceiverPhone').value.trim(),
-    received_date: document.getElementById('fReceivedDate').value.trim(),
+    receiver_name: (document.getElementById('fReceiverName')?.value || currentCircuit.receiver_name || '').trim(),
+    receiver_position: (document.getElementById('fReceiverPosition')?.value || currentCircuit.receiver_position || '').trim(),
+    receiver_phone: (document.getElementById('fReceiverPhone')?.value || currentCircuit.receiver_phone || '').trim(),
+    received_date: (document.getElementById('fReceivedDate')?.value || currentCircuit.received_date || '').trim(),
     receiver_signature: getSignatureDataUrl('sigReceiver') || currentCircuit.receiver_signature || ''
   };
 }
 
-async function saveCurrentInspection(silent = false) {
+async function saveCurrentInspection(silent = false, options = {}) {
   if (!currentCircuit) return false;
+  const { isDraft = false, isAuto = false, roomLabel = '' } = options;
   try {
+    syncAdditionalSiteCircuitsFromDom();
     const payload = collectFormPayload();
+    const draftIso = new Date().toISOString();
 
-    if (payload.status === 'pending' && (payload.router_info.serial_no || payload.inspector_name)) {
+    if (payload.status === 'pending' && (isDraft || payload.router_info.serial_no || payload.inspector_name)) {
       payload.status = 'in_progress';
       const radioInProg = document.querySelector('input[name="circuitStatus"][value="in_progress"]');
       if (radioInProg) radioInProg.checked = true;
     }
 
-    const res = await fetch(`/api/circuits/${encodeURIComponent(currentCircuit.id)}`, {
+    if (isDraft) {
+      payload.is_draft = true;
+      payload.draft_saved_at = draftIso;
+      if (roomLabel) payload.last_active_room = roomLabel;
+    }
+
+    const res = await fetch(`/api/circuits/${encodeURIComponent(currentCircuit.id || currentCircuit.so_number)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ');
-
     currentCircuit = data.circuit;
-    document.getElementById('modalSaveStatus').textContent = `บันทึกสำเร็จเมื่อ ${new Date().toLocaleTimeString('th-TH')}`;
-    if (!silent) {
-      showToast(`บันทึกข้อมูลวงจร ${currentCircuit.so_number} เรียบร้อยแล้ว`);
+    if (Array.isArray(currentSiteCircuits) && currentSiteCircuits.length > 0) {
+      currentSiteCircuits[0] = currentCircuit;
     }
-    await refreshAllData();
+
+    // Also save Circuit #2, #3... in the same Site / Rack simultaneously!
+    // (1 Site shares 1 Handover Form — sync photo_handover_p1 & photo_handover_p2 to all circuits in the Site)
+    if (Array.isArray(currentSiteCircuits) && currentSiteCircuits.length > 1) {
+      const siteHandoverP1 = payload.router_info?.photo_handover_p1 || payload.router_info?.photo_signed_doc || '';
+      const siteHandoverP2 = payload.router_info?.photo_handover_p2 || '';
+      for (let cIdx = 1; cIdx < currentSiteCircuits.length; cIdx++) {
+        const sc = currentSiteCircuits[cIdx];
+        if (!sc) continue;
+        const rt = sc.router_info || {};
+        const p1 = siteHandoverP1 || rt.photo_handover_p1 || rt.photo_signed_doc || '';
+        const p2 = siteHandoverP2 || rt.photo_handover_p2 || '';
+        const scStatus = (sc.status === 'pending' && (isDraft || rt.serial_no || payload.inspector_name))
+          ? 'in_progress'
+          : (sc.status || payload.status);
+
+        const scPayload = {
+          ...sc,
+          branch_name: payload.branch_name || sc.branch_name,
+          lat_long: payload.lat_long || sc.lat_long,
+          address: payload.address || sc.address,
+          status: scStatus,
+          inspector_name: payload.inspector_name || sc.inspector_name,
+          inspector_phone: payload.inspector_phone || sc.inspector_phone,
+          inspection_date: payload.inspection_date || sc.inspection_date,
+          is_draft: isDraft ? true : Boolean(sc.is_draft),
+          draft_saved_at: isDraft ? draftIso : (sc.draft_saved_at || ''),
+          last_active_room: roomLabel || sc.last_active_room || '',
+          router_info: {
+            ...rt,
+            checked: true,
+            doc_filled: Boolean(payload.router_info?.doc_filled || p1),
+            doc_stamped: Boolean(payload.router_info?.doc_stamped || p2),
+            photo_handover_p1: p1,
+            photo_handover_p2: p2,
+            photo_signed_doc: p1
+          },
+          access_points: sc.access_points || []
+        };
+
+        const r2 = await fetch(`/api/circuits/${encodeURIComponent(sc.id || sc.so_number)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(scPayload)
+        });
+        if (r2.ok) {
+          const d2 = await r2.json();
+          if (d2.circuit) currentSiteCircuits[cIdx] = d2.circuit;
+        }
+      }
+    }
+
+    saveSiteDraftToLocal(roomLabel || (isDraft ? 'บันทึกร่าง' : 'บันทึกข้อมูล'));
+    const allSos = (currentSiteCircuits || [currentCircuit]).map(x => x.so_number).join(', ');
+    const timeStr = new Date().toLocaleTimeString('th-TH');
+    document.getElementById('modalSaveStatus').textContent = isDraft
+      ? `📝 บันทึกร่างทั้ง Site (${allSos}) สำเร็จเมื่อ ${timeStr}`
+      : `💾 บันทึกทั้ง Site (${allSos}) สำเร็จเมื่อ ${timeStr}`;
+    updateDraftStatusUi('saved', `บันทึกครบทั้ง Site (${allSos}) เมื่อ ${timeStr}`);
+    renderSiteRoomsQuickJumpBar();
+
+    if (!silent) {
+      showToast(`💾 บันทึกข้อมูลทั้ง Site (${allSos}) เรียบร้อยแล้ว!`);
+    }
+    if (!isAuto) {
+      await refreshAllData();
+    }
     return true;
   } catch (err) {
-    showToast('เกิดข้อผิดพลาด: ' + err.message, true);
+    if (!isAuto) {
+      showToast('เกิดข้อผิดพลาด: ' + err.message, true);
+    }
     return false;
   }
 }
 
-async function openPrintReportFromModal() {
+async function openPrintReportFromModal(mode = '', targetSo = '') {
   if (!currentCircuit) return;
   await saveCurrentInspection(true);
-  window.open(`/report.html?id=${encodeURIComponent(currentCircuit.so_number)}`, '_blank');
+  const so = targetSo || currentCircuit.so_number;
+  const modeParam = mode ? `&mode=${encodeURIComponent(mode)}` : '';
+  window.open(`/report.html?id=${encodeURIComponent(so)}${modeParam}`, '_blank');
+}
+
+async function downloadWordReportFromModal(targetSo = '') {
+  if (!currentCircuit) return;
+  await saveCurrentInspection(true);
+  const so = targetSo || currentCircuit.so_number;
+  window.open(`/api/circuits/${encodeURIComponent(so)}/report.docx`, '_blank');
 }
 
 // ============================================================================
@@ -2294,7 +4079,7 @@ async function submitNewCircuit() {
 // ============================================================================
 // Smart S/N Scanner & Photo OCR Engine (ถ่ายรูปอ่าน S/N + Barcode/QR อัตโนมัติ)
 // ============================================================================
-let activeSnTarget = 'router'; // 'router' | 'ap_0' | 'ap_1' ...
+let activeSnTarget = 'router'; // 'router' | 'ap_0' | 'site_1_router' | 'site_1_ap_0' ...
 let liveHtml5QrCode = null;
 let liveCameraRunning = false;
 
@@ -2303,10 +4088,17 @@ function openSnScanner(target) {
   const titleEl = document.getElementById('snModalTitle');
   if (titleEl) {
     if (activeSnTarget === 'router') {
-      titleEl.textContent = '📷 ถ่ายรูปสติ๊กเกอร์ / สแกนอ่าน S/N — อุปกรณ์ MikroTik Router';
+      titleEl.textContent = `📷 ถ่ายรูปสติ๊กเกอร์ / สแกนอ่าน S/N — MikroTik (วงจรที่ 1)`;
+    } else if (activeSnTarget.startsWith('site_')) {
+      const m = activeSnTarget.match(/^site_(\d+)_(router|ap_(\d+))$/);
+      if (m) {
+        const cNum = Number(m[1]) + 1;
+        const devLabel = m[2] === 'router' ? 'MikroTik Router' : `Access Point ตัวที่ ${Number(m[3]) + 1}`;
+        titleEl.textContent = `📷 ถ่ายรูปสติ๊กเกอร์ / สแกนอ่าน S/N — ${devLabel} (วงจรที่ ${cNum})`;
+      }
     } else {
       const idx = Number(activeSnTarget.replace('ap_', '')) + 1;
-      titleEl.textContent = `📷 ถ่ายรูปสติ๊กเกอร์ / สแกนอ่าน S/N — Access Point ตัวที่ ${idx}`;
+      titleEl.textContent = `📷 ถ่ายรูปสติ๊กเกอร์ / สแกนอ่าน S/N — Access Point ตัวที่ ${idx} (วงจรที่ 1)`;
     }
   }
   document.getElementById('snOcrStatusBox').classList.add('hidden');
@@ -2397,22 +4189,48 @@ async function handleSnPhotoSelected(event) {
 
     // Also save this photo into the corresponding device photo slot if currentCircuit is open
     if (currentCircuit) {
-      const slotKey = activeSnTarget === 'router'
-        ? 'router_device'
-        : `ap${Number(activeSnTarget.replace('ap_', '')) + 1}_device`;
+      let targetCircuitObj = currentCircuit;
+      let slotKey = 'router_device';
+      let cIdxForSite = 0;
+
+      if (activeSnTarget.startsWith('site_')) {
+        const m = activeSnTarget.match(/^site_(\d+)_(router|ap_(\d+))$/);
+        if (m) {
+          cIdxForSite = Number(m[1]);
+          targetCircuitObj = currentSiteCircuits[cIdxForSite] || currentCircuit;
+          slotKey = m[2] === 'router' ? 'router_device' : `ap${Number(m[3]) + 1}_device`;
+        }
+      } else {
+        slotKey = activeSnTarget === 'router'
+          ? 'router_device'
+          : `ap${Number(activeSnTarget.replace('ap_', '')) + 1}_device`;
+      }
+
       fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          circuitId: currentCircuit.so_number,
+          circuitId: targetCircuitObj.so_number,
+          so_number: targetCircuitObj.so_number,
           slot: slotKey,
           dataUrl: compressedDataUrl
         })
       }).then(r => r.json()).then(upData => {
         if (upData.ok && upData.url) {
-          if (activeSnTarget === 'router') {
+          if (cIdxForSite > 0 && currentSiteCircuits[cIdxForSite]) {
+            if (slotKey === 'router_device') {
+              currentSiteCircuits[cIdxForSite].router_info.photo_device = upData.url;
+            } else {
+              const apIdx = Number(slotKey.match(/^ap(\d+)_device$/)[1]) - 1;
+              if (currentSiteCircuits[cIdxForSite].access_points?.[apIdx]) {
+                currentSiteCircuits[cIdxForSite].access_points[apIdx].photo_device = upData.url;
+              }
+            }
+            renderAdditionalSiteCircuitsInModal();
+            renderModalCompletenessBar();
+          } else if (activeSnTarget === 'router') {
             currentCircuit.router_info.photo_device = upData.url;
-            renderPhotoSlot('slotRouterDevice', 'router_device', '1.1 รูปถ่ายอุปกรณ์ MikroTik (เห็น Sticker ใหม่ชัดเจน)', upData.url, u => {
+            renderPhotoSlot('slotRouterDevice', 'router_device', `1.1 รูปถ่ายอุปกรณ์ MikroTik วงจรที่ 1 (${currentCircuit.so_number}) เห็น Sticker ชัดเจน`, upData.url, u => {
               currentCircuit.router_info.photo_device = u;
             });
           } else {
@@ -2491,6 +4309,27 @@ async function autoExtractSnToField(imageSource, target) {
 
 function applyDetectedSnToTarget(snValue, target, allCandidates = []) {
   const cleanSn = (snValue || '').trim().toUpperCase();
+  if (target && target.startsWith('site_')) {
+    const m = target.match(/^site_(\d+)_(router|ap_(\d+))$/);
+    if (m) {
+      const cIdx = Number(m[1]);
+      if (m[2] === 'router') {
+        const ocrInput = document.getElementById(`sc_${cIdx}_rOcrSn`);
+        const manualInput = document.getElementById(`sc_${cIdx}_rSn`);
+        if (ocrInput) ocrInput.value = cleanSn;
+        if (manualInput && !manualInput.value.trim()) manualInput.value = cleanSn;
+      } else {
+        const apIdx = Number(m[3]);
+        const ocrInput = document.getElementById(`sc_${cIdx}_apOcrSn_${apIdx}`);
+        const manualInput = document.getElementById(`sc_${cIdx}_apSn_${apIdx}`);
+        if (ocrInput) ocrInput.value = cleanSn;
+        if (manualInput && !manualInput.value.trim()) manualInput.value = cleanSn;
+      }
+      onAdditionalCircuitInput(cIdx);
+      return;
+    }
+  }
+
   if (target === 'router') {
     const ocrInput = document.getElementById('rOcrSerialNo');
     const manualInput = document.getElementById('rSerialNo');
@@ -3368,22 +5207,26 @@ function downloadLineActiveCircuitDocx() {
 }
 
 // ============================================================================
-// Admin QA Verification Center (Step 5: Admin ตรวจสอบความถูกต้องครบถ้วน & อนุมัติ)
+// Admin QA & Coordinator Center (2. เจ้าหน้าที่ตรวจรับงานฝั่งบริษัท ประสานช่าง & ตรวจก่อนให้ช่างออก)
 // ============================================================================
 let adminOverviewData = null;
-let currentAdminFilter = 'all';
+let currentAdminFilter = 'active_all';
 
 async function loadAdminOverview() {
   try {
     const res = await fetch('/api/admin/overview');
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'โหลดข้อมูล Admin ไม่สำเร็จ');
+    if (!res.ok) throw new Error(data.error || 'โหลดข้อมูลผู้ตรวจรับงานไม่สำเร็จ');
     adminOverviewData = data;
 
     const items = data.items || [];
     const activeAll = items.length;
     const pendingReview = items.filter(i => i.admin_status === 'pending_review').length;
     const working = items.filter(i => i.checkin_status === 'checked_in').length;
+    const geccRemote = allCircuits.filter(c => {
+      const aps = c.ap_summary || c.access_points || [];
+      return aps.some(a => detectRoomSpec(a.room).isGecc);
+    }).length;
     const snMismatch = items.filter(i => (i.completeness?.snMismatchCount || 0) > 0).length;
     const incompletePhotos = items.filter(i => !i.completeness?.allRequiredPhotosComplete).length;
     const approved = items.filter(i => i.admin_status === 'approved').length;
@@ -3395,6 +5238,7 @@ async function loadAdminOverview() {
     setEl('admCountActiveAll', activeAll);
     setEl('admCountPendingReview', pendingReview);
     setEl('admCountWorking', working);
+    setEl('admCountGeccRemote', geccRemote);
     setEl('admCountSnMismatch', snMismatch);
     setEl('admCountIncompletePhotos', incompletePhotos);
     setEl('admCountApproved', approved);
@@ -3405,12 +5249,13 @@ async function loadAdminOverview() {
   }
 }
 
-function filterAdminList(mode) {
-  currentAdminFilter = mode || 'all';
+function setAdminFilter(mode) {
+  currentAdminFilter = mode || 'active_all';
   const cardMap = {
-    all: 'admCardActiveAll',
+    active_all: 'admCardActiveAll',
     pending_review: 'admCardPendingReview',
     working: 'admCardWorking',
+    gecc_remote: 'admCardGeccRemote',
     sn_mismatch: 'admCardSnMismatch',
     incomplete_photos: 'admCardIncompletePhotos',
     approved: 'admCardApproved'
@@ -3419,25 +5264,42 @@ function filterAdminList(mode) {
     const el = document.getElementById(cardId);
     if (!el) return;
     if (key === currentAdminFilter) {
-      el.classList.add('ring-2', 'ring-slate-900');
+      el.classList.add('border-indigo-600', 'ring-2', 'ring-indigo-500/30');
+      el.classList.remove('border-transparent');
     } else {
-      el.classList.remove('ring-2', 'ring-slate-900');
+      el.classList.remove('border-indigo-600', 'ring-2', 'ring-indigo-500/30');
+      el.classList.add('border-transparent');
     }
   });
   renderAdminQueueTable();
 }
 
+function filterAdminList(mode) {
+  setAdminFilter(mode === 'all' ? 'active_all' : mode);
+}
+
 function renderAdminQueueTable() {
   const container = document.getElementById('adminQueueContainer');
-  if (!container || !adminOverviewData) return;
+  if (!container) return;
 
   const q = (document.getElementById('adminSearchInput')?.value || '').trim().toLowerCase();
-  let rows = adminOverviewData.items || [];
+  const activeItems = adminOverviewData?.items || [];
+  const activeMap = new Map(activeItems.map(i => [i.so_number, i]));
+
+  // When viewing 'all_334' or 'gecc_remote' or searching, merge with allCircuits so coordinator can inspect any of the 334 circuits
+  let rows = (currentAdminFilter === 'all_334' || currentAdminFilter === 'gecc_remote' || q)
+    ? allCircuits.map(c => activeMap.get(c.so_number) || c)
+    : (activeItems.length > 0 ? activeItems : allCircuits.slice(0, 30));
 
   if (currentAdminFilter === 'pending_review') {
     rows = rows.filter(r => r.admin_status === 'pending_review');
   } else if (currentAdminFilter === 'working') {
     rows = rows.filter(r => r.checkin_status === 'checked_in');
+  } else if (currentAdminFilter === 'gecc_remote') {
+    rows = rows.filter(r => {
+      const aps = r.access_points || r.ap_summary || [];
+      return aps.some(a => detectRoomSpec(a.room).isGecc);
+    });
   } else if (currentAdminFilter === 'sn_mismatch') {
     rows = rows.filter(r => (r.completeness?.snMismatchCount || 0) > 0);
   } else if (currentAdminFilter === 'incomplete_photos') {
@@ -3447,102 +5309,155 @@ function renderAdminQueueTable() {
   }
 
   if (q) {
-    rows = rows.filter(r =>
-      (r.so_number || '').toLowerCase().includes(q) ||
-      (r.province || '').toLowerCase().includes(q) ||
-      (r.branch_name || '').toLowerCase().includes(q) ||
-      (r.inspector_name || '').toLowerCase().includes(q)
-    );
+    rows = rows.filter(r => {
+      const aps = r.access_points || r.ap_summary || [];
+      const anydeskStr = aps.map(a => a.gecc_anydesk_id || '').join(' ');
+      const snStr = `${r.router_summary?.serial_no || ''} ` + aps.map(a => a.serial_no || '').join(' ');
+      return (
+        (r.so_number || '').toLowerCase().includes(q) ||
+        (r.service_no || '').toLowerCase().includes(q) ||
+        (r.province || '').toLowerCase().includes(q) ||
+        (r.branch_name || '').toLowerCase().includes(q) ||
+        (r.inspector_name || '').toLowerCase().includes(q) ||
+        anydeskStr.toLowerCase().includes(q) ||
+        snStr.toLowerCase().includes(q)
+      );
+    });
   }
 
   if (rows.length === 0) {
     container.innerHTML = `
-      <div class="bg-white rounded-2xl border border-slate-200 p-10 text-center text-slate-500 text-xs shadow-sm">
-        ไม่พบรายการวงจรในหมวดหมู่นี้ (เมื่อช่างกด Check-in หรืออัปโหลดรูปผ่านหน้าเว็บ / LINE Bot รายการจะแสดงที่นี่ทันที)
+      <div class="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-500 text-xs shadow-sm space-y-2">
+        <p class="font-bold text-slate-700">ยังไม่มีรายการวงจรในตัวกรองหมวดนี้</p>
+        <p>เมื่อช่างกด Check-in, บันทึกร่าง หรือส่งตรวจงานก่อนออกจากหน้างาน รายการจะแสดงที่นี่ทันที</p>
+        <button type="button" onclick="setAdminFilter('all_334')" class="px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white font-bold">
+          ดูรายชื่อครบทั้ง 334 วงจร
+        </button>
       </div>
     `;
     return;
   }
 
-  container.innerHTML = rows.map(r => {
-    const comp = r.completeness || { uploadedRequiredCount: 0, totalRequiredCount: 9, missingPhotoLabels: [], snComparisons: [] };
+  container.innerHTML = rows.slice(0, 100).map(r => {
+    const comp = r.completeness || {
+      uploadedRequiredCount: r.photo_count || 0,
+      totalRequiredCount: r.expected_photo_count || 8,
+      missingPhotoLabels: [],
+      snComparisons: []
+    };
     const checkinStr = r.checkin_time ? new Date(r.checkin_time).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }) : 'ยังไม่ Check-in';
-    const checkoutStr = r.checkout_time ? new Date(r.checkout_time).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }) : 'กำลังปฏิบัติงาน';
+    const checkoutStr = r.checkout_time ? new Date(r.checkout_time).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }) : 'อยู่ในพื้นที่ / รอส่งตรวจ';
 
-    const snHtml = (comp.snComparisons || []).map(s => {
-      const icon = s.status === 'matched' ? '✅' : s.status === 'mismatch' ? '❌' : s.status === 'missing' ? '⬜' : '⚠️';
-      const cls = s.status === 'matched'
-        ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
-        : s.status === 'mismatch'
-          ? 'bg-rose-50 text-rose-900 border-rose-300 font-bold'
-          : 'bg-slate-50 text-slate-700 border-slate-200';
-      return `
-        <div class="px-2.5 py-1.5 rounded-lg border text-xs ${cls}">
-          <div>${icon} <strong>${s.deviceLabel}</strong></div>
-          <div class="font-mono text-[11px] mt-0.5">✍️ ช่าง: <code>${s.manualSn || '-'}</code> | 🤖 OCR: <code>${s.ocrSn || '-'}</code></div>
+    const aps = r.access_points || r.ap_summary || [];
+    const geccAp = aps.find(a => detectRoomSpec(a.room).isGecc);
+
+    const snHtml = (comp.snComparisons && comp.snComparisons.length > 0)
+      ? comp.snComparisons.map(s => {
+          const icon = s.status === 'matched' ? '✅' : s.status === 'mismatch' ? '❌' : s.status === 'missing' ? '⬜' : '🔹';
+          const cls = s.status === 'matched'
+            ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+            : s.status === 'mismatch'
+              ? 'bg-rose-50 text-rose-900 border-rose-300 font-bold'
+              : 'bg-white text-slate-700 border-slate-200';
+          return `
+            <div class="px-2.5 py-1 rounded-lg border text-xs ${cls}">
+              <div>${icon} <strong>${s.deviceLabel}</strong></div>
+              <div class="font-mono text-[11px] mt-0.5">S/N: <code>${s.manualSn || '-'}</code> ${s.ocrSn ? `| OCR: <code>${s.ocrSn}</code>` : ''}</div>
+            </div>
+          `;
+        }).join('')
+      : `
+        <div class="px-2.5 py-1 rounded-lg border bg-white text-slate-700 border-slate-200 text-xs">
+          🖧 MikroTik (${r.router_summary?.model || 'RB3011'}): <code class="font-mono font-bold">${r.router_summary?.serial_no || '-'}</code>
         </div>
+        ${aps.map((a, idx) => `
+          <div class="px-2.5 py-1 rounded-lg border bg-white text-slate-700 border-slate-200 text-xs">
+            📡 AP#${idx + 1} (${a.room || ''}): <code class="font-mono font-bold">${a.serial_no || '-'}</code>
+          </div>
+        `).join('')}
       `;
-    }).join('');
 
-    let admBadge = `<span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">👷 กำลังปฏิบัติงาน</span>`;
+    let admBadge = `<span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">⏳ รอช่างดำเนินการ</span>`;
     if (r.admin_status === 'pending_review') {
-      admBadge = `<span class="px-3 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-xs font-extrabold">⏳ รอ Admin ตรวจสอบ</span>`;
+      admBadge = `<span class="px-3 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-xs font-extrabold animate-pulse">⏳ รอผู้ตรวจรับอนุมัติก่อนช่างออกจาก Site</span>`;
     } else if (r.admin_status === 'approved') {
-      admBadge = `<span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-extrabold">✅ อนุมัติแล้ว (${r.admin_reviewer || 'Admin'})</span>`;
+      admBadge = `<span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-extrabold">✅ ตรวจผ่านแล้ว — ช่างออกจาก Site ได้ (${r.admin_reviewer || r.admin_name || '1-TO-ALL'})</span>`;
     } else if (r.admin_status === 'rejected') {
-      admBadge = `<span class="px-3 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-300 text-xs font-extrabold">❌ ส่งกลับให้แก้ไข (${r.admin_review_note || '-'})</span>`;
+      admBadge = `<span class="px-3 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-300 text-xs font-extrabold">❌ ให้ช่างแก้ไขก่อนออก (${r.admin_review_note || r.admin_comment || '-'})</span>`;
+    } else if (r.checkin_status === 'checked_in') {
+      admBadge = `<span class="px-3 py-1 rounded-full bg-blue-100 text-blue-800 border border-blue-300 text-xs font-extrabold">🟢 ช่างกำลังอยู่ใน Site</span>`;
     }
 
     return `
-      <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition">
+      <div class="bg-white rounded-2xl border-2 ${r.admin_status === 'pending_review' ? 'border-amber-400' : 'border-slate-200'} p-4 shadow-sm hover:shadow-md transition">
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-slate-100">
           <div class="flex flex-wrap items-center gap-2">
             <span class="px-2.5 py-1 rounded-lg bg-slate-900 text-white font-mono text-xs font-extrabold">${r.so_number}</span>
+            <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-xs font-bold">${r.service_no || '-'}</span>
             <span class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-800 text-xs font-extrabold">${r.province}</span>
             <span class="text-xs font-bold text-slate-800">${r.branch_name || ''}</span>
             ${admBadge}
           </div>
           <div class="flex items-center gap-1.5 flex-wrap">
             <button onclick="openInspectionModal('${r.so_number}')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition">
-              🔍 เปิดดูรูป/แก้ไขข้อมูล
+              🔍 ตรวจรูป/ข้อมูล
             </button>
-            <a href="/api/circuits/${encodeURIComponent(r.so_number)}/report.docx" target="_blank" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold transition">
-              📝 รายงาน Word (.docx)
+            <a href="/report.html?id=${encodeURIComponent(r.so_number)}" target="_blank" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-extrabold transition">
+              🖨️ รายงาน PDF (5.1 & 5.2)
+            </a>
+            <a href="/api/circuits/${encodeURIComponent(r.so_number)}/report.docx" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold transition">
+              📝 Word
             </a>
             <button onclick="promptAdminReview('${r.so_number}', 'approved')" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold shadow-sm transition">
-              ✅ อนุมัติผ่าน (Approve)
+              ✅ อนุมัติให้ช่างออก
             </button>
             <button onclick="promptAdminReview('${r.so_number}', 'rejected')" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold shadow-sm transition">
-              ❌ ส่งกลับให้แก้ (Reject)
+              ❌ สั่งแก้ก่อนออก
             </button>
           </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3">
           <div class="bg-slate-50 rounded-xl p-3 border border-slate-200/80 text-xs space-y-1">
-            <div class="font-extrabold text-slate-700">1. ข้อมูลช่าง & เวลาเข้า-ออก Site</div>
-            <div>👷 ช่าง: <strong>${r.inspector_name || '-'}</strong> (${r.inspector_phone || '-'})</div>
+            <div class="font-extrabold text-slate-700">1. ประสานช่างหน้างาน & ข้อมูลห้อง</div>
+            <div>👷 ช่าง: <strong>${r.inspector_name || '-'}</strong> ${r.inspector_phone ? `(<a href="tel:${r.inspector_phone}" class="text-indigo-600 underline">${r.inspector_phone}</a>)` : ''}</div>
             <div class="text-emerald-700 font-semibold">📍 Check-in: ${checkinStr}</div>
-            <div class="text-indigo-700 font-semibold">🏁 Check-out: ${checkoutStr}</div>
-          </div>
-
-          <div class="bg-slate-50 rounded-xl p-3 border border-slate-200/80 text-xs space-y-1">
-            <div class="flex items-center justify-between">
-              <span class="font-extrabold text-slate-700">2. ความครบถ้วนของรูปถ่าย</span>
-              <span class="px-2 py-0.5 rounded-full text-[11px] font-extrabold ${
-                comp.allRequiredPhotosComplete ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-              }">📷 ${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป (${comp.photoProgressPct || 0}%)</span>
-            </div>
-            ${(comp.missingPhotoLabels || []).length > 0 ? `
-              <div class="text-[11px] text-rose-600 leading-relaxed">
-                <strong>รูปที่ยังขาด:</strong> ${comp.missingPhotoLabels.join(', ')}
+            <div class="text-indigo-700 font-semibold">🏁 ส่งตรวจ: ${checkoutStr}</div>
+            ${geccAp ? `
+              <div class="mt-1.5 pt-1.5 border-t border-amber-200 bg-amber-50/80 rounded p-2 space-y-1 text-[11px]">
+                <div class="font-extrabold text-amber-950">🔐 มีห้อง GECC (ต่อ LAN/WiFi ต้องลงทะเบียน Authen ก่อนเทส):</div>
+                <div class="flex flex-wrap gap-1">
+                  <span class="px-1.5 py-0.5 rounded ${geccAp.gecc_authen_wifi ? 'bg-emerald-100 text-emerald-800' : 'bg-white text-slate-600'} border">${geccAp.gecc_authen_wifi ? '✅ ลงทะเบียน Authen & เทสความเร็วแล้ว' : 'ℹ️ ทำเหมือนห้องปกติ (ลงทะเบียน Authen ก่อนเทส)'}</span>
+                </div>
               </div>
-            ` : `<div class="text-emerald-700 font-bold">✅ อัปโหลดรูปครบทุกจุดบังคับแล้ว</div>`}
+            ` : `<div class="text-[11px] text-slate-500 pt-1">ℹ️ ห้องในวงจรนี้: ${aps.map(a => a.room).join(', ') || '-'}</div>`}
           </div>
 
           <div class="bg-slate-50 rounded-xl p-3 border border-slate-200/80 text-xs space-y-1.5">
-            <div class="font-extrabold text-slate-700">3. ตรวจสอบ S/N (ช่างกรอก vs OCR)</div>
-            <div class="grid grid-cols-1 gap-1.5">
+            <div class="flex items-center justify-between gap-1 flex-wrap">
+              <span class="font-extrabold text-slate-700">2. รูปอุปกรณ์หน้างาน & สแกนใบส่งมอบ</span>
+              <div class="flex items-center gap-1 flex-wrap">
+                <span class="px-2 py-0.5 rounded-full text-[11px] font-extrabold ${
+                  comp.isOnsitePhotoComplete ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                }">📷 หน้างาน ${comp.onsiteUploadedCount ?? comp.uploadedRequiredCount}/${comp.onsiteRequiredCount ?? comp.totalRequiredCount}</span>
+                <span class="px-2 py-0.5 rounded-full text-[11px] font-extrabold ${
+                  comp.isHandoverComplete ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-200 text-slate-700'
+                }">🖨️ ใบส่งมอบ ${comp.handoverUploadedCount ?? 0}/2 หน้า</span>
+              </div>
+            </div>
+            ${(comp.missingOnsitePhotoLabels || []).length > 0 ? `
+              <div class="text-[11px] text-rose-600 leading-relaxed">
+                <strong>รูปหน้างานที่ยังขาด:</strong> ${comp.missingOnsitePhotoLabels.join(', ')}
+              </div>
+            ` : ((comp.onsiteUploadedCount ?? 0) > 0 ? `<div class="text-emerald-700 font-bold">✅ รูปอุปกรณ์และผลเทสความเร็วหน้างานครบถ้วนแล้ว</div>` : `<div class="text-slate-500 text-[11px]">รอช่างอัปโหลดรูปภาพอุปกรณ์และผลเทสความเร็ว</div>`)}
+            <div class="text-[11px] ${comp.isHandoverComplete ? 'text-indigo-700 font-bold' : 'text-amber-800'}">
+              ${comp.isHandoverComplete ? '✅ สแกนใบแบบส่งมอบงานครบทั้ง 2 หน้าแล้ว (พร้อมพิมพ์ PDF ส่งลูกค้า)' : '⏳ ใบแบบส่งมอบงาน (หน้า 1–2): สามารถใช้ Scanner สแกนตามหลังเข้าหน้างานได้'}
+            </div>
+          </div>
+
+          <div class="bg-slate-50 rounded-xl p-3 border border-slate-200/80 text-xs space-y-1.5">
+            <div class="font-extrabold text-slate-700">3. อุปกรณ์ & รหัส S/N ประจำวงจร</div>
+            <div class="grid grid-cols-1 gap-1">
               ${snHtml}
             </div>
           </div>
@@ -3553,13 +5468,13 @@ function renderAdminQueueTable() {
 }
 
 async function promptAdminReview(soNumber, decision) {
-  const adminName = document.getElementById('adminNameInput')?.value.trim() || 'Admin QA';
+  const adminName = document.getElementById('adminNameInput')?.value.trim() || 'เจ้าหน้าที่ตรวจรับ (1-TO-ALL)';
   let adminComment = '';
   if (decision === 'rejected') {
-    adminComment = prompt(`ระบุสิ่งที่ต้องให้ช่างแก้ไขสำหรับวงจร ${soNumber} (ระบบจะแจ้งเตือนกลับไปที่ LINE ช่างทันที):`, 'กรุณาถ่ายรูป Sticker อุปกรณ์ให้เห็น S/N ชัดเจนอีกครั้ง');
+    adminComment = prompt(`ระบุสิ่งที่ต้องให้ช่างแก้ไขก่อนออกจากหน้างาน สำหรับวงจร ${soNumber}:`, 'กรุณาตรวจสอบรูปถ่าย Sticker S/N และผลเทสความเร็วให้ครบถ้วน');
     if (adminComment === null) return;
   } else {
-    adminComment = prompt(`หมายเหตุการอนุมัติวงจร ${soNumber} (เว้นว่างได้):`, 'ข้อมูลและรูปถ่ายครบถ้วนสมบูรณ์ อนุมัติออกรายงาน MS Word');
+    adminComment = prompt(`หมายเหตุการอนุมัติให้ช่างออกจาก Site สำหรับวงจร ${soNumber} (เว้นว่างได้):`, 'ตรวจสอบข้อมูล รูปถ่าย และผลทดสอบความเร็วครบถ้วน อนุมัติให้ช่างออกจากหน้างานได้');
     if (adminComment === null) return;
   }
 
@@ -3574,15 +5489,312 @@ async function promptAdminReview(soNumber, decision) {
       })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'บันทึกผลตรวจ Admin ไม่สำเร็จ');
+    if (!res.ok) throw new Error(data.error || 'บันทึกผลตรวจรับงานไม่สำเร็จ');
     showToast(decision === 'approved'
-      ? `✅ Admin อนุมัติวงจร ${soNumber} เรียบร้อยแล้ว! (แจ้งเตือนเข้า LINE ช่างแล้ว)`
-      : `⚠️ ส่งกลับวงจร ${soNumber} ให้ช่างแก้ไขเรียบร้อยแล้ว`);
+      ? `✅ อนุมัติให้ช่างออกจาก Site วงจร ${soNumber} เรียบร้อยแล้ว!`
+      : `⚠️ แจ้งให้ช่างแก้ไขวงจร ${soNumber} ก่อนออกจาก Site เรียบร้อยแล้ว`);
     await loadAdminOverview();
     await refreshAllData();
   } catch (err) {
     showToast(err.message, true);
   }
 }
+
+// ============================================================================
+// Step 5: Scanner Handover PDF / Multi-Page Image Upload Helper
+// (รองรับการสแกนใบแบบส่งมอบงาน หน้าที่ 1 และ 2 ด้วยเครื่อง Scanner ตามหลังเข้าหน้างาน)
+// ============================================================================
+async function renderPdfPageToDataUrl(pdfFile, preferredPage = 1) {
+  if (typeof window.pdfjsLib === 'undefined') {
+    throw new Error('ไม่พบไลบรารีแปลงไฟล์ PDF กรุณาเลือกไฟล์รูปภาพ (.jpg / .png) แทน');
+  }
+  if (!window.pdfjsLib.GlobalWorkerOptions.workerSrc) {
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+  const arrayBuf = await pdfFile.arrayBuffer();
+  const pdfDoc = await window.pdfjsLib.getDocument({ data: arrayBuf }).promise;
+  const pageNum = Math.min(Math.max(1, preferredPage), pdfDoc.numPages);
+  const page = await pdfDoc.getPage(pageNum);
+  const viewport = page.getViewport({ scale: 2.0 });
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d');
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  return canvas.toDataURL('image/jpeg', 0.88);
+}
+
+async function uploadHandoverPageDataUrl(slotKey, dataUrl) {
+  if (!currentCircuit) return '';
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      circuitId: currentCircuit.so_number,
+      so_number: currentCircuit.so_number,
+      slot: slotKey,
+      category: slotKey,
+      dataUrl,
+      data_url: dataUrl
+    })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'อัปโหลดไฟล์สแกนไม่สำเร็จ');
+  return data.url;
+}
+
+async function handleScannerHandoverUpload(fileInput) {
+  const files = Array.from(fileInput?.files || []);
+  if (!files.length || !currentCircuit) return;
+  if (!currentCircuit.router_info) currentCircuit.router_info = {};
+
+  try {
+    const firstFile = files[0];
+    const isPdf = firstFile.type === 'application/pdf' || /\.pdf$/i.test(firstFile.name || '');
+
+    if (isPdf) {
+      showToast('🖨️ กำลังแยกหน้าไฟล์ PDF จากเครื่อง Scanner (หน้าที่ 1/2 และ 2/2)...');
+      if (typeof window.pdfjsLib !== 'undefined' && !window.pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+      const arrayBuf = await firstFile.arrayBuffer();
+      const pdfDoc = await window.pdfjsLib.getDocument({ data: arrayBuf }).promise;
+
+      // Render Page 1
+      const p1DataUrl = await renderPdfPageToDataUrl(firstFile, 1);
+      const p1Url = await uploadHandoverPageDataUrl('handover_page1', p1DataUrl);
+      currentCircuit.router_info.photo_handover_p1 = p1Url;
+      currentCircuit.router_info.photo_signed_doc = p1Url;
+      const chk1 = document.getElementById('chkDocFilled');
+      if (chk1) chk1.checked = true;
+
+      // If PDF has >= 2 pages, also render Page 2 automatically!
+      if (pdfDoc.numPages >= 2) {
+        const p2DataUrl = await renderPdfPageToDataUrl(firstFile, 2);
+        const p2Url = await uploadHandoverPageDataUrl('handover_page2', p2DataUrl);
+        currentCircuit.router_info.photo_handover_p2 = p2Url;
+        const chk2 = document.getElementById('chkDocStamped');
+        if (chk2) chk2.checked = true;
+      }
+    } else {
+      showToast('🖨️ กำลังอัปโหลดไฟล์ภาพสแกนใบส่งมอบงาน...');
+      const p1DataUrl = await compressImageFile(files[0], 1500, 0.88);
+      const p1Url = await uploadHandoverPageDataUrl('handover_page1', p1DataUrl);
+      currentCircuit.router_info.photo_handover_p1 = p1Url;
+      currentCircuit.router_info.photo_signed_doc = p1Url;
+      const chk1 = document.getElementById('chkDocFilled');
+      if (chk1) chk1.checked = true;
+
+      if (files.length >= 2) {
+        const p2DataUrl = await compressImageFile(files[1], 1500, 0.88);
+        const p2Url = await uploadHandoverPageDataUrl('handover_page2', p2DataUrl);
+        currentCircuit.router_info.photo_handover_p2 = p2Url;
+        const chk2 = document.getElementById('chkDocStamped');
+        if (chk2) chk2.checked = true;
+      }
+    }
+
+    // Sync the 1 Site Handover Form across all circuits in currentSiteCircuits
+    const p1Synced = currentCircuit.router_info.photo_handover_p1 || '';
+    const p2Synced = currentCircuit.router_info.photo_handover_p2 || '';
+    (currentSiteCircuits || []).forEach(sc => {
+      if (!sc.router_info) sc.router_info = {};
+      if (p1Synced) {
+        sc.router_info.photo_handover_p1 = p1Synced;
+        sc.router_info.photo_signed_doc = p1Synced;
+        sc.router_info.doc_filled = true;
+      }
+      if (p2Synced) {
+        sc.router_info.photo_handover_p2 = p2Synced;
+        sc.router_info.doc_stamped = true;
+      }
+    });
+
+    // Re-render both handover upload slots & completeness bar
+    renderPhotoSlot('slotSignedDocPhoto', 'handover_page1', '5.1 สำเนา "แบบส่งมอบงาน" ประจำ Site หน้าที่ 1/2 (วงจรที่ 1–3)', currentCircuit.router_info.photo_handover_p1, url => {
+      currentCircuit.router_info.photo_handover_p1 = url;
+      currentCircuit.router_info.photo_signed_doc = url;
+      (currentSiteCircuits || []).forEach(sc => {
+        if (!sc.router_info) sc.router_info = {};
+        sc.router_info.photo_handover_p1 = url;
+        sc.router_info.photo_signed_doc = url;
+      });
+      renderModalCompletenessBar();
+    });
+    renderPhotoSlot('slotSignedDocPage2Photo', 'handover_page2', '5.2 สำเนา "แบบส่งมอบงาน" ประจำ Site หน้าที่ 2/2 (วงจรที่ 4 + ลงนาม & ประทับตรา)', currentCircuit.router_info.photo_handover_p2, url => {
+      currentCircuit.router_info.photo_handover_p2 = url;
+      (currentSiteCircuits || []).forEach(sc => {
+        if (!sc.router_info) sc.router_info = {};
+        sc.router_info.photo_handover_p2 = url;
+      });
+      renderModalCompletenessBar();
+    });
+    renderModalCompletenessBar();
+    await saveCurrentInspection(true);
+    showToast('✅ อัปโหลดและบันทึกไฟล์สแกนใบแบบส่งมอบงานประจำ Site เรียบร้อยแล้ว!');
+  } catch (err) {
+    showToast('เกิดข้อผิดพลาดในการอัปโหลดไฟล์สแกน: ' + err.message, true);
+  } finally {
+    fileInput.value = '';
+  }
+}
+
+// ============================================================================
+// Step 6: Generate New Updated Summary Excel (.xlsx) for All 334 Circuits
+// (ทำสรุป Excel ใหม่ตามข้อมูลห้อง อุปกรณ์ รหัส S/N และผลเทสความเร็วที่อัปเดตจริงในปีนี้)
+// ============================================================================
+async function exportUpdatedExcelSummary() {
+  try {
+    showToast('📊 กำลังสร้างไฟล์สรุป Excel ใหม่ (.xlsx) สำหรับทั้ง 334 วงจร...');
+    if (!Array.isArray(allCircuits) || allCircuits.length === 0) {
+      await refreshAllData();
+    }
+    if (typeof window.XLSX === 'undefined') {
+      window.location.href = '/api/export/csv';
+      return;
+    }
+
+    const circuitRows = [];
+    const deviceRows = [];
+
+    allCircuits.forEach((c, idx) => {
+      const rt = c.router_info || {};
+      const aps = Array.isArray(c.access_points) ? c.access_points.filter(a => a && a.checked !== false) : [];
+      const comp = c.completeness || {};
+
+      const roomListStr = aps.map(a => a.room || a.room_type || 'AP').join(' + ') || 'ไม่มี AP';
+      const rtModel = rt.model || 'RB3011';
+      const rtP2 = (rt.speed_lan2_dl || rt.speed_lan2_ul)
+        ? `${rt.speed_lan2_dl || '-'}/${rt.speed_lan2_ul || '-'} Mbps`
+        : (rt.photo_lan2 ? 'มีรูปผลเทส (≥650/350M)' : '-');
+      const rtP3 = (rt.speed_lan3_dl || rt.speed_lan3_ul)
+        ? `${rt.speed_lan3_dl || '-'}/${rt.speed_lan3_ul || '-'} Mbps`
+        : (rt.photo_lan3 ? 'มีรูปผลเทส (≥650/350M)' : '-');
+
+      const apSummaryText = aps.map((ap, i) => {
+        const lanSpd = (ap.speed_lan_dl || ap.speed_lan_ul) ? `${ap.speed_lan_dl || '-'}/${ap.speed_lan_ul || '-'}M` : (ap.photo_lan ? 'มีรูปเทส' : '-');
+        const wifiSpd = (ap.speed_wifi_dl || ap.speed_wifi_ul) ? `${ap.speed_wifi_dl || '-'}/${ap.speed_wifi_ul || '-'}M` : (ap.photo_wifi ? 'มีรูปเทส' : '-');
+        return `[AP#${i + 1} ${ap.room || 'AP'}: ${ap.brand || 'TOTOLINK'} ${ap.model || ''} | ครุภัณฑ์:${displayApAssetNo(ap.asset_no)} | S/N:${ap.serial_no || '-'} | LAN:${lanSpd} | WiFi:${wifiSpd}]`;
+      }).join(' ; ');
+
+      const qaLabel = c.admin_status === 'approved'
+        ? 'อนุมัติแล้ว'
+        : c.admin_status === 'rejected'
+          ? 'แจ้งแก้ไข'
+          : c.admin_status === 'pending_review'
+            ? 'รอตรวจรับ'
+            : 'ยังไม่ส่งตรวจ';
+
+      const statusLabel = c.status === 'completed'
+        ? 'ส่งมอบแล้ว'
+        : c.status === 'in_progress'
+          ? 'กำลังดำเนินการ'
+          : c.status === 'issue'
+            ? 'ติดปัญหาหน้างาน'
+            : 'รอดำเนินการ';
+
+      circuitRows.push({
+        'ลำดับ': c.seq || idx + 1,
+        'เลขที่วงจร (S/O)': c.so_number || '',
+        'Service No.': c.service_no || c.so_number || '',
+        'ภูมิภาค': c.region || '',
+        'จังหวัด': c.province || '',
+        'ชื่อหน่วยงาน / สาขา': c.branch_name || '',
+        'ความเร็ววงจร': c.speed_pkg || '650M/350M',
+        'จำนวนห้อง/AP (ปีนี้)': aps.length,
+        'รายชื่อห้องที่ใช้งานจริง (ปีนี้)': roomListStr,
+        'Router ยี่ห้อ/รุ่น': `MikroTik ${rtModel}`,
+        'Router เลขครุภัณฑ์': displayRouterAssetNo(rt.asset_no),
+        'Router S/N (ใหม่/ยืนยัน)': rt.serial_no || '',
+        'Router S/N (จาก OCR)': rt.ocr_serial_no || '',
+        'ผลเทส Speed Port 2': rtP2,
+        'ผลเทส Speed Port 3': rtP3,
+        'รายละเอียดอุปกรณ์ Access Point ทุกห้อง': apSummaryText,
+        'รูปอุปกรณ์+เทสหน้างาน': `${comp.onsiteUploadedCount ?? 0}/${comp.onsiteRequiredCount ?? (3 + aps.length * 3)}`,
+        'สแกนใบส่งมอบงาน (หน้า 1-2)': `${comp.handoverUploadedCount ?? 0}/2 หน้า`,
+        'สถานะตรวจรับ (บริษัท QA)': qaLabel,
+        'ผู้ตรวจรับงาน (QA)': c.admin_name || c.admin_reviewer || '',
+        'ช่างผู้เข้าดำเนินการ': c.inspector_name || '',
+        'เบอร์โทรช่าง': c.inspector_phone || '',
+        'วันที่เข้าดำเนินการ': c.inspection_date || '',
+        'สถานะงาน': statusLabel,
+        'หมายเหตุหน้างาน': c.remarks || ''
+      });
+
+      // Add Router row to Sheet 2
+      deviceRows.push({
+        'ลำดับวงจร': c.seq || idx + 1,
+        'เลขที่วงจร (S/O)': c.so_number || '',
+        'จังหวัด': c.province || '',
+        'ชื่อหน่วยงาน / สาขา': c.branch_name || '',
+        'ประเภทอุปกรณ์': '1. Router (MikroTik)',
+        'ลำดับอุปกรณ์ในวงจร': 'Router ตัวที่ 1',
+        'ห้องที่ติดตั้ง': rt.room || 'ห้อง Server / Rack',
+        'ชั้น / อาคาร': `ชั้น ${rt.floor || '1'} อาคาร ${rt.building || '1'}`,
+        'ยี่ห้อ': 'MikroTik',
+        'รุ่นอุปกรณ์': rtModel,
+        'หมายเลขครุภัณฑ์': displayRouterAssetNo(rt.asset_no),
+        'S/N ใหม่ (ช่างยืนยัน)': rt.serial_no || '',
+        'S/N ที่อ่านได้จากรูป (OCR)': rt.ocr_serial_no || '',
+        'เกณฑ์ความเร็ว': 'Port 2 & Port 3 ≥ 650/350 Mbps',
+        'ผลเทส LAN / Port 2 (DL/UL)': rtP2,
+        'ผลเทส WiFi / Port 3 (DL/UL)': rtP3,
+        'หมายเหตุห้อง GECC (ลงทะเบียน Authen)': '-',
+        'มีรูปอุปกรณ์+Sticker': rt.photo_device ? 'มีรูปแล้ว' : 'ยังไม่มี',
+        'มีรูปผลเทสความเร็วครบ': (rt.photo_lan2 && rt.photo_lan3) ? 'ครบ 2 พอร์ต' : 'ยังไม่ครบ'
+      });
+
+      // Add each AP room row to Sheet 2
+      aps.forEach((ap, apIdx) => {
+        const spec = detectRoomSpec(ap.room);
+        const lanSpd = (ap.speed_lan_dl || ap.speed_lan_ul)
+          ? `${ap.speed_lan_dl || '-'}/${ap.speed_lan_ul || '-'} Mbps`
+          : (ap.photo_lan ? 'มีรูปผลเทส' : '-');
+        const wifiSpd = (ap.speed_wifi_dl || ap.speed_wifi_ul)
+          ? `${ap.speed_wifi_dl || '-'}/${ap.speed_wifi_ul || '-'} Mbps`
+          : (ap.photo_wifi ? 'มีรูปผลเทส' : '-');
+        const geccInfo = spec.isGecc
+          ? (ap.gecc_authen_wifi ? 'ลงทะเบียน Authen แล้ว' : 'ห้อง GECC (ลงทะเบียน Authen ก่อนเทส)')
+          : '-';
+
+        deviceRows.push({
+          'ลำดับวงจร': c.seq || idx + 1,
+          'เลขที่วงจร (S/O)': c.so_number || '',
+          'จังหวัด': c.province || '',
+          'ชื่อหน่วยงาน / สาขา': c.branch_name || '',
+          'ประเภทอุปกรณ์': `2. Access Point (${spec.code})`,
+          'ลำดับอุปกรณ์ในวงจร': `AP ตัวที่ ${apIdx + 1}`,
+          'ห้องที่ติดตั้ง': ap.room || spec.shortRoom,
+          'ชั้น / อาคาร': `ชั้น ${ap.floor || '1'} อาคาร ${ap.building || '1'}`,
+          'ยี่ห้อ': ap.brand || 'TOTOLINK',
+          'รุ่นอุปกรณ์': ap.model || 'A3002RU',
+          'หมายเลขครุภัณฑ์': displayApAssetNo(ap.asset_no),
+          'S/N ใหม่ (ช่างยืนยัน)': ap.serial_no || '',
+          'S/N ที่อ่านได้จากรูป (OCR)': ap.ocr_serial_no || '',
+          'เกณฑ์ความเร็ว': `LAN ≥ ${spec.lanMinDl}/${spec.lanMinUl}M | WiFi ≥ ${spec.wifiMinDl}/${spec.wifiMinUl}M`,
+          'ผลเทส LAN / Port 2 (DL/UL)': lanSpd,
+          'ผลเทส WiFi / Port 3 (DL/UL)': wifiSpd,
+          'หมายเหตุห้อง GECC (ลงทะเบียน Authen)': geccInfo,
+          'มีรูปอุปกรณ์+Sticker': ap.photo_device ? 'มีรูปแล้ว' : 'ยังไม่มี',
+          'มีรูปผลเทสความเร็วครบ': (ap.photo_lan && ap.photo_wifi) ? 'ครบ (LAN+WiFi)' : 'ยังไม่ครบ'
+        });
+      });
+    });
+
+    const wb = window.XLSX.utils.book_new();
+    const wsCircuits = window.XLSX.utils.json_to_sheet(circuitRows);
+    const wsDevices = window.XLSX.utils.json_to_sheet(deviceRows);
+
+    window.XLSX.utils.book_append_sheet(wb, wsCircuits, '1_สรุปวงจรสาขา_334วงจร');
+    window.XLSX.utils.book_append_sheet(wb, wsDevices, '2_อุปกรณ์_Router_AP_ทุกห้อง');
+
+    const dateTag = new Date().toISOString().slice(0, 10);
+    window.XLSX.writeFile(wb, `สรุปวงจรสาขา_กรมการขนส่งทางบก_2569_อัปเดตใหม่_${dateTag}.xlsx`);
+    showToast('✅ ดาวน์โหลดไฟล์สรุป Excel ใหม่ (.xlsx) เรียบร้อยแล้ว!');
+  } catch (err) {
+    showToast('ส่งออก Excel ไม่สำเร็จ: ' + err.message, true);
+  }
+}
+
 
 

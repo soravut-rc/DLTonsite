@@ -6,17 +6,17 @@
   <title>รายงานการติดตั้งและสำเนาแบบส่งมอบงาน - กรมการขนส่งทางบก</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; }
     body {
       font-family: 'Sarabun', sans-serif;
       margin: 0;
       padding: 0;
-      background: #475569;
+      background: #334155;
       color: #000;
-      font-size: 14px;
-      line-height: 1.45;
+      font-size: 13.5px;
+      line-height: 1.42;
     }
     .toolbar {
       position: sticky;
@@ -24,21 +24,23 @@
       z-index: 50;
       background: #0f172a;
       color: #fff;
-      padding: 10px 20px;
+      padding: 10px 18px;
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      gap: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.35);
     }
     .toolbar button, .toolbar a {
       background: #e11d48;
       color: #fff;
       border: none;
-      padding: 8px 16px;
+      padding: 7px 13px;
       border-radius: 8px;
       font-family: 'Sarabun', sans-serif;
       font-weight: 700;
-      font-size: 13px;
+      font-size: 12.5px;
       cursor: pointer;
       text-decoration: none;
       display: inline-flex;
@@ -48,13 +50,17 @@
     .toolbar button.secondary, .toolbar a.secondary {
       background: #334155;
     }
+    .toolbar button.active-mode {
+      background: #4f46e5;
+      box-shadow: 0 0 0 2px #a5b4fc;
+    }
     .page {
       width: 210mm;
       min-height: 297mm;
-      padding: 12mm 14mm;
+      padding: 10mm 14mm;
       margin: 16px auto;
       background: #fff;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.28);
       position: relative;
       page-break-after: always;
     }
@@ -64,7 +70,7 @@
       padding: 6mm;
       margin: 16px auto;
       background: #fff;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.28);
       position: relative;
       page-break-after: always;
       display: flex;
@@ -78,18 +84,35 @@
       object-fit: contain;
       display: block;
     }
+    .doc-top-header {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .doc-classification {
+      grid-column: 2;
+      text-align: center;
+      font-size: 12px;
+      color: #334155;
+      font-weight: 600;
+    }
+    .doc-logo-wrap {
+      grid-column: 3;
+      justify-self: end;
+    }
     .brand-logo {
       display: inline-flex;
       align-items: center;
       gap: 8px;
       font-weight: 800;
-      font-size: 26px;
+      font-size: 24px;
       color: #1e293b;
       letter-spacing: -0.5px;
     }
     .brand-circle {
-      width: 30px;
-      height: 30px;
+      width: 29px;
+      height: 29px;
       border-radius: 50%;
       background: linear-gradient(135deg, #e11d48, #be123c);
       color: #fff;
@@ -101,11 +124,41 @@
     }
     .dotted-val {
       display: inline-block;
-      border-bottom: 1px dotted #333;
+      border-bottom: 1px dotted #1e293b;
       padding: 0 6px;
       font-weight: 700;
       color: #0f172a;
-      min-width: 60px;
+      min-width: 55px;
+      text-align: center;
+    }
+    .dotted-red {
+      display: inline-block;
+      border-bottom: 1px dotted #1e293b;
+      padding: 0 8px;
+      font-weight: 800;
+      color: #b91c1c;
+      min-width: 110px;
+      text-align: center;
+    }
+    .chk-box {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px;
+      height: 14px;
+      border: 1.4px solid #0f172a;
+      font-size: 11px;
+      font-weight: 800;
+      margin-right: 4px;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    .circuit-block {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px dashed #cbd5e1;
+      font-size: 12.8px;
+      line-height: 1.52;
     }
     .photo-table {
       width: 100%;
@@ -116,11 +169,11 @@
       border: 1px solid #000;
       width: 50%;
       vertical-align: top;
-      padding: 10px;
+      padding: 8px 10px;
     }
     .photo-frame {
       width: 100%;
-      height: 165px;
+      height: 162px;
       object-fit: contain;
       background: #fff;
       display: block;
@@ -128,41 +181,43 @@
     }
     .photo-frame-tall {
       width: 100%;
-      height: 345px;
+      height: 340px;
       object-fit: contain;
       background: #fff;
       display: block;
-      margin: 8px auto;
+      margin: 6px auto;
     }
     .placeholder-box {
       width: 100%;
-      height: 160px;
+      height: 155px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       color: #dc2626;
       font-weight: 700;
-      font-size: 13px;
+      font-size: 12.5px;
       text-align: center;
-      padding: 12px;
-      margin: 6px 0;
+      padding: 10px;
+      margin: 4px 0;
+      border: 1px dashed #fca5a5;
+      background: #fff5f5;
+      border-radius: 6px;
     }
-    .placeholder-scan {
-      width: 92%;
-      height: 90%;
-      border: 2px dashed #cbd5e1;
-      border-radius: 12px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: #dc2626;
+    .sig-box {
+      border: 1.3px solid #1e293b;
+      padding: 12px 14px;
+      flex: 1;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .page-footer-num {
+      position: absolute;
+      bottom: 8mm;
+      right: 14mm;
+      font-size: 12.5px;
       font-weight: 700;
-      font-size: 15px;
-      text-align: center;
-      padding: 24px;
-      background: #f8fafc;
+      color: #334155;
     }
     @media print {
       body { background: #fff; }
@@ -179,25 +234,111 @@
 <body>
 
   <div class="toolbar">
-    <div style="display:flex;align-items:center;gap:12px;">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
       <strong id="toolbarTitle">กำลังโหลดรายงานการติดตั้ง...</strong>
-      <a id="toolbarLegacyBtn" href="#" target="_blank" class="secondary" style="display:none;">📄 เปิดไฟล์ PDF ปีที่แล้วเทียบ</a>
+      <a id="toolbarLegacyBtn" href="#" target="_blank" class="secondary" style="display:none;">📄 เทียบไฟล์ PDF ปีที่แล้ว</a>
+      <a href="/handover_blank.pdf" target="_blank" class="secondary">📄 PDF แบบส่งมอบงานต้นฉบับ (ว่าง)</a>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;">
-      <a id="toolbarDocxBtn" href="#" style="background:#2563eb;">📝 ดาวน์โหลดรายงาน MS Word (.docx)</a>
-      <button onclick="window.print()">🖨️ สั่งพิมพ์ / บันทึกเป็น PDF (A4)</button>
-      <button class="secondary" onclick="window.close()">✕ ปิดหน้าต่าง</button>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+      <button id="btnModeFull" class="secondary active-mode" onclick="switchReportMode('')">📑 รายงานครบชุด (รูปอุปกรณ์ + ใบส่งมอบ)</button>
+      <button id="btnModeForm" class="secondary" onclick="switchReportMode('form')">📝 ใบส่งมอบงาน (เติมข้อมูล 1–4 วงจร)</button>
+      <button id="btnModeBlank" class="secondary" onclick="switchReportMode('blank')">🖨️ ใบส่งมอบงานเปล่า (สำหรับเขียนมือ)</button>
+      <a id="toolbarDocxBtn" href="#" style="background:#2563eb;">📝 MS Word (.docx)</a>
+      <button onclick="window.print()">🖨️ พิมพ์ / บันทึก PDF</button>
+      <button class="secondary" onclick="window.close()">✕ ปิด</button>
     </div>
   </div>
 
   <div id="reportPagesContainer"></div>
 
   <script>
+    let loadedCircuit = null;
+    let loadedSiteCircuits = [];
+    let currentReportMode = ''; // '' | 'form' | 'blank'
+
+    function detectRoomTarget(roomStr = '') {
+      const u = String(roomStr || '').toUpperCase();
+      if (u.includes('GECC') || u.includes('ประชาสัมพันธ์') || u.includes('ราชการสะดวก')) {
+        return {
+          code: 'GECC',
+          label: 'ประชาสัมพันธ์ GECC',
+          docTitle: 'ศูนย์ราชการสะดวก (GECC)',
+          ssid: 'GECC',
+          lan: '300/150 Mbps',
+          wifi: '50/20 Mbps',
+          isGecc: true
+        };
+      }
+      if (u.includes('DLS') || u.includes('DSL') || u.includes('อบรม') || u.includes('ใบอนุญาต')) {
+        return {
+          code: 'DLS',
+          label: 'ห้องอบรม DLS',
+          docTitle: 'งานใบอนุญาตขับรถ (DLS)',
+          ssid: 'DLS',
+          lan: '300/150 Mbps',
+          wifi: '50/20 Mbps',
+          isGecc: false
+        };
+      }
+      if (u.includes('VICC') || u.includes('ตรวจสภาพ')) {
+        return {
+          code: 'VICC',
+          label: 'ตรวจสภาพ VICC',
+          docTitle: 'งานตรวจสภาพรถ (VICC)',
+          ssid: 'VICC',
+          lan: '350/200 Mbps',
+          wifi: '50/20 Mbps',
+          isGecc: false
+        };
+      }
+      return {
+        code: 'GPS',
+        label: 'ศูนย์เดินรถ GPS',
+        docTitle: 'ศูนย์บริหารจัดการเดินรถด้วยระบบ(GPS)',
+        ssid: 'GPS',
+        lan: '350/200 Mbps',
+        wifi: '50/20 Mbps',
+        isGecc: false
+      };
+    }
+
+    function getCleanBranchDisplay(c) {
+      if (!c) return 'อำเภอเมือง';
+      const raw = String(c.site_name || c.short_branch_name || c.branch_name || '').trim();
+      const stripped = raw
+        .replace(/^สำนักงานขนส่งจังหวัด[^ ]*\s*/i, '')
+        .replace(/^สขจ\.[^ ]*\s*/i, '')
+        .replace(/^สาขา\s*/i, '')
+        .trim();
+      if (!stripped || stripped === c.province) {
+        return 'อำเภอเมือง';
+      }
+      return stripped;
+    }
+
+    function switchReportMode(mode) {
+      currentReportMode = mode || '';
+      ['btnModeFull', 'btnModeForm', 'btnModeBlank'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('active-mode');
+      });
+      const activeId = currentReportMode === 'form'
+        ? 'btnModeForm'
+        : currentReportMode === 'blank'
+          ? 'btnModeBlank'
+          : 'btnModeFull';
+      const activeEl = document.getElementById(activeId);
+      if (activeEl) activeEl.classList.add('active-mode');
+      renderSiteReportPages(loadedSiteCircuits);
+    }
+
     async function initReport() {
       const params = new URLSearchParams(location.search);
       const id = params.get('id');
+      currentReportMode = params.get('mode') || '';
+
       if (!id) {
-        document.getElementById('toolbarTitle').textContent = 'ไม่พบรหัสวงจร';
+        document.getElementById('toolbarTitle').textContent = 'ไม่พบรหัสวงจรหรือ Site';
         return;
       }
       const res = await fetch('/api/circuits/' + encodeURIComponent(id));
@@ -206,171 +347,365 @@
         return;
       }
       const data = await res.json();
-      const c = data.circuit || data;
-      document.title = `รายงานการติดตั้ง_${c.so_number}_${c.service_no || ''}`;
-      document.getElementById('toolbarTitle').textContent = `รายงานการติดตั้งและสำเนาแบบส่งมอบงาน: ${c.so_number} (${c.branch_name || c.province})`;
+      loadedCircuit = data.circuit || data;
+      loadedSiteCircuits = (Array.isArray(data.site_circuits) && data.site_circuits.length > 0)
+        ? data.site_circuits
+        : [loadedCircuit];
+
+      const c = loadedSiteCircuits[0] || loadedCircuit;
+      const siteName = c.site_name || c.branch_name || c.province || '';
+      const cleanBranch = getCleanBranchDisplay(c);
+      const allSoComma = loadedSiteCircuits.map(sc => sc.so_number).join(',');
+      const allSoList = loadedSiteCircuits.map(sc => sc.so_number).join(', ');
+
+      // Match exact reference filename: "BINF3480314,BINF3480315,BINF3480316 สาขา อำเภอเมือง จังหวัด สุราษฎร์ธานี"
+      document.title = `${allSoComma} สาขา ${cleanBranch} จังหวัด ${c.province || ''}`;
+      document.getElementById('toolbarTitle').textContent =
+        `${allSoComma} สาขา ${cleanBranch} จังหวัด ${c.province || ''} (รวม ${loadedSiteCircuits.length} วงจรใน 1 ไฟล์)`;
 
       const docxBtn = document.getElementById('toolbarDocxBtn');
       if (docxBtn) {
         docxBtn.href = '/api/circuits/' + encodeURIComponent(c.so_number) + '/report.docx';
+        docxBtn.textContent = loadedSiteCircuits.length > 1
+          ? `📝 MS Word ประจำ Site (${loadedSiteCircuits.length} วงจร)`
+          : '📝 MS Word (.docx)';
       }
 
-      if (c.legacy_pdf_path) {
+      const legacyCircuit = loadedSiteCircuits.find(sc => sc && sc.legacy_pdf_path) || c;
+      if (legacyCircuit && legacyCircuit.legacy_pdf_path) {
         const btn = document.getElementById('toolbarLegacyBtn');
-        btn.href = '/' + encodeURI(c.legacy_pdf_path);
+        btn.href = '/' + encodeURI(legacyCircuit.legacy_pdf_path);
         btn.style.display = 'inline-flex';
       }
 
-      renderReportPages(c);
+      switchReportMode(currentReportMode);
     }
 
-    function renderReportPages(c) {
-      const rt = c.router_info || {};
-      const aps = Array.isArray(c.access_points) && c.access_points.length > 0
-        ? c.access_points
-        : [{ room: 'ห้อง GPS' }, { room: 'ห้อง GECC' }];
-
-      const handoverP1 = rt.photo_handover_p1 || rt.photo_signed_doc || '';
-      const handoverP2 = rt.photo_handover_p2 || '';
-
-      // Page 1: Scanned Copy of Paper Handover Form Page 1/2 (สำเนาเอกสาร "แบบส่งมอบงาน" หน้าที่ 1/2)
-      const page1Html = `
-        <div class="page-full-scan">
-          ${handoverP1
-            ? `<img src="${handoverP1}" class="scan-full-img" alt="สำเนาแบบส่งมอบงาน หน้า 1/2" />`
-            : `<div class="placeholder-scan">
-                <div style="font-size:18px;color:#0f172a;margin-bottom:8px;">สำเนาเอกสาร "แบบส่งมอบงาน" (หน้าที่ 1/2)</div>
-                <div style="font-size:14px;color:#475569;margin-bottom:16px;">วงจร ${c.so_number} (${c.service_no || '-'}) — ${c.branch_name || c.province}</div>
-                <div>( นำภาพสำเนาเอกสาร "แบบส่งมอบงาน" หน้าที่ 1/2 วางตรงจุดนี้ )</div>
-                <div style="margin-top:6px;">( ภาพถ่ายเอกสารตัวจริงที่ช่างเขียนข้อมูลอุปกรณ์และรายละเอียดสถานที่หน้างาน )</div>
-              </div>`
-          }
-        </div>
-      `;
-
-      // Page 2: Scanned Copy of Paper Handover Form Page 2/2 (สำเนาเอกสาร "แบบส่งมอบงาน" หน้าที่ 2/2 พร้อมลายเซ็นและตราประทับ)
-      const page2Html = `
-        <div class="page-full-scan">
-          ${handoverP2
-            ? `<img src="${handoverP2}" class="scan-full-img" alt="สำเนาแบบส่งมอบงาน หน้า 2/2" />`
-            : `<div class="placeholder-scan">
-                <div style="font-size:18px;color:#0f172a;margin-bottom:8px;">สำเนาเอกสาร "แบบส่งมอบงาน" (หน้าที่ 2/2 — ลงนามพร้อมประทับตรา)</div>
-                <div style="font-size:14px;color:#475569;margin-bottom:16px;">วงจร ${c.so_number} (${c.service_no || '-'}) — ${c.branch_name || c.province}</div>
-                <div>( นำภาพสำเนาเอกสาร "แบบส่งมอบงาน" หน้าที่ 2/2 วางตรงจุดนี้ )</div>
-                <div style="margin-top:6px;">( ภาพถ่ายเอกสารตัวจริงที่มีลายเซ็นผู้ส่งมอบ และ ลายเซ็นเจ้าหน้าที่ปลายทางพร้อมประทับตรา )</div>
-              </div>`
-          }
-        </div>
-      `;
-
-      // Page 3: Router Installation & Speedtest Photos (Matches Last Year's Page 3 100%)
-      const shortSoNum = String(c.so_number || '').replace(/^BINF/i, '');
-      const page3Html = `
-        <div class="page">
-          <div style="display:flex;justify-content:flex-end;">
+    function renderTopHeaderHtml() {
+      return `
+        <div class="doc-top-header">
+          <div class="doc-classification">Classification: Internal</div>
+          <div class="doc-logo-wrap">
             <div class="brand-logo">
               <span class="brand-circle">1</span>
               <div>
                 <div style="line-height:1;">1toAll</div>
-                <div style="font-size:8px;letter-spacing:0.5px;color:#64748b;font-weight:700;">LEADING THE FUTURE</div>
+                <div style="font-size:7.5px;letter-spacing:0.5px;color:#64748b;font-weight:700;">LEADING THE FUTURE</div>
               </div>
             </div>
           </div>
+        </div>
+      `;
+    }
+
+    // สร้างบล็อกข้อมูลแต่ละวงจร (วงจรที่ 1..4) ในใบแบบส่งมอบงาน (1 ใบใส่ได้ 4 วงจร: หน้า 1/2 = วงจรที่ 1–3, หน้า 2/2 = วงจรที่ 4)
+    function renderHandoverCircuitSlotHtml(slotNumber, sc, isBlank = false) {
+      const hasCircuit = Boolean(sc && !isBlank);
+      const rt = (hasCircuit && sc.router_info) ? sc.router_info : {};
+      const aps = (hasCircuit && Array.isArray(sc.access_points))
+        ? sc.access_points.filter(ap => ap && ap.checked !== false)
+        : [];
+
+      const soVal = hasCircuit ? (sc.so_number || '') : '';
+      const svcVal = hasCircuit ? (sc.service_no || '') : '';
+      const spdVal = hasCircuit ? (sc.speed_pkg || '1000Mbps/500Mbps') : '';
+
+      const hasRouter = hasCircuit && Boolean(rt.serial_no || rt.model || rt.checked !== false);
+      const rBrand = hasRouter ? 'MikroTik' : '';
+      const rModel = hasRouter ? (rt.model || 'RB3011') : '';
+      const rAsset = hasRouter ? (rt.asset_no || `สขจ.${sc.province || ''}`) : '';
+      const rSn = hasRouter ? (rt.serial_no || '') : '';
+      const rRoom = hasRouter ? (rt.room || '') : '';
+      const rFloor = hasRouter ? (rt.floor || '1') : '';
+      const rBld = hasRouter ? (rt.building || '1') : '';
+
+      // Standard form has Access Point 1 and Access Point 2 slots (plus any extra APs if >2)
+      const apSlotCount = Math.max(2, aps.length);
+      let apRowsHtml = '';
+      for (let i = 0; i < apSlotCount; i++) {
+        const ap = aps[i] || null;
+        const hasAp = hasCircuit && Boolean(ap);
+        const apBrand = hasAp ? (ap.brand || 'TOTOLINK') : '';
+        const apModel = hasAp ? (ap.model || '') : '';
+        const apAsset = hasAp ? (ap.asset_no || '') : '';
+        const apSn = hasAp ? (ap.serial_no || '') : '';
+        const apRoom = hasAp ? (ap.room || '') : '';
+        const apFloor = hasAp ? (ap.floor || '1') : '';
+        const apBld = hasAp ? (ap.building || '1') : '';
+
+        apRowsHtml += `
+          <div style="margin-top:3px;padding-left:14px;">
+            <div>
+              <span class="chk-box">${hasAp ? '✓' : ''}</span>
+              <strong>Access Point ${i + 1}</strong>
+              ยี่ห้อ <span class="dotted-val" style="min-width:95px;">${apBrand}</span>
+              รุ่น <span class="dotted-val" style="min-width:110px;">${apModel}</span>
+              เลขครุภัณฑ์ <span class="dotted-val" style="min-width:130px;">${apAsset}</span>
+              Serial No. <span class="dotted-val" style="min-width:155px;font-family:monospace;">${apSn}</span>
+            </div>
+            <div style="padding-left:22px;margin-top:2px;">
+              สถานที่ติดตั้ง ห้อง <span class="dotted-val" style="min-width:240px;">${apRoom}</span>
+              ชั้น <span class="dotted-val" style="min-width:55px;">${apFloor}</span>
+              อาคาร <span class="dotted-val" style="min-width:65px;">${apBld}</span>
+            </div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="circuit-block">
+          <div>
+            <strong>หมายเลข S/O วงจรที่ ${slotNumber}</strong>
+            <span class="dotted-val" style="min-width:155px;color:#b91c1c;">${soVal}</span>
+            <strong>Service No.</strong>
+            <span class="dotted-val" style="min-width:140px;">${svcVal}</span>
+            <strong>FTTx ความเร็ว</strong>
+            <span class="dotted-val" style="min-width:145px;">${spdVal}</span>
+          </div>
+          <div style="margin-top:3px;">
+            <strong>อุปกรณ์ที่ติดตั้งประกอบด้วย</strong>
+          </div>
+          <div style="padding-left:14px;">
+            <div>
+              <span class="chk-box">${hasRouter ? '✓' : ''}</span>
+              <strong>Router</strong>
+              ยี่ห้อ <span class="dotted-val" style="min-width:95px;">${rBrand}</span>
+              รุ่น <span class="dotted-val" style="min-width:110px;">${rModel}</span>
+              เลขครุภัณฑ์ <span class="dotted-val" style="min-width:130px;">${rAsset}</span>
+              Serial No. <span class="dotted-val" style="min-width:155px;font-family:monospace;">${rSn}</span>
+            </div>
+            <div style="padding-left:22px;margin-top:2px;">
+              สถานที่ติดตั้ง ห้อง <span class="dotted-val" style="min-width:240px;">${rRoom}</span>
+              ชั้น <span class="dotted-val" style="min-width:55px;">${rFloor}</span>
+              อาคาร <span class="dotted-val" style="min-width:65px;">${rBld}</span>
+            </div>
+          </div>
+          ${apRowsHtml}
+        </div>
+      `;
+    }
+
+    // 1 Site มีแบบส่งมอบงานเพียง 1 ใบ (2 หน้า: หน้า 1/2 = วงจรที่ 1–3, หน้า 2/2 = วงจรที่ 4 + หมายเหตุ + ลงนามรับรอง)
+    // - หากช่างอัปโหลดภาพสแกนใบส่งมอบงานแล้ว และอยู่ในโหมดรายงานปกติ ('') จะแสดงภาพสแกนเต็มหน้าเหมือนไฟล์ตัวอย่างสุราษฎร์ธานี
+    // - หากยังไม่ได้อัปโหลดภาพสแกน หรือเปิดโหมด 'form' / 'blank' จะแสดงแบบฟอร์มใบส่งมอบงาน 2 หน้าของ บริษัท วัน-ทู-ออล จำกัด
+    function renderSiteHandoverPages(siteCircuits, mode = '') {
+      const list = Array.isArray(siteCircuits) && siteCircuits.length > 0 ? siteCircuits : [];
+      const primary = list[0] || {};
+      const isBlank = mode === 'blank';
+      const forceForm = mode === 'form' || mode === 'blank';
+
+      let handoverP1 = '';
+      let handoverP2 = '';
+      for (const sc of list) {
+        const rt = sc.router_info || {};
+        if (!handoverP1 && (rt.photo_handover_p1 || rt.photo_signed_doc)) {
+          handoverP1 = rt.photo_handover_p1 || rt.photo_signed_doc;
+        }
+        if (!handoverP2 && rt.photo_handover_p2) {
+          handoverP2 = rt.photo_handover_p2;
+        }
+      }
+
+      const siteDisplay = isBlank
+        ? ''
+        : (primary.site_name || primary.branch_name || `สำนักงานขนส่งจังหวัด${primary.province || ''}`);
+      const addrDisplay = isBlank ? '' : (primary.address || `สำนักงานขนส่งจังหวัด${primary.province || ''}`);
+      const latLongDisplay = isBlank ? '' : (primary.lat_long || '');
+
+      const combinedRemarks = isBlank
+        ? ''
+        : list
+            .map((sc, idx) => sc.remarks ? `[วงจรที่ ${idx + 1} ${sc.so_number}] ${sc.remarks}` : '')
+            .filter(Boolean)
+            .join(' / ');
+
+      const inspectorName = isBlank ? '' : (primary.inspector_name || '');
+      const inspectorPhone = isBlank ? '' : (primary.inspector_phone || '');
+      const inspectionDate = isBlank ? '' : (primary.inspection_date || '');
+      const receiverName = isBlank ? '' : (primary.receiver_name || '');
+      const receiverPos = isBlank ? '' : (primary.receiver_position || '');
+      const receiverPhone = isBlank ? '' : (primary.receiver_phone || '');
+      const receivedDate = isBlank ? '' : (primary.received_date || '');
+
+      const page1Html = (!forceForm && handoverP1)
+        ? `<div class="page-full-scan">
+             <img src="${handoverP1}" class="scan-full-img" alt="สำเนาแบบส่งมอบงานประจำ Site หน้า 1/2" />
+           </div>`
+        : `<div class="page">
+             <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+               <div style="width:110px;"></div>
+               <div style="text-align:center;">
+                 <div style="font-size:20px;font-weight:800;">บริษัท วัน-ทู-ออล จำกัด</div>
+                 <div style="font-size:18px;font-weight:800;margin-top:2px;">แบบส่งมอบงาน</div>
+               </div>
+               <div class="brand-logo">
+                 <span class="brand-circle">1</span>
+                 <div>
+                   <div style="line-height:1;">1toAll</div>
+                   <div style="font-size:7.5px;letter-spacing:0.5px;color:#64748b;font-weight:700;">LEADING THE FUTURE</div>
+                 </div>
+               </div>
+             </div>
+
+             <div style="margin-top:8px;font-size:13px;line-height:1.58;">
+               <div><strong>โครงการเช่าใช้บริการวงจรสื่อสัญญาณความเร็วสูง (Internet FTTx) ประจำปีงบประมาณ พ.ศ. 2569</strong></div>
+               <div>
+                 <strong>สถานที่ติดตั้ง</strong>
+                 <span class="dotted-val" style="min-width:560px;text-align:left;">${siteDisplay}</span>
+               </div>
+               <div>
+                 <strong>ที่อยู่</strong>
+                 <span class="dotted-val" style="min-width:605px;text-align:left;">${addrDisplay}</span>
+               </div>
+               <div>
+                 <strong>พิกัด (Latitude, Longitude)</strong>
+                 <span class="dotted-val" style="min-width:485px;text-align:left;font-family:monospace;">${latLongDisplay}</span>
+               </div>
+             </div>
+
+             ${renderHandoverCircuitSlotHtml(1, list[0] || null, isBlank)}
+             ${renderHandoverCircuitSlotHtml(2, list[1] || null, isBlank)}
+             ${renderHandoverCircuitSlotHtml(3, list[2] || null, isBlank)}
+
+             <div class="page-footer-num">หน้า 1/2</div>
+           </div>`;
+
+      const page2Html = (!forceForm && handoverP2)
+        ? `<div class="page-full-scan">
+             <img src="${handoverP2}" class="scan-full-img" alt="สำเนาแบบส่งมอบงานประจำ Site หน้า 2/2" />
+           </div>`
+        : `<div class="page">
+             <div style="display:flex;justify-content:flex-end;align-items:center;">
+               <div class="brand-logo">
+                 <span class="brand-circle">1</span>
+                 <div>
+                   <div style="line-height:1;">1toAll</div>
+                   <div style="font-size:7.5px;letter-spacing:0.5px;color:#64748b;font-weight:700;">LEADING THE FUTURE</div>
+                 </div>
+               </div>
+             </div>
+
+             ${renderHandoverCircuitSlotHtml(4, list[3] || null, isBlank)}
+
+             <div style="margin-top:16px;font-size:13.5px;line-height:1.9;">
+               <div>
+                 <strong>หมายเหตุ</strong>
+                 <span class="dotted-val" style="width:88%;text-align:left;">${combinedRemarks}</span>
+               </div>
+               <div style="border-bottom:1px dotted #1e293b;height:24px;"></div>
+               <div style="border-bottom:1px dotted #1e293b;height:24px;"></div>
+               <div style="border-bottom:1px dotted #1e293b;height:24px;"></div>
+               <div style="border-bottom:1px dotted #1e293b;height:24px;"></div>
+             </div>
+
+             <div style="margin-top:22px;font-size:13.5px;">
+               จึงเรียนมาเพื่อโปรดตรวจรับมอบงานติดตั้งอุปกรณ์ดังกล่าวข้างต้น
+             </div>
+
+             <div style="display:flex;gap:16px;margin-top:14px;">
+               <div class="sig-box">
+                 <div style="text-align:center;font-weight:800;font-size:14.5px;margin-bottom:16px;">ผู้เข้าดำเนินการติดตั้ง</div>
+                 ${(!isBlank && primary.inspector_signature)
+                   ? `<div style="text-align:center;margin:4px 0;"><img src="${primary.inspector_signature}" style="height:44px;object-fit:contain;" /></div>`
+                   : `<div style="margin-top:22px;"></div>`
+                 }
+                 <div>ลงชื่อผู้ดำเนินการ <span class="dotted-val" style="min-width:190px;">${inspectorName}</span></div>
+                 <div style="text-align:center;">( <span class="dotted-val" style="min-width:210px;">${inspectorName}</span> )</div>
+                 <div>เบอร์ติดต่อ <span class="dotted-val" style="min-width:215px;">${inspectorPhone}</span></div>
+                 <div>วันที่ดำเนินการ <span class="dotted-val" style="min-width:195px;">${inspectionDate}</span></div>
+               </div>
+
+               <div class="sig-box">
+                 <div style="text-align:center;font-weight:800;font-size:14.5px;margin-bottom:16px;">กรมการขนส่งทางบก</div>
+                 ${(!isBlank && primary.receiver_signature)
+                   ? `<div style="text-align:center;margin:4px 0;"><img src="${primary.receiver_signature}" style="height:44px;object-fit:contain;" /></div>`
+                   : `<div style="margin-top:22px;"></div>`
+                 }
+                 <div>ลงชื่อผู้รับมอบงาน <span class="dotted-val" style="min-width:190px;">${receiverName}</span></div>
+                 <div style="text-align:center;">( <span class="dotted-val" style="min-width:210px;">${receiverName}</span> )</div>
+                 <div>ตำแหน่ง <span class="dotted-val" style="min-width:230px;">${receiverPos}</span></div>
+                 <div>เบอร์ติดต่อ <span class="dotted-val" style="min-width:215px;">${receiverPhone}</span></div>
+                 <div>วันที่รับมอบงาน <span class="dotted-val" style="min-width:195px;">${receivedDate}</span></div>
+               </div>
+             </div>
+
+             <div class="page-footer-num">หน้า 2/2</div>
+           </div>`;
+
+      return page1Html + page2Html;
+    }
+
+    function renderSingleCircuitEquipmentPages(c, circuitIndex, totalCircuitsInSite, apStartIndex = 0) {
+      const rt = c.router_info || {};
+      const aps = Array.isArray(c.access_points)
+        ? c.access_points.filter(ap => ap && ap.checked !== false)
+        : [];
+
+      const mikrotikNum = circuitIndex + 1;
+      const cleanBranch = getCleanBranchDisplay(c);
+      const shortSoNum = String(c.so_number || '').replace(/^BINF/i, '');
+      const lan2Measured = (rt.speed_lan2_dl || rt.speed_lan2_ul)
+        ? `ผลวัดได้: ${rt.speed_lan2_dl || '-'} / ${rt.speed_lan2_ul || '-'} Mbps`
+        : 'เกณฑ์ ≥ 650/350 Mbps';
+      const lan3Measured = (rt.speed_lan3_dl || rt.speed_lan3_ul)
+        ? `ผลวัดได้: ${rt.speed_lan3_dl || '-'} / ${rt.speed_lan3_ul || '-'} Mbps`
+        : 'เกณฑ์ ≥ 650/350 Mbps';
+
+      const routerPageHtml = `
+        <div class="page">
+          ${renderTopHeaderHtml()}
 
           <div style="text-align:center;margin-top:2px;">
-            <div style="font-size:20px;font-weight:700;">เอกสารรายงานการติดตั้ง</div>
+            <div style="font-size:19px;font-weight:800;">เอกสารรายงานการติดตั้ง</div>
             <div style="font-size:15px;font-weight:700;margin-top:2px;">วงจรสื่อสัญญาณความเร็วสูงแบบ INF (Internet FTTx)</div>
-            <div style="font-size:14.5px;font-weight:700;margin-top:4px;">
-              สำหรับ กรมการขนส่งทางบก สาขา <span class="dotted-val" style="min-width:190px;">${c.branch_name || c.province}</span>
-              จังหวัด <span class="dotted-val" style="min-width:140px;">${c.province}</span>
+            <div style="font-size:15px;font-weight:700;margin-top:3px;">
+              สำหรับ กรมการขนส่งทางบก สาขา <span class="dotted-red">${cleanBranch}</span>
+              จังหวัด <span class="dotted-red">${c.province || ''}</span>
             </div>
           </div>
 
           <table class="photo-table">
             <tbody>
-              <!-- Row 1: Mikrotik ตัวที่ 1 -->
               <tr>
                 <td>
-                  <div style="text-align:center;font-weight:700;font-size:15px;">
-                    รูปถ่ายจุดติดตั้ง Mikrotik ตัวที่ 1<br/>
-                    เลขวงจร BINF<span class="dotted-val" style="min-width:110px;">${shortSoNum}</span>
+                  <div style="text-align:center;font-weight:700;font-size:14.5px;line-height:1.45;">
+                    รูปถ่ายจุดติดตั้ง Mikrotik ตัวที่ ${mikrotikNum}<br/>
+                    เลขวงจร BINF <span style="text-decoration:underline;font-weight:800;">${shortSoNum}</span>
+                  </div>
+                  <div style="text-align:center;font-size:11.5px;color:#334155;margin-top:2px;">
+                    รุ่น: <strong>MikroTik ${rt.model || 'RB3011'}</strong> | ครุภัณฑ์: <strong>${rt.asset_no || '-'}</strong> | S/N: <strong style="font-family:monospace;">${rt.serial_no || '-'}</strong> | ห้อง${rt.room || '-'} ชั้น ${rt.floor || '1'} อาคาร ${rt.building || '1'}
                   </div>
                   ${rt.photo_device
                     ? `<img src="${rt.photo_device}" class="photo-frame-tall" />`
-                    : `<div class="placeholder-box" style="height:330px;">
+                    : `<div class="placeholder-box" style="height:335px;">
                         ( นำภาพวางตรงจุดนี้ )<br/>
-                        (ภาพ อุปกรณ์ Mikrotik ที่เปลี่ยนสติ๊กเกอร์ใหม่<br/>
-                        และเขียนรายละเอียดครบถ้วน แล้ว)
+                        รูปถ่ายจุดติดตั้ง Mikrotik ตัวที่ ${mikrotikNum} เลขวงจร ${c.so_number}<br/>
+                        ที่เห็น Sticker ใหม่ (รุ่น MikroTik ${rt.model || 'RB3011'} / SN: ${rt.serial_no || '-'})
                       </div>`
                   }
                 </td>
                 <td>
                   <div>
-                    <div style="text-align:center;font-weight:700;font-size:14.5px;">
-                      รูปภาพ Test speed port lan 2
+                    <div style="text-align:center;font-weight:700;font-size:14px;">
+                      รูปภาพ Test speed Lan Port 2 <span style="font-size:11.5px;font-weight:600;color:#334155;">(${lan2Measured})</span>
                     </div>
                     ${rt.photo_lan2
                       ? `<img src="${rt.photo_lan2}" class="photo-frame" />`
                       : `<div class="placeholder-box">
                           ( นำภาพวางตรงจุดนี้ )<br/>
-                          (ผลทดสอบความเร็ว ความเร็วประมาณ 650 Mbps/350 Mbps)
+                          รูปภาพ Test speed Lan Port 2 (${c.so_number})
                         </div>`
                     }
                   </div>
-                  <div style="margin-top:10px;">
-                    <div style="text-align:center;font-weight:700;font-size:14.5px;">
-                      รูปภาพ Test speed port lan 3
+                  <div style="margin-top:8px;">
+                    <div style="text-align:center;font-weight:700;font-size:14px;">
+                      รูปภาพ Test speed Lan Port 3 <span style="font-size:11.5px;font-weight:600;color:#334155;">(${lan3Measured})</span>
                     </div>
                     ${rt.photo_lan3
                       ? `<img src="${rt.photo_lan3}" class="photo-frame" />`
                       : `<div class="placeholder-box">
                           ( นำภาพวางตรงจุดนี้ )<br/>
-                          (ผลทดสอบความเร็ว ความเร็วประมาณ 650 Mbps/350 Mbps)
-                        </div>`
-                    }
-                  </div>
-                </td>
-              </tr>
-
-              <!-- Row 2: Mikrotik ตัวที่ 2 (ตามแบบฟอร์มมาตรฐานของปีที่แล้ว) -->
-              <tr>
-                <td>
-                  <div style="text-align:center;font-weight:700;font-size:15px;">
-                    รูปถ่ายจุดติดตั้ง Mikrotik ตัวที่ 2<br/>
-                    เลขวงจร BINF....................................
-                  </div>
-                  ${rt.photo_device_2
-                    ? `<img src="${rt.photo_device_2}" class="photo-frame-tall" />`
-                    : `<div class="placeholder-box" style="height:310px;">
-                        ( นำภาพวางตรงจุดนี้ )<br/>
-                        (ภาพ อุปกรณ์ Mikrotik ที่เปลี่ยนสติ๊กเกอร์ใหม่<br/>
-                        และเขียนรายละเอียดครบถ้วน ใหม่แล้ว )<br/><br/>
-                        หากขนส่งที่นี่มี Mikrotik มากกว่า 2 ตัวให้เพิ่มช่องใส่นี้
-                      </div>`
-                  }
-                </td>
-                <td>
-                  <div>
-                    <div style="text-align:center;font-weight:700;font-size:14.5px;">
-                      รูปภาพ Test speed port lan 2
-                    </div>
-                    ${rt.photo_lan2_2
-                      ? `<img src="${rt.photo_lan2_2}" class="photo-frame" />`
-                      : `<div class="placeholder-box">
-                          ( นำภาพวางตรงจุดนี้ )<br/>
-                          (ผลทดสอบความเร็ว ความเร็วประมาณ 650 Mbps/350 Mbps)
-                        </div>`
-                    }
-                  </div>
-                  <div style="margin-top:10px;">
-                    <div style="text-align:center;font-weight:700;font-size:14.5px;">
-                      รูปภาพ Test speed port lan 3
-                    </div>
-                    ${rt.photo_lan3_2
-                      ? `<img src="${rt.photo_lan3_2}" class="photo-frame" />`
-                      : `<div class="placeholder-box">
-                          ( นำภาพวางตรงจุดนี้ )<br/>
-                          (ผลทดสอบความเร็ว ความเร็วประมาณ 650 Mbps/350 Mbps)
+                          รูปภาพ Test speed Lan Port 3 (${c.so_number})
                         </div>`
                     }
                   </div>
@@ -381,50 +716,62 @@
         </div>
       `;
 
-      // Page 4+: Access Point Photos (2 APs per page, matching Last Year's Page 4 & 5 100%)
+      // Access Point Photos for this circuit (2 APs per page, matching reference .docx)
       const apPages = [];
       for (let i = 0; i < aps.length; i += 2) {
         const pair = aps.slice(i, i + 2);
         const rowsHtml = pair.map((ap, idxInPage) => {
-          const apNum = i + idxInPage + 1;
-          const roomLabel = ap.room ? (ap.room.startsWith('ห้อง') ? ap.room : `ห้อง ${ap.room}`) : `ห้องติดตั้ง`;
+          const apGlobalNum = apStartIndex + i + idxInPage + 1;
+          const rmTarget = detectRoomTarget(ap.room);
+          const roomDocTitle = ap.room || rmTarget.docTitle;
+          const lanMeasured = (ap.speed_lan_dl || ap.speed_lan_ul)
+            ? `${ap.speed_lan_dl || '-'}/${ap.speed_lan_ul || '-'} Mbps`
+            : `เกณฑ์ ≥ ${rmTarget.lan}`;
+          const wifiMeasured = (ap.speed_wifi_dl || ap.speed_wifi_ul)
+            ? `${ap.speed_wifi_dl || '-'}/${ap.speed_wifi_ul || '-'} Mbps`
+            : `SSID: ${rmTarget.ssid} ≥ ${rmTarget.wifi}`;
+
           return `
             <tr>
               <td>
-                <div style="text-align:center;font-weight:700;font-size:14.5px;">
-                  รูปถ่าย Access Point(AP) ณ จุดติดตั้ง ตัวที่ ${apNum} (${roomLabel})
+                <div style="text-align:center;font-weight:700;font-size:14px;line-height:1.42;">
+                  รูปถ่าย Access Point(AP) ณ จุดติดตั้ง ตัวที่ ${apGlobalNum}<br/>
+                  ${roomDocTitle}
+                </div>
+                <div style="text-align:center;font-size:11.5px;color:#334155;margin-top:2px;">
+                  วงจร: <strong>${c.so_number}</strong> | รุ่น: <strong>${ap.brand || 'TOTOLINK'} ${ap.model || ''}</strong> | S/N: <strong style="font-family:monospace;">${ap.serial_no || '-'}</strong> | ชั้น ${ap.floor || '1'} อาคาร ${ap.building || '1'}
                 </div>
                 ${ap.photo_device
-                  ? `<img src="${ap.photo_device}" class="photo-frame-tall" style="height:335px;" />`
-                  : `<div class="placeholder-box" style="height:335px;">
+                  ? `<img src="${ap.photo_device}" class="photo-frame-tall" style="height:310px;" />`
+                  : `<div class="placeholder-box" style="height:310px;">
                       ( นำภาพวางตรงจุดนี้ )<br/>
-                      (ภาพ อุปกรณ์ AP ที่เปลี่ยนสติ๊กเกอร์ใหม่<br/>
-                      และเขียนรายละเอียดครบถ้วน ใหม่แล้ว )
+                      รูปถ่าย Access Point(AP) ณ จุดติดตั้ง ตัวที่ ${apGlobalNum} (${roomDocTitle})<br/>
+                      วงจร ${c.so_number} | S/N: ${ap.serial_no || '-'}
                     </div>`
                 }
               </td>
               <td>
                 <div>
                   <div style="text-align:center;font-weight:700;font-size:14px;">
-                    รูปภาพ Test speed ผ่าน WiFi
-                  </div>
-                  ${ap.photo_wifi
-                    ? `<img src="${ap.photo_wifi}" class="photo-frame" />`
-                    : `<div class="placeholder-box">
-                        ( นำภาพวางตรงจุดนี้ )<br/>
-                        (ผลทดสอบความเร็ว ความเร็วประมาณ 50 Mbps/ 20 Mbps)
-                      </div>`
-                  }
-                </div>
-                <div style="margin-top:10px;">
-                  <div style="text-align:center;font-weight:700;font-size:14px;">
-                    รูปภาพ Test speed ผ่านสาย Lan
+                    รูปภาพ Lan Test speed <span style="font-size:11.5px;font-weight:600;color:#334155;">(${lanMeasured})</span>
                   </div>
                   ${ap.photo_lan
                     ? `<img src="${ap.photo_lan}" class="photo-frame" />`
                     : `<div class="placeholder-box">
                         ( นำภาพวางตรงจุดนี้ )<br/>
-                        (ผลทดสอบความเร็ว ความเร็วประมาณ 350 Mbps/ 200 Mbps)
+                        รูปภาพ Lan Test speed (${roomDocTitle})
+                      </div>`
+                  }
+                </div>
+                <div style="margin-top:8px;">
+                  <div style="text-align:center;font-weight:700;font-size:14px;">
+                    รูปภาพ Test speed ผ่าน WiFi <span style="font-size:11.5px;font-weight:600;color:#334155;">(${wifiMeasured})</span>
+                  </div>
+                  ${ap.photo_wifi
+                    ? `<img src="${ap.photo_wifi}" class="photo-frame" />`
+                    : `<div class="placeholder-box">
+                        ( นำภาพวางตรงจุดนี้ )<br/>
+                        รูปภาพ Test speed ผ่าน WiFi (${roomDocTitle})
                       </div>`
                   }
                 </div>
@@ -435,30 +782,45 @@
 
         apPages.push(`
           <div class="page">
-            <div style="display:flex;justify-content:flex-end;">
-              <div class="brand-logo">
-                <span class="brand-circle">1</span>
-                <div>
-                  <div style="line-height:1;">1toAll</div>
-                  <div style="font-size:8px;letter-spacing:0.5px;color:#64748b;font-weight:700;">LEADING THE FUTURE</div>
-                </div>
-              </div>
-            </div>
-            <div style="text-align:center;margin-top:2px;">
-              <div style="font-size:20px;font-weight:700;">เอกสารรายงานการติดตั้ง</div>
-              <div style="font-size:14.5px;font-weight:700;margin-top:4px;">
-                สำหรับ กรมการขนส่งทางบก สาขา <span class="dotted-val" style="min-width:190px;">${c.branch_name || c.province}</span>
-                จังหวัด <span class="dotted-val" style="min-width:140px;">${c.province}</span>
-              </div>
-            </div>
-            <table class="photo-table">
+            ${renderTopHeaderHtml()}
+            <table class="photo-table" style="margin-top:4px;">
               <tbody>${rowsHtml}</tbody>
             </table>
           </div>
         `);
       }
 
-      document.getElementById('reportPagesContainer').innerHTML = page1Html + page2Html + page3Html + apPages.join('');
+      return routerPageHtml + apPages.join('');
+    }
+
+    function renderSiteReportPages(siteCircuits) {
+      const list = Array.isArray(siteCircuits) && siteCircuits.length > 0
+        ? siteCircuits
+        : (loadedCircuit ? [loadedCircuit] : []);
+
+      // โหมดพิมพ์เฉพาะใบส่งมอบงาน (เติมข้อมูล 1–4 วงจร หรือ กระดาษเปล่าสำหรับช่างเขียนมือ)
+      if (currentReportMode === 'form' || currentReportMode === 'blank') {
+        document.getElementById('reportPagesContainer').innerHTML = renderSiteHandoverPages(list, currentReportMode);
+        return;
+      }
+
+      // โหมดรายงานฉบับสมบูรณ์ประจำ Site (ตรงตามตัวอย่าง BINF3480314,BINF3480315,BINF3480316 สาขา อำเภอเมือง จังหวัด สุราษฎร์ธานี.docx):
+      // 1. หน้าเอกสารรายงานการติดตั้ง (รูปถ่าย Router + Speedtest Port 2,3 และ รูปถ่าย AP + Speedtest LAN,WiFi ทุกห้องของทุกวงจร)
+      // 2. ปิดท้ายด้วยสำเนา "แบบส่งมอบงาน" ประจำ Site เพียง 1 ใบ (2 หน้า: หน้า 1/2 และ หน้า 2/2 ซึ่งรวมข้อมูลได้ถึง 4 วงจร)
+      let runningApCount = 0;
+      const equipmentPagesHtml = list
+        .map((sc, idx) => {
+          const html = renderSingleCircuitEquipmentPages(sc, idx, list.length, runningApCount);
+          const activeAps = Array.isArray(sc.access_points)
+            ? sc.access_points.filter(ap => ap && ap.checked !== false).length
+            : 0;
+          runningApCount += activeAps;
+          return html;
+        })
+        .join('');
+
+      const handoverPagesHtml = renderSiteHandoverPages(list, '');
+      document.getElementById('reportPagesContainer').innerHTML = equipmentPagesHtml + handoverPagesHtml;
     }
 
     initReport();

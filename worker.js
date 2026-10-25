@@ -1,15 +1,11 @@
 const seedCircuits = require('./data/seed_circuits.json');
 const { generateCircuitDocx } = require('./lib/docx_generator');
+const admin = require('./lib/admin');
+const lineReport = require('./lib/line_report');
 const {
-  REQUIRED_PHOTO_SLOTS,
-  normalizeSn,
-  compareSnValues,
   evaluateCircuitCompleteness,
-  applySlotPhotoAndSnToCircuit,
   verifyLineSignature,
-  sendLineReply,
-  sendLinePush,
-  downloadLineMessageImage
+  sendLineReply
 } = require('./lib/completeness_and_line');
 
 // ============================================================================
@@ -19,10 +15,68 @@ const circuitsMap = new Map();
 const uploadsMap = new Map(); // '/uploads/...' -> 'data:image/...'
 const lineUserSessions = new Map();
 const lineMessages = [];
+const modifiedSoNumbers = new Set();
+let r2StateHydrated = false;
+const R2_STATE_KEY = 'state/modified_circuits_v1.json';
+
+async function hydrateStateFromR2(env) {
+  initSeedData();
+  if (r2StateHydrated || !env || !env.PHOTOS_BUCKET) return;
+  try {
+    const obj = await env.PHOTOS_BUCKET.get(R2_STATE_KEY);
+    if (obj) {
+      const saved = await obj.json();
+      if (saved && typeof saved === 'object' && Array.isArray(saved.circuits)) {
+        for (const item of saved.circuits) {
+          if (item && item.so_number) {
+            const existing = circuitsMap.get(item.so_number) || {};
+            circuitsMap.set(item.so_number, { ...existing, ...item });
+            modifiedSoNumbers.add(item.so_number);
+          }
+        }
+      }
+    }
+    r2StateHydrated = true;
+  } catch (err) {
+    console.warn('R2 hydrate warning:', err.message);
+  }
+}
+
+async function persistModifiedStateToR2(env, soList = []) {
+  for (const so of soList) {
+    if (so) modifiedSoNumbers.add(so);
+  }
+  if (!env || !env.PHOTOS_BUCKET) return;
+  try {
+    const listToSave = [];
+    for (const so of modifiedSoNumbers) {
+      const c = circuitsMap.get(so);
+      if (c) listToSave.push(c);
+    }
+    await env.PHOTOS_BUCKET.put(
+      R2_STATE_KEY,
+      JSON.stringify({ updated_at: new Date().toISOString(), circuits: listToSave }),
+      { httpMetadata: { contentType: 'application/json' } }
+    );
+  } catch (err) {
+    console.warn('R2 persist warning:', err.message);
+  }
+}
 
 function initSeedData() {
   if (circuitsMap.size > 0) return;
-  seedCircuits.forEach((item, idx) => {
+  seedCircuits.forEach((item, idx) => seedOneCircuit(item, idx));
+}
+
+// Puts one circuit back to its seed state (UAT reset); circuits that were created in the app have no seed and are removed.
+function reseedCircuit(so) {
+  const idx = seedCircuits.findIndex(item => item.so_number === so);
+  if (idx < 0) circuitsMap.delete(so);
+  else seedOneCircuit(seedCircuits[idx], idx);
+}
+
+function seedOneCircuit(item, idx) {
+  {
     const so = item.so_number;
     const defaultRouter = {
       brand: 'MikroTik',
@@ -109,9 +163,14 @@ function initSeedData() {
       province: item.province || 'ไม่ระบุจังหวัด',
       raw_province_folder: item.raw_province_folder || '',
       branch_name: item.branch_name || '',
+      short_branch_name: item.short_branch_name || '',
+      customer_site_name: item.customer_site_name || '',
+      pppoe_username: item.pppoe_username || '',
+      pppoe_password: item.pppoe_password || '',
+      rooms_summary_code: item.rooms_summary_code || '',
       address: item.address || '',
       lat_long: item.lat_long || '',
-      speed_pkg: item.speed_pkg || '1000Mbps/500Mbps',
+      speed_pkg: item.speed_pkg || '650M/350M',
       legacy_pdf_path: item.legacy_pdf_path || '',
       status: item.status || 'pending',
       router_info: defaultRouter,
@@ -120,18 +179,27 @@ function initSeedData() {
       inspector_name: item.inspector_name || '',
       inspector_phone: item.inspector_phone || '',
       inspection_date: item.inspection_date || '',
+      inspector_signature: item.inspector_signature || '',
+      receiver_name: item.receiver_name || '',
+      receiver_position: item.receiver_position || '',
+      receiver_phone: item.receiver_phone || '',
+      received_date: item.received_date || '',
+      receiver_signature: item.receiver_signature || '',
       checkin_status: item.checkin_status || 'none',
       checkin_time: item.checkin_time || '',
       checkout_time: item.checkout_time || '',
       line_user_id: item.line_user_id || '',
       admin_status: item.admin_status || 'none',
+      admin_name: item.admin_name || item.admin_reviewer || '',
+      admin_comment: item.admin_comment || item.admin_review_note || '',
+      admin_reviewed_at: item.admin_reviewed_at || item.admin_review_time || '',
       admin_reviewer: item.admin_reviewer || '',
       admin_review_time: item.admin_review_time || '',
       admin_review_note: item.admin_review_note || '',
       cloud_synced: 0,
       updated_at: item.updated_at || new Date().toISOString()
     });
-  });
+  }
 }
 
 let runtimeLineConfig = {
@@ -147,11 +215,103 @@ let runtimeCloudConfig = {
   autoSync: true
 };
 
+function extractSiteNameServer(c) {
+  if (!c) return '';
+  if (c.site_name && String(c.site_name).trim()) return String(c.site_name).trim();
+  const custRaw = String(c.customer_site_name || '').trim();
+  const branchRaw = String(c.short_branch_name || c.branch_name || '').trim();
+  // Prefer customer_site_name when it specifies the actual office/district/section (e.g. สำนักงานขนส่งกรุงเทพมหานครพื้นที่ 1..5, ส่วนตรวจสภาพรถ)
+  const useCust = custRaw && !/^สขจ\./.test(custRaw);
+  const src = useCust ? custRaw : (branchRaw || custRaw);
+  const cleaned = String(src)
+    .replace(/\s*วงจรที่\s*\d+.*$/i, '')
+    .replace(/\s*\(วงจรที่\s*\d+.*$/i, '')
+    .replace(/\s*\((?:BINF|2272|3480)[^)]*\)\s*$/i, '')
+    .trim();
+  return cleaned || `สขจ.${c.province || ''}`;
+}
+
+function getSiteGroupKeyServer(c) {
+  if (!c) return '';
+  if (c.site_key && String(c.site_key).trim()) return String(c.site_key).trim();
+  return `${c.province || ''}::${extractSiteNameServer(c)}`;
+}
+
+function getSiteCircuitsServer(targetCircuit) {
+  if (!targetCircuit) return [];
+  const key = getSiteGroupKeyServer(targetCircuit);
+  const all = Array.from(circuitsMap.values());
+  return all
+    .filter(item => getSiteGroupKeyServer(item) === key)
+    .sort((a, b) => String(a.so_number || '').localeCompare(String(b.so_number || '')));
+}
+
+function findCircuitByIdOrSo(idOrSo) {
+  if (!idOrSo) return null;
+  const raw = String(idOrSo).trim();
+  if (circuitsMap.has(raw)) return circuitsMap.get(raw);
+  const stripped = raw.replace(/^dlt-/i, '');
+  if (circuitsMap.has(stripped)) return circuitsMap.get(stripped);
+  for (const c of circuitsMap.values()) {
+    if (c.id === raw || c.so_number === raw) return c;
+  }
+  return null;
+}
+
 function enrichCircuit(c) {
   if (!c) return null;
   const completeness = evaluateCircuitCompleteness(c);
+  const rt = c.router_info || {};
+  const aps = Array.isArray(c.access_points) ? c.access_points : [];
+  const siteName = extractSiteNameServer(c);
+  const siteKey = getSiteGroupKeyServer(c);
   return {
     ...c,
+    site_name: siteName,
+    site_key: siteKey,
+    router_summary: {
+      model: rt.model || 'RB3011',
+      serial_no: rt.serial_no || '',
+      expected_serial_no: rt.expected_serial_no || '',
+      ocr_serial_no: rt.ocr_serial_no || '',
+      room: rt.room || '',
+      floor: rt.floor || '',
+      building: rt.building || '',
+      location_detail: rt.location_detail || '',
+      speed_lan2_dl: rt.speed_lan2_dl || '',
+      speed_lan2_ul: rt.speed_lan2_ul || '',
+      speed_lan3_dl: rt.speed_lan3_dl || '',
+      speed_lan3_ul: rt.speed_lan3_ul || ''
+    },
+    ap_summary: aps.filter(ap => ap && ap.checked !== false).map(ap => ({
+      ap_no: ap.ap_no,
+      brand: ap.brand || 'TOTOLINK',
+      model: ap.model || 'A3002RU',
+      serial_no: ap.serial_no || '',
+      expected_serial_no: ap.expected_serial_no || '',
+      ocr_serial_no: ap.ocr_serial_no || '',
+      room_type: ap.room_type || '',
+      room: ap.room || '',
+      ssid: ap.ssid || '',
+      lan_target: ap.lan_target || '',
+      wifi_target: ap.wifi_target || '',
+      gecc_anydesk_id: ap.gecc_anydesk_id || '',
+      gecc_wan_to_lan: Boolean(ap.gecc_wan_to_lan || ap.gecc_wan_to_lan_moved),
+      gecc_remote_config_done: Boolean(ap.gecc_remote_config_done),
+      gecc_authen_wifi: Boolean(ap.gecc_authen_wifi || ap.gecc_authen_tested)
+    })),
+    photo_count: completeness.uploadedRequiredCount ?? completeness.uploadedPhotos ?? 0,
+    expected_photo_count: completeness.totalRequiredCount ?? completeness.requiredPhotosCount ?? 8,
+    required_photo_count: completeness.totalRequiredCount ?? completeness.requiredPhotosCount ?? 8,
+    is_photo_complete: Boolean(completeness.isPhotoComplete ?? completeness.allRequiredPhotosComplete),
+    onsite_photo_count: completeness.onsiteUploadedCount ?? 0,
+    onsite_required_count: completeness.onsiteRequiredCount ?? 3,
+    is_onsite_complete: Boolean(completeness.isOnsitePhotoComplete),
+    handover_scan_count: completeness.handoverUploadedCount ?? 0,
+    is_handover_scanned: Boolean(completeness.isHandoverComplete),
+    is_report_ready: Boolean(completeness.isReportReady),
+    has_sn_mismatch: Boolean(completeness.hasSnMismatch || (completeness.snMismatchCount > 0)),
+    has_missing_sn: Boolean(completeness.hasMissingSn || (completeness.missingSnCount > 0)),
     completeness
   };
 }
@@ -281,7 +441,7 @@ function jsonResponse(data, status = 200) {
 
 export default {
   async fetch(request, env, ctx) {
-    initSeedData();
+    await hydrateStateFromR2(env);
 
     if (request.method === 'OPTIONS') {
       return new Response(null, {
@@ -335,12 +495,110 @@ export default {
     // ========================================================================
     if (pathname.startsWith('/api/')) {
       try {
-        // 1. GET /api/circuits
+        // 0. Admin back-office (login, review & lock, exports, UAT reset) + lock guard for technician writes
+        const adminCtx = await admin.authenticate(request, env);
+        const adminHelpers = {
+          circuitsMap, uploadsMap, modifiedSoNumbers, jsonResponse, enrichCircuit, evaluateCircuitCompleteness,
+          findCircuitByIdOrSo, getSiteCircuitsServer, getSiteGroupKeyServer, extractSiteNameServer, addLineMessage,
+          persist: persistModifiedStateToR2, reseed: reseedCircuit
+        };
+        const adminRes = await admin.handle(request, env, url, adminHelpers, adminCtx);
+        if (adminRes) return adminRes;
+        const lockedRes = await admin.guardWrite(request, url, adminHelpers, adminCtx);
+        if (lockedRes) return lockedRes;
+
+        // 1. GET & POST /api/circuits
         if (pathname === '/api/circuits' && request.method === 'GET') {
           const list = Array.from(circuitsMap.values()).map(enrichCircuit);
           return jsonResponse({
             summary: buildSummary(list),
             circuits: list
+          });
+        }
+
+        if (pathname === '/api/circuits' && request.method === 'POST') {
+          const body = await request.json().catch(() => ({}));
+          const so = String(body.so_number || '').trim().toUpperCase();
+          if (!so) return jsonResponse({ error: 'กรุณาระบุเลขที่วงจร (S/O)' }, 400);
+          if (circuitsMap.has(so)) {
+            return jsonResponse({ error: `รหัสวงจร ${so} มีอยู่ในระบบแล้ว` }, 400);
+          }
+          const nowIso = new Date().toISOString();
+          const province = body.province || 'กรุงเทพมหานคร';
+          const siteName = body.site_name || extractSiteNameServer(body);
+          const siteKey = body.site_key || `${province}::${siteName}`;
+          const newCircuit = {
+            id: body.id || so,
+            seq: circuitsMap.size + 1,
+            so_number: so,
+            service_no: body.service_no || so,
+            region: body.region || 'ภาคกลาง',
+            province,
+            raw_province_folder: body.raw_province_folder || province,
+            branch_name: body.branch_name || `${siteName} (${so})`,
+            short_branch_name: body.short_branch_name || siteName,
+            customer_site_name: body.customer_site_name || siteName,
+            site_name: siteName,
+            site_key: siteKey,
+            pppoe_username: body.pppoe_username || '',
+            pppoe_password: body.pppoe_password || '',
+            rooms_summary_code: body.rooms_summary_code || '',
+            address: body.address || '',
+            lat_long: body.lat_long || '',
+            speed_pkg: body.speed_pkg || '650M/350M',
+            legacy_pdf_path: body.legacy_pdf_path || '',
+            status: body.status || 'pending',
+            router_info: {
+              checked: true,
+              brand: 'MikroTik',
+              model: body.router_info?.model || 'RB3011',
+              serial_no: body.router_info?.serial_no || '',
+              ocr_serial_no: body.router_info?.ocr_serial_no || '',
+              asset_no: body.router_info?.asset_no || `สขจ.${province}`,
+              room: body.router_info?.room || body.router_room || 'ห้อง Server / Rack',
+              floor: body.router_info?.floor || body.router_floor || '1',
+              building: body.router_info?.building || body.router_building || '1',
+              ...(body.router_info || {})
+            },
+            access_points: Array.isArray(body.access_points)
+              ? body.access_points
+              : [
+                  { ap_no: 1, checked: true, brand: 'TOTOLINK', model: 'A3002RU', room: 'ศูนย์เดินรถ GPS', room_type: 'GPS', asset_no: `สขจ.${province}/GPS`, floor: '1', building: '1' },
+                  { ap_no: 2, checked: true, brand: 'TOTOLINK', model: 'A3002RU', room: 'ประชาสัมพันธ์ GECC', room_type: 'GECC', asset_no: `สขจ.${province}/GECC`, floor: '1', building: '1' }
+                ],
+            remarks: body.remarks || '',
+            inspector_name: body.inspector_name || '',
+            inspector_phone: body.inspector_phone || '',
+            inspection_date: body.inspection_date || '',
+            inspector_signature: '',
+            receiver_name: '',
+            receiver_position: '',
+            receiver_phone: '',
+            received_date: '',
+            receiver_signature: '',
+            checkin_status: body.checkin_status || 'none',
+            checkin_time: body.checkin_time || '',
+            checkout_time: '',
+            line_user_id: '',
+            admin_status: 'none',
+            admin_name: '',
+            admin_comment: '',
+            admin_reviewed_at: '',
+            admin_reviewer: '',
+            admin_review_time: '',
+            admin_review_note: '',
+            is_draft: Boolean(body.is_draft),
+            draft_saved_at: body.draft_saved_at || '',
+            last_active_room: body.last_active_room || '',
+            cloud_synced: 0,
+            updated_at: nowIso
+          };
+          circuitsMap.set(so, newCircuit);
+          await persistModifiedStateToR2(env, [so]);
+          return jsonResponse({
+            ok: true,
+            circuit: enrichCircuit(newCircuit),
+            site_circuits: getSiteCircuitsServer(newCircuit).map(enrichCircuit)
           });
         }
 
@@ -426,135 +684,208 @@ export default {
           });
         }
 
-        // 2. GET /api/circuits/:id/report.docx
+        // 2. GET /api/circuits/:id/report.docx (1 Site = 1 ไฟล์ Report รวมทุกวงจรใน Site เดียวกัน)
         const docxMatch = /^\/api\/circuits\/([^/]+)\/report\.docx$/.exec(pathname);
         if (docxMatch && request.method === 'GET') {
           const so = decodeURIComponent(docxMatch[1]);
-          const circuit = circuitsMap.get(so);
+          const circuit = findCircuitByIdOrSo(so);
           if (!circuit) return jsonResponse({ error: `ไม่พบวงจร ${so}` }, 404);
-          const docxBuf = generateCircuitDocx(circuit, uploadsMap);
+          const siteCircuits = getSiteCircuitsServer(circuit);
+          const listForDocx = siteCircuits.length > 0 ? siteCircuits : [circuit];
+          // Photos live in R2 (not in this isolate's memory) and the seed holds placeholder asset numbers → show "-".
+          const photoMap = await admin.loadPhotoMap(env, listForDocx, uploadsMap);
+          const docxBuf = generateCircuitDocx(admin.forReport(listForDocx), photoMap);
+          const soComma = listForDocx.map(c => c.so_number).join(',');
+          const rawSiteName = extractSiteNameServer(listForDocx[0])
+            .replace(/^สำนักงานขนส่งจังหวัด[^ ]*\s*/i, '')
+            .replace(/^สขจ\.[^ ]*\s*/i, '')
+            .replace(/^สาขา\s*/i, '')
+            .trim() || 'อำเภอเมือง';
+          const provName = listForDocx[0]?.province || '';
+          const utf8Filename = `${soComma} สาขา ${rawSiteName} จังหวัด ${provName}.docx`;
+          const asciiFallback = `${soComma}.docx`;
           return new Response(docxBuf, {
             status: 200,
             headers: {
               'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-              'Content-Disposition': `attachment; filename="DLT_Onsite_Report_${so}.docx"`
+              'Content-Disposition': `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(utf8Filename)}`
             }
           });
         }
 
-        // 3. POST /api/circuits/:id/checkin
+        // 3. POST /api/circuits/:id/checkin (Check-in ทั้ง Site / ตู้ Rack เดียวกันทีเดียว)
         const checkinMatch = /^\/api\/circuits\/([^/]+)\/checkin$/.exec(pathname);
         if (checkinMatch && request.method === 'POST') {
           const so = decodeURIComponent(checkinMatch[1]);
-          const circuit = circuitsMap.get(so);
+          const circuit = findCircuitByIdOrSo(so);
           if (!circuit) return jsonResponse({ error: `ไม่พบวงจร ${so}` }, 404);
           const body = await request.json().catch(() => ({}));
           const nowIso = new Date().toISOString();
-          circuit.inspector_name = body.tech_name || body.inspector_name || circuit.inspector_name || 'ช่างหน้างาน';
-          circuit.inspector_phone = body.tech_phone || body.inspector_phone || circuit.inspector_phone || '';
-          circuit.inspection_date = circuit.inspection_date || nowIso.slice(0, 10);
-          circuit.checkin_status = 'checked_in';
-          circuit.checkin_time = nowIso;
-          if (circuit.status === 'pending') circuit.status = 'in_progress';
-          circuit.updated_at = nowIso;
-          return jsonResponse({ ok: true, circuit: enrichCircuit(circuit), completeness: evaluateCircuitCompleteness(circuit) });
+          const techName = body.tech_name || body.inspector_name || circuit.inspector_name || 'ช่างหน้างาน';
+          const techPhone = body.tech_phone || body.inspector_phone || circuit.inspector_phone || '';
+          const latLong = body.lat_long || circuit.lat_long || '';
+
+          // If additional circuit S/O numbers are linked to this Site during Check-in
+          const targetSiteName = extractSiteNameServer(circuit);
+          const targetSiteKey = getSiteGroupKeyServer(circuit);
+          if (Array.isArray(body.link_so_numbers)) {
+            for (const extraSo of body.link_so_numbers) {
+              const extraC = findCircuitByIdOrSo(extraSo);
+              if (extraC) {
+                extraC.site_name = targetSiteName;
+                extraC.site_key = targetSiteKey;
+              }
+            }
+          }
+
+          const targets = body.single_only ? [circuit] : getSiteCircuitsServer(circuit);
+          for (const item of targets) {
+            item.inspector_name = techName;
+            item.inspector_phone = techPhone;
+            item.inspection_date = item.inspection_date || nowIso.slice(0, 10);
+            if (latLong) item.lat_long = latLong;
+            item.checkin_status = 'checked_in';
+            item.checkin_time = nowIso;
+            if (item.status === 'pending') item.status = 'in_progress';
+            item.updated_at = nowIso;
+          }
+          await persistModifiedStateToR2(env, targets.map(t => t.so_number));
+
+          return jsonResponse({
+            ok: true,
+            circuit: enrichCircuit(circuit),
+            site_circuits: targets.map(enrichCircuit),
+            completeness: evaluateCircuitCompleteness(circuit)
+          });
         }
 
-        // 4. POST /api/circuits/:id/checkout
+        // 4. POST /api/circuits/:id/checkout (Check-out ส่งตรวจทั้ง Site พร้อมกัน)
         const checkoutMatch = /^\/api\/circuits\/([^/]+)\/checkout$/.exec(pathname);
         if (checkoutMatch && request.method === 'POST') {
           const so = decodeURIComponent(checkoutMatch[1]);
-          const circuit = circuitsMap.get(so);
+          const circuit = findCircuitByIdOrSo(so);
           if (!circuit) return jsonResponse({ error: `ไม่พบวงจร ${so}` }, 404);
           const body = await request.json().catch(() => ({}));
-          const comp = evaluateCircuitCompleteness(circuit);
-          if (!comp.readyForCheckout && !body.force) {
-            return jsonResponse({
-              ok: false,
-              incomplete: true,
-              completeness: comp,
-              circuit: enrichCircuit(circuit),
-              message: 'รูปถ่ายหรือ S/N ยังไม่ครบถ้วนสมบูรณ์'
-            });
+          const targets = body.single_only ? [circuit] : getSiteCircuitsServer(circuit);
+
+          if (!body.force) {
+            for (const item of targets) {
+              const itemComp = evaluateCircuitCompleteness(item);
+              if (!itemComp.readyForCheckout) {
+                return jsonResponse({
+                  ok: false,
+                  incomplete: true,
+                  incomplete_so: item.so_number,
+                  completeness: itemComp,
+                  circuit: enrichCircuit(item),
+                  site_circuits: targets.map(enrichCircuit),
+                  message: `วงจร ${item.so_number}: รูปถ่ายหน้างานหรือ S/N ยังไม่ครบถ้วนสมบูรณ์`
+                });
+              }
+            }
           }
+
           const nowIso = new Date().toISOString();
-          circuit.checkin_status = 'checked_out';
-          circuit.checkout_time = nowIso;
-          circuit.admin_status = 'pending_review';
-          if (comp.allRequiredPhotosComplete && comp.snMismatchCount === 0) {
-            circuit.status = 'completed';
-          } else if (circuit.status === 'pending') {
-            circuit.status = 'in_progress';
+          for (const item of targets) {
+            const itemComp = evaluateCircuitCompleteness(item);
+            item.checkin_status = 'checked_out';
+            item.checkout_time = nowIso;
+            item.admin_status = 'pending_review';
+            item.is_draft = false;
+            if (itemComp.isOnsitePhotoComplete && itemComp.snMismatchCount === 0) {
+              item.status = 'completed';
+            } else if (item.status === 'pending') {
+              item.status = 'in_progress';
+            }
+            item.updated_at = nowIso;
           }
-          circuit.updated_at = nowIso;
-          return jsonResponse({ ok: true, circuit: enrichCircuit(circuit), completeness: evaluateCircuitCompleteness(circuit) });
+          await persistModifiedStateToR2(env, targets.map(t => t.so_number));
+
+          return jsonResponse({
+            ok: true,
+            circuit: enrichCircuit(circuit),
+            site_circuits: targets.map(enrichCircuit),
+            completeness: evaluateCircuitCompleteness(circuit)
+          });
         }
 
-        // 5. POST /api/circuits/:id/admin-review
-        const adminRevMatch = /^\/api\/circuits\/([^/]+)\/admin-review$/.exec(pathname);
-        if (adminRevMatch && request.method === 'POST') {
-          const so = decodeURIComponent(adminRevMatch[1]);
-          const circuit = circuitsMap.get(so);
-          if (!circuit) return jsonResponse({ error: `ไม่พบวงจร ${so}` }, 404);
-          const body = await request.json().catch(() => ({}));
-          const decision = body.decision || body.adminStatus || 'approved';
-          const adminName = body.admin_name || body.adminName || 'Admin QA';
-          const adminComment = body.admin_comment || body.adminComment || '';
-          const nowIso = new Date().toISOString();
-
-          circuit.admin_status = decision === 'rejected' ? 'rejected' : 'approved';
-          circuit.admin_reviewer = adminName;
-          circuit.admin_review_time = nowIso;
-          circuit.admin_review_note = adminComment;
-          if (circuit.admin_status === 'approved') {
-            circuit.status = 'completed';
-          } else {
-            circuit.status = 'issue';
-          }
-          circuit.updated_at = nowIso;
-
-          const targetUser = circuit.line_user_id || 'sim_tech_01';
-          const botNote = circuit.admin_status === 'approved'
-            ? `🎉 [Admin QA อนุมัติผ่าน]\nวงจร: ${so} (${circuit.province})\nผู้ตรวจ: ${adminName}\nหมายเหตุ: ${adminComment || 'ข้อมูลและรูปภาพครบถ้วนสมบูรณ์'}\n📄 ดาวน์โหลดรายงาน Word: ${url.origin}/api/circuits/${encodeURIComponent(so)}/report.docx`
-            : `⚠️ [Admin QA ส่งกลับให้แก้ไข]\nวงจร: ${so} (${circuit.province})\nผู้ตรวจ: ${adminName}\nสิ่งที่ต้องแก้ไข: ${adminComment || 'กรุณาตรวจสอบรูปถ่ายและ S/N อีกครั้ง'}`;
-          addLineMessage(targetUser, 'bot', botNote, '', so);
-
-          return jsonResponse({ ok: true, circuit: enrichCircuit(circuit), completeness: evaluateCircuitCompleteness(circuit) });
-        }
+        // 5. admin-review moved to lib/admin.js (login required, locks approved sites)
 
         // 6. GET / PUT / POST /api/circuits/:id
         const singleMatch = /^\/api\/circuits\/([^/]+)$/.exec(pathname);
         if (singleMatch) {
           const so = decodeURIComponent(singleMatch[1]);
-          const circuit = circuitsMap.get(so);
+          const circuit = findCircuitByIdOrSo(so);
           if (!circuit) return jsonResponse({ error: `ไม่พบวงจร ${so}` }, 404);
 
           if (request.method === 'GET') {
-            return jsonResponse(enrichCircuit(circuit));
+            const enriched = enrichCircuit(circuit);
+            enriched.site_circuits = getSiteCircuitsServer(circuit).map(enrichCircuit);
+            return jsonResponse(enriched);
           }
           if (request.method === 'PUT' || request.method === 'POST') {
             const body = await request.json().catch(() => ({}));
+            // Review/lock fields change only through /api/admin/review (lib/admin.js), never through a plain save;
+            // an admin editing a locked circuit leaves a trace in its history.
+            admin.stripProtectedFields(body);
+            admin.noteAdminEdit(circuit, adminCtx);
             const fields = [
-              'service_no', 'branch_name', 'address', 'lat_long', 'speed_pkg',
+              'service_no', 'branch_name', 'short_branch_name', 'customer_site_name',
+              'site_name', 'site_key',
+              'address', 'lat_long', 'speed_pkg',
               'status', 'router_info', 'access_points', 'remarks',
-              'inspector_name', 'inspector_phone', 'inspection_date',
+              'inspector_name', 'inspector_phone', 'inspection_date', 'inspector_signature',
+              'receiver_name', 'receiver_position', 'receiver_phone', 'received_date', 'receiver_signature',
               'checkin_status', 'checkin_time', 'checkout_time',
-              'admin_status', 'admin_reviewer', 'admin_review_time', 'admin_review_note'
+              'admin_status', 'admin_name', 'admin_comment', 'admin_reviewed_at',
+              'admin_reviewer', 'admin_review_time', 'admin_review_note',
+              'is_draft', 'draft_saved_at', 'last_active_room'
             ];
             for (const f of fields) {
               if (body[f] !== undefined) circuit[f] = body[f];
             }
-            circuit.updated_at = new Date().toISOString();
-            return jsonResponse({ ok: true, circuit: enrichCircuit(circuit) });
+            const nowIso = new Date().toISOString();
+            if (body.is_draft) {
+              circuit.draft_saved_at = body.draft_saved_at || nowIso;
+            }
+            circuit.updated_at = nowIso;
+
+            // 1 Site มีแบบส่งมอบงานเพียง 1 ใบ (ใส่ได้ถึง 4 วงจร) — ซิงค์ไฟล์สแกนใบส่งมอบงาน (หน้า 1/2 และ 2/2) ให้ทุกวงจรใน Site เดียวกันอัตโนมัติ
+            const siteSiblings = getSiteCircuitsServer(circuit);
+            const rtCur = circuit.router_info || {};
+            const modifiedSos = [circuit.so_number];
+            if (siteSiblings.length > 1 && body.router_info !== undefined) {
+              const p1 = rtCur.photo_handover_p1 || rtCur.photo_signed_doc || '';
+              const p2 = rtCur.photo_handover_p2 || '';
+              for (const sib of siteSiblings) {
+                if (sib.so_number === circuit.so_number) continue;
+                if (!sib.router_info) sib.router_info = {};
+                if (p1 || body.sync_site_handover) {
+                  sib.router_info.photo_handover_p1 = p1;
+                  sib.router_info.photo_signed_doc = p1;
+                  sib.router_info.doc_filled = Boolean(rtCur.doc_filled || p1);
+                }
+                if (p2 || body.sync_site_handover) {
+                  sib.router_info.photo_handover_p2 = p2;
+                  sib.router_info.doc_stamped = Boolean(rtCur.doc_stamped || p2);
+                }
+                modifiedSos.push(sib.so_number);
+              }
+            }
+
+            await persistModifiedStateToR2(env, modifiedSos);
+            const enriched = enrichCircuit(circuit);
+            enriched.site_circuits = getSiteCircuitsServer(circuit).map(enrichCircuit);
+            return jsonResponse({ ok: true, circuit: enriched, site_circuits: enriched.site_circuits });
           }
         }
 
         // 7. POST /api/upload
         if (pathname === '/api/upload' && request.method === 'POST') {
           const body = await request.json().catch(() => ({}));
-          const soNumber = body.so_number || 'general';
-          const category = body.category || 'photo';
-          const dataUrl = body.data_url || '';
+          const soNumber = body.so_number || body.circuitId || 'general';
+          const category = body.category || body.slot || 'photo';
+          const dataUrl = body.data_url || body.dataUrl || '';
           if (!dataUrl.startsWith('data:image/')) {
             return jsonResponse({ error: 'รูปแบบข้อมูลรูปภาพไม่ถูกต้อง' }, 400);
           }
@@ -602,209 +933,33 @@ export default {
           });
         }
 
-        // 10. POST /api/line/simulate
+        // 10. POST /api/line/simulate — the bot only reports (status / summary); everything else points to the web
         if (pathname === '/api/line/simulate' && request.method === 'POST') {
           const body = await request.json().catch(() => ({}));
           const userId = body.line_user_id || body.userId || 'sim_tech_01';
           const session = getLineSession(userId);
           const action = body.action || '';
+          const so = String(body.so_number || body.soNumber || session.active_so || '').trim().toUpperCase();
 
           if (action === 'clear_chat') {
             for (let i = lineMessages.length - 1; i >= 0; i--) {
               if (lineMessages[i].line_user_id === userId) lineMessages.splice(i, 1);
             }
-          } else if (action === 'checkin') {
-            const so = (body.so_number || body.soNumber || '').trim().toUpperCase();
-            const circuit = circuitsMap.get(so);
-            if (!circuit) return jsonResponse({ error: `ไม่พบหมายเลขวงจร ${so}` }, 404);
-            const techName = body.tech_name || body.technicianName || 'ช่างหน้างาน';
-            const techPhone = body.tech_phone || body.technicianPhone || '';
-            const nowIso = new Date().toISOString();
-
-            session.active_so = so;
-            session.tech_name = techName;
-            session.tech_phone = techPhone;
-            session.updated_at = nowIso;
-
-            circuit.inspector_name = techName;
-            circuit.inspector_phone = techPhone;
-            circuit.inspection_date = nowIso.slice(0, 10);
-            circuit.checkin_status = 'checked_in';
-            circuit.checkin_time = nowIso;
-            circuit.line_user_id = userId;
-            if (circuit.status === 'pending') circuit.status = 'in_progress';
-            circuit.updated_at = nowIso;
-
-            addLineMessage(userId, 'user', `checkin ${so} ${techName} ${techPhone}`.trim(), '', so);
-            const comp = evaluateCircuitCompleteness(circuit);
-            addLineMessage(
-              userId,
-              'bot',
-              `📍 Check-in สำเร็จ!\n• วงจร: ${so} (${circuit.province})\n• สถานที่: ${circuit.branch_name}\n• ช่างผู้ปฏิบัติงาน: ${techName} ${techPhone ? `(${techPhone})` : ''}\n• เวลาเข้า Site: ${new Date(nowIso).toLocaleString('th-TH')}\n\n📸 สถานะรูปถ่ายปัจจุบัน: ${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป\n👉 เลือกหัวข้อรูปถ่ายแล้วกดส่งรูปเข้าแชทได้เลยครับ (สำหรับรูปสติ๊กเกอร์ S/N ระบบจะแปลง OCR และเทียบกับค่าที่ช่างกรอกให้อัตโนมัติ)`,
-              '',
-              so
-            );
-          } else if (action === 'select_slot') {
-            const slotKey = body.slot_key || body.slot || 'router_device';
-            session.pending_slot = slotKey;
-            session.updated_at = new Date().toISOString();
-          } else if (action === 'upload_photo') {
-            const so = body.so_number || session.active_so;
-            const circuit = circuitsMap.get(so);
-            if (!circuit) return jsonResponse({ error: 'กรุณา Check-in วงจรก่อนส่งรูปถ่าย' }, 400);
-            const slotKey = body.slot_key || body.slot || session.pending_slot || 'router_device';
-            const dataUrl = body.data_url || body.dataUrl || '';
-            const ocrSn = normalizeSn(body.ocr_sn || body.ocrSn || '');
-            const manualSn = normalizeSn(body.manual_sn || body.manualSn || '');
-            const savedUrl = await storeDataUrlAsUpload(so, slotKey, dataUrl, env);
-
-            applySlotPhotoAndSnToCircuit(circuit, slotKey, savedUrl, ocrSn, manualSn);
-            circuit.updated_at = new Date().toISOString();
-
-            const slotMeta = REQUIRED_PHOTO_SLOTS.find(s => s.key === slotKey);
-            const slotLabel = slotMeta ? slotMeta.label : slotKey;
-
-            addLineMessage(
-              userId,
-              'user',
-              `ส่งรูป [${slotLabel}]${manualSn ? `\n✍️ ช่างกรอก S/N: ${manualSn}` : ''}${ocrSn ? `\n🤖 OCR อ่านได้: ${ocrSn}` : ''}`,
-              savedUrl,
-              so
-            );
-
-            const comp = evaluateCircuitCompleteness(circuit);
-            let snFeedback = '';
-            if (slotMeta?.requiresSn) {
-              const targetKey = slotKey === 'router_device' ? 'router' : (slotKey === 'ap_0_device' || slotKey === 'ap1_device') ? 'ap_0' : 'ap_1';
-              const cmpItem = comp.snComparisons.find(x => x.key === targetKey);
-              if (cmpItem) {
-                snFeedback = `\n🔎 ผลเทียบ S/N (${cmpItem.deviceLabel}):\n• ช่างกรอก: ${cmpItem.manualSn || '-'}\n• OCR แปลงได้: ${cmpItem.ocrSn || '-'}\n• สถานะ: ${cmpItem.statusLabel}`;
-              }
-            }
-            addLineMessage(
-              userId,
-              'bot',
-              `✅ บันทึกรูป [${slotLabel}] เรียบร้อยแล้ว!${snFeedback}\n📊 ความครบถ้วนของรูปถ่าย: ${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป (${comp.photoProgressPct}%)`,
-              '',
-              so
-            );
-          } else if (action === 'recheck_sn' || action === 'update_sn') {
-            const so = body.so_number || session.active_so;
-            const circuit = circuitsMap.get(so);
-            if (!circuit) return jsonResponse({ error: 'กรุณา Check-in วงจรก่อนบันทึก S/N' }, 400);
-            const target = body.target || ((body.slot === 'ap_0_device' || body.slot === 'ap1_device') ? 'ap_0' : (body.slot === 'ap_1_device' || body.slot === 'ap2_device') ? 'ap_1' : 'router');
-            const slotKey = target === 'ap_0' ? 'ap_0_device' : target === 'ap_1' ? 'ap_1_device' : 'router_device';
-            const manualSn = normalizeSn(body.manual_sn || body.manualSn || '');
-            const ocrSn = normalizeSn(body.ocr_sn || body.ocrSn || '');
-
-            applySlotPhotoAndSnToCircuit(circuit, slotKey, '', ocrSn, manualSn);
-            circuit.updated_at = new Date().toISOString();
-
-            const cmp = compareSnValues(manualSn, ocrSn);
-            addLineMessage(userId, 'user', `ยืนยันผลเทียบ S/N (${target.toUpperCase()}): ช่างกรอก=${manualSn || '-'} | OCR=${ocrSn || '-'}`, '', so);
-            addLineMessage(userId, 'bot', `🔍 บันทึกการ Recheck S/N เรียบร้อย:\n• ช่างกรอก: ${cmp.manualSn || '-'}\n• OCR: ${cmp.ocrSn || '-'}\n• ผลตรวจสอบ: ${cmp.statusLabel}`, '', so);
-          } else if (action === 'check_completeness') {
-            const so = body.so_number || session.active_so;
-            const circuit = circuitsMap.get(so);
-            if (!circuit) return jsonResponse({ error: 'ยังไม่ได้ Check-in วงจร' }, 400);
-            const comp = evaluateCircuitCompleteness(circuit);
-            addLineMessage(userId, 'user', 'ตรวจสอบความครบถ้วน (status)', '', so);
-            const missingStr = comp.missingPhotoLabels.length > 0
-              ? `\n❌ รูปที่ยังขาด (${comp.missingPhotoLabels.length} รูป):\n- ${comp.missingPhotoLabels.join('\n- ')}`
-              : `\n✅ รูปถ่ายครบถ้วนทั้ง ${comp.totalRequiredCount} จุดแล้ว!`;
-            const snLines = comp.snComparisons.map(s => `• ${s.deviceLabel}: ${s.statusLabel}`).join('\n');
-            addLineMessage(
-              userId,
-              'bot',
-              `📋 สรุปความครบถ้วนวงจร ${so}:\n📷 รูปถ่าย: ${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป (${comp.photoProgressPct}%)${missingStr}\n\n🏷️ ตรวจสอบ S/N (ช่างกรอก vs OCR):\n${snLines}`,
-              '',
-              so
-            );
-          } else if (action === 'checkout') {
-            const so = body.so_number || session.active_so;
-            const circuit = circuitsMap.get(so);
-            if (!circuit) return jsonResponse({ error: 'ยังไม่ได้ Check-in วงจร' }, 400);
-            const force = Boolean(body.force || body.forceCheckout);
-            const comp = evaluateCircuitCompleteness(circuit);
-            addLineMessage(userId, 'user', force ? `ยืนยัน Check-out (${so})` : `ขอแจ้งจบงาน Check-out (${so})`, '', so);
-
-            if (!comp.readyForCheckout && !force) {
-              addLineMessage(
-                userId,
-                'bot',
-                `⚠️ แจ้งเตือนก่อน Check-out!\n• รูปถ่ายปัจจุบัน: ${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป\n• S/N ไม่ตรงกัน/ยังไม่ระบุ: ${comp.snMismatchCount + comp.snMissingCount} จุด\nหากต้องการส่งงานให้ Admin ตรวจสอบทันที กดยืนยัน Check-out อีกครั้งได้เลยครับ`,
-                '',
-                so
-              );
-            } else {
-              const nowIso = new Date().toISOString();
-              circuit.checkin_status = 'checked_out';
-              circuit.checkout_time = nowIso;
-              circuit.admin_status = 'pending_review';
-              if (comp.allRequiredPhotosComplete && comp.snMismatchCount === 0) {
-                circuit.status = 'completed';
-              } else {
-                circuit.status = 'in_progress';
-              }
-              circuit.updated_at = nowIso;
-              addLineMessage(
-                userId,
-                'bot',
-                `🏁 Check-out จบงานหน้า Site สำเร็จ!\n• วงจร: ${so} (${circuit.province})\n• เวลาออก Site: ${new Date(nowIso).toLocaleString('th-TH')}\n• สถานะ: ส่งเข้าคิว Admin QA ตรวจสอบความถูกต้อง\n📄 ดาวน์โหลดรายงาน MS Word (.docx): ${url.origin}/api/circuits/${encodeURIComponent(so)}/report.docx`,
-                '',
-                so
-              );
-            }
-          } else if (action === 'text') {
-            const text = String(body.text || '').trim();
-            const so = session.active_so;
-            addLineMessage(userId, 'user', text, '', so);
-            const lower = text.toLowerCase();
-            if (lower.startsWith('checkin ')) {
-              const parts = text.split(/\s+/);
-              const targetSo = (parts[1] || '').toUpperCase();
-              const tName = parts.slice(2).join(' ') || 'ช่างหน้างาน';
-              const c = circuitsMap.get(targetSo);
-              if (c) {
-                const nowIso = new Date().toISOString();
-                session.active_so = targetSo;
-                c.inspector_name = tName;
-                c.checkin_status = 'checked_in';
-                c.checkin_time = nowIso;
-                if (c.status === 'pending') c.status = 'in_progress';
-                addLineMessage(userId, 'bot', `📍 Check-in วงจร ${targetSo} (${c.province}) สำเร็จ! ช่าง: ${tName}`, '', targetSo);
-              } else {
-                addLineMessage(userId, 'bot', `❌ ไม่พบรหัสวงจร ${targetSo} ในระบบ 334 วงจร`, '', so);
-              }
-            } else if (lower === 'status' || text.includes('ตรวจ')) {
-              const c = so ? circuitsMap.get(so) : null;
-              if (c) {
-                const comp = evaluateCircuitCompleteness(c);
-                addLineMessage(userId, 'bot', `📊 วงจร ${so}: อัปโหลดรูปแล้ว ${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป (${comp.photoProgressPct}%), S/N ตรงกัน ${comp.snMatchedCount}/3 อุปกรณ์`, '', so);
-              } else {
-                addLineMessage(userId, 'bot', 'กรุณา Check-in เลือกวงจรก่อนพิมพ์ status ครับ', '', '');
-              }
-            } else {
-              addLineMessage(
-                userId,
-                'bot',
-                `🤖 คำสั่งที่ใช้ได้:\n1. พิมพ์ "checkin BINF028479 ชื่อช่าง"\n2. ส่งรูปถ่ายตามหัวข้อ 9 จุด\n3. พิมพ์ "status" เพื่อเช็คความครบถ้วน\n4. กดปุ่ม Check-out เมื่อดำเนินการเสร็จ`,
-                '',
-                so
-              );
-            }
+          } else if (action) {
+            // text → as typed; check_completeness → status; every editing action (checkin, upload_photo, checkout, …) → "use the web"
+            const asText = action === 'text' ? String(body.text || '') : action === 'check_completeness' ? `สถานะ ${so}` : `เช็คอิน ${so}`;
+            addLineMessage(userId, 'user', asText, '', so);
+            addLineMessage(userId, 'bot', lineReport.replyFor(asText, adminHelpers, url.origin).text, '', so);
           }
 
           const activeCircuit = session.active_so ? circuitsMap.get(session.active_so) || null : null;
-          const completeness = activeCircuit ? evaluateCircuitCompleteness(activeCircuit) : null;
-          const msgs = lineMessages.filter(m => m.line_user_id === userId);
           return jsonResponse({
             ok: true,
             userState: session,
             activeCircuit: activeCircuit ? enrichCircuit(activeCircuit) : null,
             circuit: activeCircuit ? enrichCircuit(activeCircuit) : null,
-            completeness,
-            messages: msgs
+            completeness: activeCircuit ? evaluateCircuitCompleteness(activeCircuit) : null,
+            messages: lineMessages.filter(m => m.line_user_id === userId)
           });
         }
 
@@ -831,7 +986,7 @@ export default {
 
               // 1. Handle bot join group or follow (friend add)
               if (ev.type === 'join' || ev.type === 'follow') {
-                const welcomeText = `👋 สวัสดีครับ! DLT Onsite Bot ยินดีให้บริการ\n\n📌 วิธีใช้งานสำหรับช่างเข้าหน้างาน:\n• เช็คอิน: พิมพ์ "เช็คอิน <รหัสวงจร> <ชื่อช่าง> <เบอร์โทร>"\n  (ตัวอย่าง: เช็คอิน BINF3480006 สมชาย 0812345678)\n• ส่งรูปถ่ายอุปกรณ์ (ระบบจัดเก็บเข้า Cloudflare R2)\n• ระบุ S/N: พิมพ์ "sn <รหัสSN>" เพื่อเทียบ OCR\n• ตรวจสอบความครบถ้วน: พิมพ์ "เช็ครูป" หรือ "สถานะ"\n• ส่งงาน: พิมพ์ "เช็คเอาท์"\n\n🌐 เว็บไซต์: ${url.origin}`;
+                const welcomeText = lineReport.welcomeText(url.origin);
                 addLineMessage(userId, 'bot', welcomeText, '', session.active_so);
                 if (token && replyToken) {
                   await sendLineReply(replyToken, [{ type: 'text', text: welcomeText }], token).catch(err => {
@@ -841,147 +996,24 @@ export default {
                 continue;
               }
 
-              // 2. Handle Text message
+              // 2. Text → report only (status / summary); editing commands are answered with a link to the web
+              const isGroup = ev.source?.type === 'group' || ev.source?.type === 'room';
               if (ev.type === 'message' && ev.message?.type === 'text') {
                 const txt = (ev.message.text || '').trim();
                 addLineMessage(userId, 'user', txt, '', session.active_so);
-                let replyText = '';
-
-                // Flexible regex matching checkin across spaces, newlines, and optional phone numbers
-                const checkinMatch = txt.match(/^(?:เช็คอิน|checkin)\s+(BINF\d{7})(?:[\s\n]+([\s\S]+))?$/i);
-                const snMatch = txt.match(/^sn\s+([A-Z0-9-]{6,20})/i);
-
-                if (checkinMatch) {
-                  const so = checkinMatch[1].toUpperCase();
-                  const rest = (checkinMatch[2] || '').trim();
-                  let tPhone = '';
-                  let tName = rest;
-                  const phoneMatch = rest.match(/(?:0\d{1,2}[- ]?\d{3}[- ]?\d{4}|0\d{8,9})$/);
-                  if (phoneMatch) {
-                    tPhone = phoneMatch[0].replace(/[- ]/g, '');
-                    tName = rest.slice(0, phoneMatch.index).trim();
-                  }
-                  if (!tName) tName = 'ช่างเทคนิค';
-
-                  const c = circuitsMap.get(so);
-                  if (!c) {
-                    replyText = `❌ ไม่พบรหัสวงจร ${so} ในระบบ 334 วงจร`;
-                  } else {
-                    const nowIso = new Date().toISOString();
-                    session.active_so = so;
-                    session.tech_name = tName;
-                    session.tech_phone = tPhone || '';
-                    session.updated_at = nowIso;
-
-                    c.inspector_name = tName;
-                    c.inspector_phone = tPhone || '';
-                    c.checkin_status = 'checked_in';
-                    c.checkin_time = nowIso;
-                    c.line_user_id = userId;
-                    if (c.status === 'pending') c.status = 'in_progress';
-                    c.updated_at = nowIso;
-
-                    const comp = evaluateCircuitCompleteness(c);
-                    const nextSlot = comp.missingSlotKeys[0] || 'router_device';
-                    session.pending_slot = nextSlot;
-
-                    replyText = `📍 Check-in สำเร็จ!\n• วงจร: ${so} (${c.province})\n• สถานที่: ${c.branch_name}\n• ช่างผู้ปฏิบัติงาน: ${tName}${tPhone ? ` (${tPhone})` : ''}\n• เวลาเข้า: ${new Date(nowIso).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' })} น.\n📷 รูปภาพปัจจุบัน: ${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป\n\n📱 ช่างสามารถเปิดหน้าเว็บเพื่อถ่ายรูป 11 จุดและกรอกข้อมูลได้เลยครับ:\n👉 ${url.origin}/?so=${so}`;
-                  }
-                } else if (snMatch && session.active_so) {
-                  const manualSn = normalizeSn(snMatch[1]);
-                  const c = circuitsMap.get(session.active_so);
-                  if (c) {
-                    const targetSlot = session.pending_slot || 'router_device';
-                    applySlotPhotoAndSnToCircuit(c, targetSlot, '', '', manualSn);
-                    c.updated_at = new Date().toISOString();
-                    const comp = evaluateCircuitCompleteness(c);
-                    const snCmp = comp.snComparisons.find(s => s.target === 'router' || s.target === 'ap_0' || s.target === 'ap_1');
-                    replyText = `✍️ บันทึก S/N ช่างกรอก: ${manualSn}\nผลตรวจเทียบ OCR: ${snCmp ? snCmp.statusLabel : 'บันทึกเรียบร้อย'}\n\n📱 ดูข้อมูลบนหน้าเว็บ: ${url.origin}/?so=${session.active_so}`;
-                  }
-                } else if (/^(?:เช็ครูป|สถานะ|status)/i.test(txt)) {
-                  const m = txt.match(/^(?:เช็ครูป|สถานะ|status)(?:\s+(BINF\d{7}))?/i);
-                  const targetSo = (m && m[1] ? m[1] : session.active_so || '').toUpperCase();
-                  const c = targetSo ? circuitsMap.get(targetSo) : null;
-                  if (!c) {
-                    replyText = `❌ กรุณาระบุรหัสวงจร เช่น "สถานะ BINF3480006" หรือเช็คอินก่อนครับ`;
-                  } else {
-                    const comp = evaluateCircuitCompleteness(c);
-                    const inTime = c.checkin_time ? new Date(c.checkin_time).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }) + ' น.' : 'ยังไม่เช็คอิน';
-                    replyText = `📋 สถานะวงจร ${targetSo} (${c.province})\n• สถานที่: ${c.branch_name}\n• ช่าง: ${c.inspector_name || 'ยังไม่ระบุ'}${c.inspector_phone ? ` (${c.inspector_phone})` : ''}\n• เวลาเข้า Site: ${inTime}\n📷 รูปภาพบนเว็บ: ${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป (${comp.photoProgressPct}%)\n` +
-                      comp.slots.map(s => `${s.hasPhoto ? '✅' : '❌'} ${s.shortName}`).join('\n') +
-                      `\n\n📱 แตะเปิดหน้าเว็บเพื่ออัปเดตงาน:\n👉 ${url.origin}/?so=${targetSo}`;
-                  }
-                } else if (/^(?:เช็คเอาท์|checkout|ส่งงาน)/i.test(txt)) {
-                  const m = txt.match(/^(?:เช็คเอาท์|checkout|ส่งงาน)(?:\s+(BINF\d{7}))?/i);
-                  const targetSo = (m && m[1] ? m[1] : session.active_so || '').toUpperCase();
-                  const c = targetSo ? circuitsMap.get(targetSo) : null;
-                  if (!c) {
-                    replyText = `❌ กรุณาระบุรหัสวงจร เช่น "เช็คเอาท์ BINF3480006"`;
-                  } else {
-                    const comp = evaluateCircuitCompleteness(c);
-                    if (!comp.allRequiredPhotosComplete) {
-                      const missingList = comp.slots.filter(s => !s.hasPhoto).map(s => `• ${s.shortName}`).join('\n');
-                      replyText = `⚠️ ยังไม่สามารถ Check-out ได้เนื่องจากรูปยังไม่ครบ (${comp.uploadedRequiredCount}/${comp.totalRequiredCount} รูป)\n\nรายการรูปที่ยังขาด:\n${missingList}\n\n📱 แตะเปิดหน้าเว็บเพื่ออัปโหลดให้ครบ:\n👉 ${url.origin}/?so=${targetSo}`;
-                    } else {
-                      const nowIso = new Date().toISOString();
-                      c.checkin_status = 'checked_out';
-                      c.checkout_time = nowIso;
-                      c.admin_status = 'pending_review';
-                      c.updated_at = nowIso;
-                      const outTime = new Date(nowIso).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
-                      replyText = `🏁 Check-out วงจร ${targetSo} สำเร็จ! (เวลา ${outTime} น.)\nระบบส่งเข้าคิว Admin QA ตรวจสอบแล้ว\n\n📝 ดาวน์โหลดรายงาน MS Word (.docx):\n👉 ${url.origin}/api/circuits/${encodeURIComponent(targetSo)}/report.docx`;
-                    }
-                  }
-                } else {
-                  // In group chat, ignore random non-command chatter unless explicitly addressed to bot
-                  const isGroup = ev.source?.type === 'group' || ev.source?.type === 'room';
-                  const isBotCall = /^(?:bot|บอท|help|เมนู|\?|คำสั่ง)/i.test(txt);
-                  if (isGroup && !isBotCall) {
-                    continue;
-                  }
-                  replyText = `🤖 DLT Onsite LINE Bot (ศูนย์รายงานสถานะ):\n• พิมพ์: เช็คอิน BINF3480006 สมชาย 0812345678\n  (บอทจะส่งลิงก์หน้าเว็บให้เข้าไปถ่ายรูป 11 จุด)\n• พิมพ์: สถานะ BINF3480006 (รายงานความครบถ้วนของรูปภาพ)\n• พิมพ์: เช็คเอาท์ BINF3480006 (ส่งงานและรับไฟล์ Word .docx)\n\n🌐 เว็บไซต์ระบบ: ${url.origin}`;
-                }
-
-                addLineMessage(userId, 'bot', replyText, '', session.active_so);
+                const r = lineReport.replyFor(txt, adminHelpers, url.origin);
+                if (isGroup && !r.recognized) continue; // stay quiet on ordinary group chatter
+                addLineMessage(userId, 'bot', r.text, '', session.active_so);
                 if (token && replyToken) {
-                  const replyRes = await sendLineReply(replyToken, [{ type: 'text', text: replyText }], token).catch(err => {
+                  await sendLineReply(replyToken, [{ type: 'text', text: r.text }], token).catch(err => {
                     console.error('sendLineReply error:', err);
-                    return { sent: false, error: err.message };
                   });
-                  console.log('sendLineReply text result:', JSON.stringify(replyRes));
                 }
-              } else if (ev.type === 'message' && ev.message?.type === 'image' && session.active_so) {
-                const imgData = await downloadLineMessageImage(ev.message.id, token);
-                if (imgData) {
-                  const dataUrl = `data:${imgData.mimeType};base64,${imgData.buffer.toString('base64')}`;
-                  const c = circuitsMap.get(session.active_so);
-                  if (c) {
-                    const compBefore = evaluateCircuitCompleteness(c);
-                    const slotKey = session.pending_slot || compBefore.missingSlotKeys[0] || 'router_device';
-                    const savedUrl = await storeDataUrlAsUpload(session.active_so, slotKey, dataUrl, env);
-
-                    applySlotPhotoAndSnToCircuit(c, slotKey, savedUrl, '', '');
-                    c.updated_at = new Date().toISOString();
-
-                    const compAfter = evaluateCircuitCompleteness(c);
-                    const nextSlot = compAfter.missingSlotKeys[0] || 'router_device';
-                    session.pending_slot = nextSlot;
-
-                    const curSlotInfo = compAfter.slots.find(s => s.slotKey === slotKey);
-                    const slotName = curSlotInfo ? curSlotInfo.shortName : slotKey;
-
-                    const replyText = `✅ บันทึกรูป [${slotName}] เข้า Cloudflare R2 เรียบร้อย!\n📊 ความครบถ้วน: ${compAfter.uploadedRequiredCount}/${compAfter.totalRequiredCount} รูป (${compAfter.photoProgressPct}%)\n\n💡 แนะนำ: ช่างสามารถอัปเดตและเลือกตำแหน่งรูปถ่าย 11 จุดให้ชัดเจนผ่านหน้าเว็บได้โดยตรงครับ:\n👉 ${url.origin}/?so=${session.active_so}`;
-
-                    addLineMessage(userId, 'bot', replyText, savedUrl, session.active_so);
-                    if (token && replyToken) {
-                      const replyRes = await sendLineReply(replyToken, [{ type: 'text', text: replyText }], token).catch(err => {
-                        console.error('sendLineReply error:', err);
-                        return { sent: false, error: err.message };
-                      });
-                      console.log('sendLineReply image result:', JSON.stringify(replyRes));
-                    }
-                  }
-                }
+              } else if (ev.type === 'message' && ev.message?.type === 'image' && !isGroup) {
+                // Photos are never stored from chat — they go through the web app.
+                const t = lineReport.webOnlyText(url.origin, '');
+                addLineMessage(userId, 'bot', t, '', session.active_so);
+                if (token && replyToken) await sendLineReply(replyToken, [{ type: 'text', text: t }], token).catch(() => {});
               }
             }
             return jsonResponse({ ok: true });
@@ -1025,6 +1057,93 @@ export default {
           if (body.supabaseKey !== undefined) runtimeCloudConfig.supabaseKey = body.supabaseKey;
           if (body.supabaseBucket !== undefined) runtimeCloudConfig.supabaseBucket = body.supabaseBucket;
           return jsonResponse({ ok: true, configured: Boolean(runtimeCloudConfig.supabaseUrl && runtimeCloudConfig.supabaseKey) });
+        }
+
+        // 14. GET /api/export/csv — ส่งออกข้อมูลสรุปวงจรสาขาใหม่ (CSV UTF-8 with BOM สำหรับเปิดใน Excel)
+        if (pathname === '/api/export/csv' && request.method === 'GET') {
+          const all = Array.from(circuitsMap.values()).map(enrichCircuit);
+          const escCsv = val => {
+            const s = String(val ?? '').replace(/\r?\n/g, ' ');
+            if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+              return `"${s.replace(/"/g, '""')}"`;
+            }
+            return s;
+          };
+          const headers = [
+            'ลำดับ',
+            'เลขที่วงจร (S/O)',
+            'ภาค',
+            'จังหวัด',
+            'ชื่อหน่วยงาน/สาขา',
+            'แพ็กเกจความเร็ว',
+            'จำนวนห้อง/AP (ปีนี้)',
+            'รายชื่อห้องที่ใช้งานจริง (ปีนี้)',
+            'Router ยี่ห้อ/รุ่น',
+            'Router เลขครุภัณฑ์',
+            'Router S/N (ใหม่/ยืนยัน)',
+            'Router S/N (OCR)',
+            'Router Speed Port 2 (DL/UL Mbps)',
+            'Router Speed Port 3 (DL/UL Mbps)',
+            'รายละเอียดอุปกรณ์ AP ทุกห้อง (ห้อง | รุ่น | ครุภัณฑ์ | S/N | Speed LAN | Speed WiFi)',
+            'รูปอุปกรณ์+เทสหน้างาน',
+            'สแกนใบส่งมอบงาน (หน้า 1-2)',
+            'สถานะตรวจรับ (บริษัท QA)',
+            'ผู้ตรวจรับงาน (QA)',
+            'ช่างผู้เข้าดำเนินการ',
+            'เบอร์โทรช่าง',
+            'วันที่ดำเนินการ',
+            'สถานะงาน',
+            'หมายเหตุหน้างาน'
+          ];
+          const rows = [headers.map(escCsv).join(',')];
+          all.forEach((c, idx) => {
+            const rt = c.router_info || {};
+            const aps = Array.isArray(c.access_points) ? c.access_points.filter(a => a && a.checked !== false) : [];
+            const roomsStr = aps.map(a => a.room || a.room_type || 'AP').join(' + ') || 'ไม่มี AP';
+            const apDetailsStr = aps.map((a, i) => {
+              const lanSpd = (a.speed_lan_dl || a.speed_lan_ul) ? `${a.speed_lan_dl || '-'}/${a.speed_lan_ul || '-'}M` : 'ตามภาพผลเทส';
+              const wifiSpd = (a.speed_wifi_dl || a.speed_wifi_ul) ? `${a.speed_wifi_dl || '-'}/${a.speed_wifi_ul || '-'}M` : 'ตามภาพผลเทส';
+              return `[#${i + 1} ${a.room || 'AP'}: ${a.brand || 'TOTOLINK'} ${a.model || ''} | ครุภัณฑ์:${a.asset_no || '-'} | S/N:${a.serial_no || '-'} | LAN:${lanSpd} | WiFi:${wifiSpd}]`;
+            }).join(' ; ');
+            const rtP2 = (rt.speed_lan2_dl || rt.speed_lan2_ul) ? `${rt.speed_lan2_dl || '-'}/${rt.speed_lan2_ul || '-'}M` : (rt.photo_lan2 ? 'มีรูปผลเทส' : '-');
+            const rtP3 = (rt.speed_lan3_dl || rt.speed_lan3_ul) ? `${rt.speed_lan3_dl || '-'}/${rt.speed_lan3_ul || '-'}M` : (rt.photo_lan3 ? 'มีรูปผลเทส' : '-');
+            const comp = c.completeness || {};
+            const row = [
+              c.seq || idx + 1,
+              c.so_number || '',
+              c.region || '',
+              c.province || '',
+              c.branch_name || '',
+              c.speed_pkg || '650M/350M',
+              aps.length,
+              roomsStr,
+              `MikroTik ${rt.model || 'RB3011'}`,
+              rt.asset_no || '',
+              rt.serial_no || '',
+              rt.ocr_serial_no || '',
+              rtP2,
+              rtP3,
+              apDetailsStr,
+              `${comp.onsiteUploadedCount ?? 0}/${comp.onsiteRequiredCount ?? 3}`,
+              `${comp.handoverUploadedCount ?? 0}/2`,
+              c.admin_status === 'approved' ? 'อนุมัติแล้ว' : c.admin_status === 'rejected' ? 'แจ้งแก้ไข' : c.admin_status === 'pending_review' ? 'รอตรวจ' : 'ยังไม่ส่งตรวจ',
+              c.admin_name || c.admin_reviewer || '',
+              c.inspector_name || '',
+              c.inspector_phone || '',
+              c.inspection_date || '',
+              c.status || 'pending',
+              c.remarks || ''
+            ];
+            rows.push(row.map(escCsv).join(','));
+          });
+          const csvContent = '\uFEFF' + rows.join('\r\n');
+          return new Response(csvContent, {
+            status: 200,
+            headers: {
+              'Content-Type': 'text/csv; charset=utf-8',
+              'Content-Disposition': 'attachment; filename="DLT_Circuits_Updated_Summary_2569.csv"'
+            }
+          });
         }
 
         return jsonResponse({ error: `API endpoint not found: ${pathname}` }, 404);

@@ -153,6 +153,7 @@
         ck: Boolean(c.checkin_time),
         co: Boolean(c.checkout_time),
         ad: c.admin_status || '',
+        lk: Boolean(c.locked),
         st: c.status || '',
         ph: c.onsite_photo_count ?? c.photo_count ?? 0,
         rq: c.onsite_required_count ?? c.required_photo_count ?? 0,
@@ -318,7 +319,9 @@
       ready: all.length > 0 && !next,
       checkedIn, checkedOut, blocked,
       rejected: circuits.find(c => c.admin_status === 'rejected'),
-      approved: circuits.every(c => c.admin_status === 'approved')
+      approved: circuits.every(c => c.admin_status === 'approved'),
+      // Approved sites are locked by the reviewer: view only for technicians.
+      locked: circuits.some(c => c.locked) || circuits.every(c => c.admin_status === 'approved')
     };
   }
 
@@ -392,9 +395,25 @@
       }
       S.syncErr = false;
     } catch (err) {
+      if (err.status === 423) { onLocked(err.message, so); return; }
       S.syncErr = true;
       setTimeout(() => pushCircuit(so), 8000);
     }
+    updateSync();
+  }
+
+  /** The reviewer locked this Site while edits were still queued: drop them and show the locked view. */
+  function onLocked(msg, so) {
+    const entry = S.index.find(x => x.circ.some(c => c.so === so));
+    const sos = new Set(entry ? entry.circ.map(c => c.so) : [so]);
+    S.ops = S.ops.filter(o => !sos.has(o.so));
+    S.jobs = S.jobs.filter(j => !sos.has(j.so));
+    store.set(LS.ops, S.ops);
+    store.set(LS.jobs, S.jobs);
+    for (const k of Object.keys(S.previews)) if (sos.has(k.split('|')[0])) delete S.previews[k];
+    S.syncErr = false;
+    toast(msg || 'Site นี้ถูกล็อกแล้ว แก้ไขไม่ได้', 'bad');
+    if (entry && S.site && S.site.key === entry.key) { S.site = null; location.hash = siteHref(entry.key); onRoute(); }
     updateSync();
   }
 
@@ -441,6 +460,7 @@
           updateSync();
           softRefresh();
         } catch (err) {
+          if (err.status === 423) { onLocked(err.message, job.so); break; }
           queueFails++;
           S.syncErr = true;
           updateSync();
@@ -740,7 +760,7 @@
   }
 
   /* ----------------------------- Site ---------------------------------- */
-  function slotRow(s, key, nextKey, locked) {
+  function slotRow(s, key, nextKey, locked, viewOnly = false) {
     let icon = `<span class="state" aria-hidden="true"></span>`;
     let sub = 'ยังไม่ได้ถ่าย';
     if (s.kind === 'device' && s.has) {
@@ -760,6 +780,13 @@
       sub = 'ทำต่อที่นี่';
     }
     if (!s.has && s.place && s.kind !== 'handover') sub = `${sub} · ${s.place}`;
+    if (viewOnly) {
+      return `
+      <div class="row">
+        ${icon}
+        <div class="row__main"><div class="row__title">${esc(s.title)}</div><div class="row__sub">${esc(sub)}</div></div>
+      </div>`;
+    }
     return `
       <a class="row" href="${stepHref(key, s.so, s.key)}" ${locked ? 'aria-disabled="true" tabindex="-1"' : ''}>
         ${icon}
@@ -777,10 +804,11 @@
     const nextKey = m.next ? `${m.next.so}|${m.next.key}` : '';
     const firstCheckin = site.circuits.map(c => c.checkin_time).filter(Boolean).sort()[0];
     const locked = !m.checkedIn;
+    const viewOnly = m.locked;
 
     let top = '';
-    if (m.approved) {
-      top = `<div class="banner banner--ok">${ICON.check}<div><strong>ผู้ตรวจรับอนุมัติแล้ว</strong>งานของ Site นี้เสร็จสมบูรณ์</div></div>`;
+    if (m.locked) {
+      top = `<div class="banner banner--ok">${ICON.check}<div><strong>ผู้ตรวจรับอนุมัติและล็อกแล้ว</strong>งานของ Site นี้เสร็จสมบูรณ์ แก้ไขไม่ได้ หากต้องแก้ไขโปรดติดต่อผู้ตรวจรับ</div></div>`;
     } else if (m.rejected) {
       top = `<div class="banner banner--bad">${ICON.alert}<div><strong>ผู้ตรวจส่งกลับให้แก้ไข</strong>${esc(m.rejected.admin_comment || m.rejected.admin_review_note || 'กรุณาตรวจรูปและ S/N อีกครั้ง')}</div></div>`;
     } else if (m.checkedOut) {
@@ -788,7 +816,9 @@
     }
 
     let hero = '';
-    if (!m.checkedIn) {
+    if (viewOnly) {
+      hero = '';
+    } else if (!m.checkedIn) {
       hero = `
         <section class="panel" style="margin-top:16px">
           <h2 style="font-size:1.25rem;font-weight:700;margin-bottom:4px">เช็คอินเข้างาน</h2>
@@ -837,7 +867,7 @@
             <span><span class="group__title">${esc(title)}</span><br><span class="group__sub">${esc(sub)} · <span class="num">${g.done}/${g.total}</span></span></span>
             <span class="caret">${ICON.down}</span>
           </summary>
-          ${g.slots.map(s => slotRow(s, site.key, nextKey.split('|')[1] === s.key && nextKey.split('|')[0] === s.so ? s.key : '', locked)).join('')}
+          ${g.slots.map(s => slotRow(s, site.key, nextKey.split('|')[1] === s.key && nextKey.split('|')[0] === s.so ? s.key : '', locked, viewOnly)).join('')}
         </details>`;
     }).join('');
 
@@ -849,7 +879,7 @@
           <span><span class="group__title">ใบส่งมอบงาน (ทั้ง Site ใช้ 1 ใบ)</span><br><span class="group__sub">ถ่ายหลังเจ้าหน้าที่ลงนาม · <span class="num">${hoDone}/2</span></span></span>
           <span class="caret">${ICON.down}</span>
         </summary>
-        ${m.ho.map(h => slotRow(h, site.key, m.nextHandover && m.ready && m.nextHandover.key === h.key ? h.key : '', locked)).join('')}
+        ${m.ho.map(h => slotRow(h, site.key, m.nextHandover && m.ready && m.nextHandover.key === h.key ? h.key : '', locked, viewOnly)).join('')}
       </details>`;
 
     const remain = m.total - m.done;
@@ -865,7 +895,7 @@
       <main class="view has-dock">
         ${top}
         ${hero}
-        ${m.checkedIn ? `
+        ${m.checkedIn && !viewOnly ? `
           <div class="meter"><b class="num">${m.done}/${m.total}</b><span>รายการหน้างานที่เสร็จแล้ว</span></div>
           <div class="progress ${m.ready ? 'progress--ok' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="transform:scaleX(${pct / 100})"></i></div>` : ''}
         ${locked ? `
@@ -878,14 +908,14 @@
           ${e.ll ? `<a class="btn btn--quiet btn--sm" style="margin-top:10px" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${e.ll.lat},${e.ll.lng}">${ICON.pin}เปิดแผนที่</a>` : ''}
         </div>
       </main>
-      ${m.checkedIn && !m.checkedOut ? `<div class="dock"><div class="dock__inner">${dockBtn}<div class="dock__note">${dockNote}</div></div></div>` : ''}`;
+      ${m.checkedIn && !m.checkedOut && !viewOnly ? `<div class="dock"><div class="dock__inner">${dockBtn}<div class="dock__note">${dockNote}</div></div></div>` : ''}`;
   }
 
   /* ----------------------------- Capture ------------------------------- */
   function renderCapture(r) {
     const m = siteModel();
     const slot = slotByKey(m, r.so, r.slot);
-    if (!slot) { go(siteHref(r.key)); return; }
+    if (!slot || m.locked) { go(siteHref(r.key)); return; }
     const c = findCircuit(slot.so) || S.site.circuits[0];
     const backHref = siteHref(r.key);
     const isHandover = slot.kind === 'handover';
@@ -1185,6 +1215,7 @@
   function renderSubmit() {
     const m = siteModel();
     const site = S.site;
+    if (m.locked) { go(siteHref(site.key)); return; }
     const rows = m.groups.map(g => {
       const c = g.circuit;
       const bad = g.slots.filter(s => s.blocked).length;

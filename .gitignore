@@ -16,3 +16,6 @@ data/line_config.json
 data/uploads/*
 !data/uploads/.gitkeep
 !data/seed_circuits.json
+
+# Local secrets for wrangler dev
+.dev.vars
