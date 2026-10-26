@@ -820,6 +820,7 @@ function renderCircuitsGrid(list) {
     const hasDraft = hasSiteSavedDraft(siteCircuits);
     const siteHandoverCount = Math.max(...siteCircuits.map(x => Number(x.handover_scan_count || 0)), 0);
 
+    const multi = totalInSite > 1;
     const circuitsRowsHtml = siteCircuits.map((c, idx) => {
       const rModel = c.router_summary?.model || 'RB3011';
       const rSn = c.router_summary?.serial_no || '-';
@@ -829,19 +830,21 @@ function renderCircuitsGrid(list) {
         : 'ไม่มี AP';
       const photosOk = c.onsite_photo_count ?? c.photo_count ?? 0;
       const photosReq = c.onsite_required_count ?? c.expected_photo_count ?? 9;
+      const col = circuitColorOf(idx);
 
       return `
-        <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1">
+        <div class="p-2.5 rounded-lg text-xs space-y-1 ${multi ? '' : 'bg-slate-50 border border-slate-200'}" style="${multi ? `border:2px solid ${col.line};background:${col.soft};` : ''}">
           <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-1.5">
-              <span class="font-bold text-slate-900 font-mono">${c.so_number}</span>
-              ${totalInSite > 1 ? `<span class="text-[11px] text-slate-500">(วงจรที่ ${idx + 1})</span>` : ''}
+              ${multi ? `<span class="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0" style="background:${col.solid}">${idx + 1}</span>` : ''}
+              <span class="font-bold font-mono" style="${multi ? `color:${col.ink}` : 'color:#0f172a'}">${c.so_number}</span>
+              ${multi ? `<span class="text-[11px] font-semibold" style="color:${col.ink}">(วงจรที่ ${idx + 1})</span>` : ''}
             </div>
-            <span class="text-[11px] text-slate-500">รูป ${photosOk}/${photosReq}</span>
+            <span class="text-[11px] ${multi ? 'font-semibold px-1.5 py-0.5 rounded bg-white' : 'text-slate-500'}" style="${multi ? `color:${col.ink};border:1px solid ${col.line}` : ''}">รูป ${photosOk}/${photosReq}</span>
           </div>
-          <div class="text-[11px] text-slate-600 flex items-center justify-between gap-2">
+          <div class="text-[11px] text-slate-700 flex items-center justify-between gap-2">
             <span class="truncate">Router: <strong>${rModel}</strong> (${rSn})</span>
-            <span class="truncate text-slate-500">AP: ${apRooms}</span>
+            <span class="truncate text-slate-600">AP: ${apRooms}</span>
           </div>
         </div>
       `;
