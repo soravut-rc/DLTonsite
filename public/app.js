@@ -837,7 +837,7 @@ function renderCircuitsGrid(list) {
           <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-1.5">
               ${multi ? `<span class="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0" style="background:${col.solid}">${idx + 1}</span>` : ''}
-              <span class="font-bold font-mono" style="${multi ? `color:${col.ink}` : 'color:#0f172a'}">${c.so_number}</span>
+              <span class="font-bold font-mono" style="${multi ? `color:${col.ink}` : 'color:rgb(var(--tx-slate-900))'}">${c.so_number}</span>
               ${multi ? `<span class="text-[11px] font-semibold" style="color:${col.ink}">(วงจรที่ ${idx + 1})</span>` : ''}
             </div>
             <span class="text-[11px] ${multi ? 'font-semibold px-1.5 py-0.5 rounded bg-white' : 'text-slate-500'}" style="${multi ? `color:${col.ink};border:1px solid ${col.line}` : ''}">รูป ${photosOk}/${photosReq}</span>
@@ -1988,12 +1988,13 @@ function displayApAssetNo(raw) {
 }
 
 // One colour per circuit (cycles after 5) so each circuit is easy to tell apart at a glance
+// Values live in desk-theme.js (light + dark) so a theme switch recolours every frame without re-rendering
 const CIRCUIT_COLORS = [
-  { solid: '#2563eb', line: '#3b82f6', mid: '#dbeafe', soft: '#eff6ff', ink: '#1e3a8a' }, // blue
-  { solid: '#047857', line: '#10b981', mid: '#d1fae5', soft: '#ecfdf5', ink: '#064e3b' }, // green
-  { solid: '#b45309', line: '#f59e0b', mid: '#fde68a', soft: '#fffbeb', ink: '#78350f' }, // amber
-  { solid: '#7c3aed', line: '#8b5cf6', mid: '#ede9fe', soft: '#f5f3ff', ink: '#4c1d95' }, // violet
-  { solid: '#be123c', line: '#f43f5e', mid: '#ffe4e6', soft: '#fff1f2', ink: '#881337' }  // rose
+  { solid: 'var(--cc0-solid)', line: 'var(--cc0-line)', mid: 'var(--cc0-mid)', soft: 'var(--cc0-soft)', ink: 'var(--cc0-ink)', deep: 'var(--cc0-deep)' }, // blue
+  { solid: 'var(--cc1-solid)', line: 'var(--cc1-line)', mid: 'var(--cc1-mid)', soft: 'var(--cc1-soft)', ink: 'var(--cc1-ink)', deep: 'var(--cc1-deep)' }, // green
+  { solid: 'var(--cc2-solid)', line: 'var(--cc2-line)', mid: 'var(--cc2-mid)', soft: 'var(--cc2-soft)', ink: 'var(--cc2-ink)', deep: 'var(--cc2-deep)' }, // amber
+  { solid: 'var(--cc3-solid)', line: 'var(--cc3-line)', mid: 'var(--cc3-mid)', soft: 'var(--cc3-soft)', ink: 'var(--cc3-ink)', deep: 'var(--cc3-deep)' }, // violet
+  { solid: 'var(--cc4-solid)', line: 'var(--cc4-line)', mid: 'var(--cc4-mid)', soft: 'var(--cc4-soft)', ink: 'var(--cc4-ink)', deep: 'var(--cc4-deep)' }  // rose
 ];
 function circuitColorOf(idx) {
   return CIRCUIT_COLORS[((idx % CIRCUIT_COLORS.length) + CIRCUIT_COLORS.length) % CIRCUIT_COLORS.length];
@@ -2007,12 +2008,12 @@ function apToneOf(cIdx, apIdx) {
   const c = circuitColorOf(cIdx);
   return [
     { band: c.solid, text: '#fff', border: c.solid },
-    { band: c.ink, text: '#fff', border: c.ink },
-    { band: c.line, text: c.ink, border: c.line }
+    { band: c.deep, text: '#fff', border: c.deep },
+    { band: c.line, text: c.deep, border: c.line }
   ][((apIdx % 3) + 3) % 3];
 }
 // Odd APs (2nd, 4th…) also get a tinted body so neighbouring AP cards are told apart at a glance
-const apCardStyle = (cIdx, apIdx) => `border:2px solid ${apToneOf(cIdx, apIdx).border};background:${apIdx % 2 ? circuitColorOf(cIdx).mid : '#fff'};`;
+const apCardStyle = (cIdx, apIdx) => `border:2px solid ${apToneOf(cIdx, apIdx).border};background:${apIdx % 2 ? circuitColorOf(cIdx).mid : 'rgb(var(--bg-white))'};`;
 const apCardClass = apIdx => (apIdx % 2 ? 'circuit-tint' : '');
 const apPillStyle = (cIdx, apIdx) => `background:${apToneOf(cIdx, apIdx).band};color:${apToneOf(cIdx, apIdx).text};`;
 // 8px colour bar across the top of the card; negative margins cancel the card padding (px)
@@ -2118,7 +2119,7 @@ function renderSiteCircuitsInfo() {
           ${row('ตู้ Rack', esc(rack))}
           ${row('Router', esc(router))}
           ${row('Access Point', apLines ? `${apLines}` : '')}
-          ${row('รูปหน้างาน', `<span class="font-semibold" style="color:${have >= need ? '#047857' : col.ink}">${have}/${need} รูป</span>`)}
+          ${row('รูปหน้างาน', `<span class="font-semibold" style="color:${have >= need ? 'var(--ok-ink)' : col.ink}">${have}/${need} รูป</span>`)}
           ${row('สถานะเข้างาน', esc(checkin))}
           <div class="pt-1.5 flex gap-1.5 flex-wrap">
             ${jumpBtn('step1', 'ไปที่ Router วงจรนี้ →')}
@@ -5801,3 +5802,13 @@ async function exportUpdatedExcelSummary() {
 
 
 
+
+
+// Theme toggle (auto → dark → light) — see theme.js
+(function dltThemeToggle() {
+  const btn = document.getElementById('themeBtn');
+  if (!btn || !window.dltTheme) return;
+  const paint = () => { btn.textContent = 'ธีม: ' + window.dltTheme.label(); btn.setAttribute('aria-label', 'เปลี่ยนธีมหน้าจอ ตอนนี้: ' + window.dltTheme.label()); };
+  btn.addEventListener('click', () => { window.dltTheme.cycle(); paint(); });
+  paint();
+})();
