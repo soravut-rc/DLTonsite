@@ -41,6 +41,23 @@
     list: svg('<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>')
   };
 
+  /** RJ45 jack with its status LED — the "next action" badge on the Site screen. */
+  const jack = led => `<div class="jack" aria-hidden="true"><i class="led led--${led}"></i><svg viewBox="0 0 40 36" fill="none"><path d="M5 6h30v18h-8v6H13v-6H5z" stroke="#7d8996" stroke-width="2" stroke-linejoin="round"/><g stroke="#d9a53a" stroke-width="2" stroke-linecap="square"><path d="M12 11v7M16 11v7M20 11v7M24 11v7M28 11v7"/></g></svg></div>`;
+
+  const thaiDate = iso => {
+    const d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleDateString('th-TH-u-ca-buddhist', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Bangkok' });
+  };
+
+  /** Approval stamp (blue ink) — the same mark the reviewer sees in /admin. */
+  const stampSvg = iso => `<svg class="stamp" viewBox="0 0 100 100" fill="none" stroke="currentColor" role="img" aria-label="ตราอนุมัติ ${esc(thaiDate(iso))}">
+    <circle cx="50" cy="50" r="46" stroke-width="3"/><circle cx="50" cy="50" r="38" stroke-width="1.2"/>
+    <defs><path id="stampRing" d="M50 50 m-31 0 a31 31 0 1 1 62 0 a31 31 0 1 1 -62 0"/></defs>
+    <text font-size="9" font-weight="700" fill="currentColor" stroke="none" letter-spacing="1.2"><textPath href="#stampRing">ตรวจรับงาน · ตรวจรับงาน · ตรวจรับงาน ·</textPath></text>
+    <text x="50" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="currentColor" stroke="none">อนุมัติ</text>
+    <text x="50" y="65" text-anchor="middle" font-size="7.5" font-weight="700" fill="currentColor" stroke="none">${esc(thaiDate(iso))}</text>
+  </svg>`;
+
   /* ------------------------------------------------------------------------
      Global state
      ------------------------------------------------------------------------ */
@@ -795,6 +812,31 @@
       </a>`;
   }
 
+  /** Every slot of every circuit as a port with an LED: green done · amber blink next · amber steady needs S/N · red blocked. */
+  function portsOverview(m, site) {
+    const nextId = m.next ? `${m.next.so}|${m.next.key}` : '';
+    const portState = sl => (sl.blocked ? 'bad' : sl.done ? 'ok' : `${sl.so}|${sl.key}` === nextId ? 'next' : sl.has ? 'warn' : 'off');
+    const WORD = { ok: 'เสร็จแล้ว', next: 'ทำต่อที่นี่', warn: 'ถ่ายแล้ว รอตรวจ S/N', bad: 'S/N ไม่ตรง', off: 'ยังไม่ได้ถ่าย' };
+    const port = (sl, label) => {
+      const st = portState(sl);
+      return `<a class="port" href="${stepHref(site.key, sl.so, sl.key)}" aria-label="${esc(sl.title)} — ${WORD[st]}"${st === 'next' ? ' aria-current="true"' : ''}><i class="led ${st === 'off' ? '' : `led--${st}`}"></i><span>${label}</span></a>`;
+    };
+    const units = m.groups.map((g, gi) => {
+      const parts = [];
+      for (const sl of g.slots) {
+        const last = parts[parts.length - 1];
+        if (last && last.group === sl.group) last.slots.push(sl); else parts.push({ group: sl.group, slots: [sl], room: sl.room });
+      }
+      const cols = parts.map((pt, pi) => `<div class="grp"><div class="g">${pt.slots.map((sl, n) => port(sl, `${pi + 1}.${n + 1}`)).join('')}</div><div class="cap">${pt.group === 'router' ? 'MikroTik' : esc(`AP · ${String(pt.room || '').replace(/^ห้อง\s*/, '')}`)}</div></div>`).join('');
+      return `<div class="unit"><div class="unit-top"><b>วงจรที่ ${gi + 1}</b><span>${esc(g.circuit.so_number)}</span><em>${g.done}/${g.total}</em></div><div class="ports">${cols}</div></div>`;
+    }).join('');
+    const ho = `<div class="unit"><div class="unit-top"><b>ใบส่งมอบงาน</b><span>ทั้ง Site ใช้ 1 ใบ</span><em>${m.ho.filter(h => h.done).length}/2</em></div><div class="ports"><div class="grp"><div class="g two">${m.ho.map((h, i) => {
+      const st = h.done ? 'ok' : (m.nextHandover && m.nextHandover.key === h.key && m.ready) ? 'next' : 'off';
+      return `<a class="port" href="${stepHref(site.key, h.so, h.key)}" aria-label="${esc(h.title)} — ${WORD[st]}"><i class="led ${st === 'off' ? '' : `led--${st}`}"></i><span>หน้า ${i + 1}</span></a>`;
+    }).join('')}</div><div class="cap">สำเนาลงนาม + ตราประทับ</div></div></div></div>`;
+    return `<section class="unit-wrap" aria-label="สถานะทุกช่องของทุกวงจร"><div class="unit-head"><span>ทุกวงจรใน Site นี้</span><b>${m.done}<small> / ${m.total}</small></b></div>${units}${ho}</section>`;
+  }
+
   function renderSite() {
     const m = siteModel();
     const site = S.site;
@@ -808,7 +850,8 @@
 
     let top = '';
     if (m.locked) {
-      top = `<div class="banner banner--ok">${ICON.check}<div><strong>ผู้ตรวจรับอนุมัติและล็อกแล้ว</strong>งานของ Site นี้เสร็จสมบูรณ์ แก้ไขไม่ได้ หากต้องแก้ไขโปรดติดต่อผู้ตรวจรับ</div></div>`;
+      const when = site.circuits.map(c => c.admin_reviewed_at).filter(Boolean).sort().pop() || '';
+      top = `<div class="banner banner--ok banner--locked"><div><strong>ผู้ตรวจรับอนุมัติและล็อกแล้ว</strong>งานของ Site นี้เสร็จสมบูรณ์ แก้ไขไม่ได้ หากต้องแก้ไขโปรดติดต่อผู้ตรวจรับ</div>${stampSvg(when)}</div>`;
     } else if (m.rejected) {
       top = `<div class="banner banner--bad">${ICON.alert}<div><strong>ผู้ตรวจส่งกลับให้แก้ไข</strong>${esc(m.rejected.admin_comment || m.rejected.admin_review_note || 'กรุณาตรวจรูปและ S/N อีกครั้ง')}</div></div>`;
     } else if (m.checkedOut) {
@@ -831,25 +874,34 @@
     } else if (m.next) {
       hero = `
         <section class="hero">
-          <div class="hero__kicker">ถัดไป · ${m.done + 1} จาก ${m.total}</div>
-          <div class="hero__title">${esc(m.next.title)}</div>
-          <div class="hero__sub">${multi ? `วงจร ${esc(m.next.so)}` : esc(m.next.place || '')}</div>
+          ${jack('next')}
+          <div>
+            <div class="hero__kicker">ถัดไป · ${String(m.done + 1).padStart(2, '0')} / ${m.total}</div>
+            <div class="hero__title">${esc(m.next.title)}</div>
+            <div class="hero__sub">${multi ? `วงจร ${esc(m.next.so)}` : esc(m.next.place || '')}</div>
+          </div>
           <a class="btn" href="${stepHref(site.key, m.next.so, m.next.key)}">${ICON.camera}${m.next.has ? 'ตรวจ / แก้ไข' : 'ถ่ายรูป'}</a>
         </section>`;
     } else if (m.nextHandover) {
       hero = `
         <section class="hero">
-          <div class="hero__kicker">รูปหน้างานครบแล้ว</div>
-          <div class="hero__title">ถ่ายใบส่งมอบงาน</div>
-          <div class="hero__sub">ให้เจ้าหน้าที่ลงนามและประทับตราก่อน แล้วถ่ายทั้ง 2 หน้า</div>
+          ${jack('next')}
+          <div>
+            <div class="hero__kicker">รูปหน้างานครบแล้ว</div>
+            <div class="hero__title">ถ่ายใบส่งมอบงาน</div>
+            <div class="hero__sub">ให้เจ้าหน้าที่ลงนามและประทับตราก่อน แล้วถ่ายทั้ง 2 หน้า</div>
+          </div>
           <a class="btn" href="${stepHref(site.key, m.nextHandover.so, m.nextHandover.key)}">${ICON.camera}${esc(m.nextHandover.title.replace('ใบส่งมอบงาน · ', 'ถ่าย'))}</a>
         </section>`;
     } else {
       hero = `
         <section class="hero hero--ok">
-          <div class="hero__kicker">ครบทุกรายการแล้ว</div>
-          <div class="hero__title">พร้อมส่งงาน</div>
-          <div class="hero__sub">กดปุ่ม “ส่งงาน” ด้านล่างเพื่อตรวจทานและส่งให้ผู้ตรวจรับ</div>
+          ${jack('ok')}
+          <div>
+            <div class="hero__kicker">ครบทุกรายการแล้ว</div>
+            <div class="hero__title">พร้อมส่งงาน</div>
+            <div class="hero__sub">กดปุ่ม “ส่งงาน” ด้านล่างเพื่อตรวจทานและส่งให้ผู้ตรวจรับ</div>
+          </div>
         </section>`;
     }
 
@@ -895,9 +947,7 @@
       <main class="view has-dock">
         ${top}
         ${hero}
-        ${m.checkedIn && !viewOnly ? `
-          <div class="meter"><b class="num">${m.done}/${m.total}</b><span>รายการหน้างานที่เสร็จแล้ว</span></div>
-          <div class="progress ${m.ready ? 'progress--ok' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="transform:scaleX(${pct / 100})"></i></div>` : ''}
+        ${m.checkedIn && !viewOnly ? portsOverview(m, site) : ''}
         ${locked ? `
           <div class="panel" style="margin-top:12px">
             <div class="row__title">งานใน Site นี้</div>

@@ -57,6 +57,85 @@
   const dispRouterAsset = raw => { const v = String(raw ?? '').trim(); return !v || v === '-' || /^สขจ\.[^/]*$/.test(v) || /^1\s*to\s*all$/i.test(v) ? '-' : v; };
   const dispApAsset = raw => { const v = String(raw ?? '').trim(); return !v || v === '-' || /^สข[^/]*\/[A-Za-z]+\d*$/.test(v) ? '-' : v; };
   const chip = (state, text) => `<span class="chip chip--${state}">${esc(text ?? STATE[state])}</span>`;
+  const led = st => `<i class="led${st === 'ok' ? ' led--ok' : st === 'bad' ? ' led--bad' : ''}"></i>`;
+
+  /** One LED per photo slot (3 per device group) + 2 for the handover scan — the queue's at-a-glance status. */
+  function ledStrip(site) {
+    const rows = site.circuits.slice(0, 4).map(c => {
+      const slots = c.slots || [];
+      let html = '';
+      slots.forEach((st, i) => { if (i && i % 3 === 0) html += '<span class="gap"></span>'; html += led(st); });
+      return html;
+    });
+    const ho = (site.circuits[0] && site.circuits[0].ho) || [];
+    const total = site.circuits.reduce((a, c) => a + c.onsite[1], 0);
+    const done = site.circuits.reduce((a, c) => a + c.onsite[0], 0);
+    const bad = site.circuits.reduce((a, c) => a + (c.slots || []).filter(x => x === 'bad').length, 0);
+    const res = site.locked ? 'ล็อกแล้ว' : site.state === 'todo' ? '' : site.ready ? 'ผ่านครบ' : `ข้อสังเกต ${site.problems.length}`;
+    return `<div role="img" aria-label="รูปหน้างาน ${done} จาก ${total} ช่อง${bad ? ` มีปัญหา ${bad} ช่อง` : ''} ใบส่งมอบ ${ho.filter(x => x === 'ok').length}/2">${rows.map((r, i) => `<div class="strip">${r}${i === 0 ? `<span class="gap"></span>${ho.map(led).join('')}<span class="res">${esc(res)}</span>` : ''}</div>`).join('')}</div>`;
+  }
+
+  /** The circuit's slots drawn as ports (same strip as /tech). */
+  function portStrip(c) {
+    const st = (c.checks && c.checks.slotStates) || [];
+    const groups = [];
+    for (let i = 0; i < st.length; i += 3) groups.push(st.slice(i, i + 3));
+    return `<div class="ports" role="img" aria-label="สถานะรูปทุกช่องของวงจร">${groups.map((g, gi) => `<div class="g3">${g.map((x, n) => `<div class="p">${led(x.state)}<span>${gi + 1}.${n + 1}</span></div>`).join('')}</div>`).join('')}</div>`;
+  }
+
+  /** Approval stamp, blue ink — identical to the one the technician sees. */
+  let stampSeq = 0;
+  const thaiDate = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('th-TH-u-ca-buddhist', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Bangkok' }); };
+  function stampSvg(iso, attrs = '') {
+    const id = `stampRing${++stampSeq}`;
+    return `<svg class="stamp" ${attrs} viewBox="0 0 100 100" fill="none" stroke="currentColor" role="img" aria-label="ตราอนุมัติ ${esc(thaiDate(iso))}">
+      <circle cx="50" cy="50" r="46" stroke-width="3"/><circle cx="50" cy="50" r="38" stroke-width="1.2"/>
+      <defs><path id="${id}" d="M50 50 m-31 0 a31 31 0 1 1 62 0 a31 31 0 1 1 -62 0"/></defs>
+      <text font-size="9" font-weight="700" fill="currentColor" stroke="none" letter-spacing="1.2"><textPath href="#${id}">ตรวจรับงาน · ตรวจรับงาน · ตรวจรับงาน ·</textPath></text>
+      <text x="50" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="currentColor" stroke="none">อนุมัติ</text>
+      <text x="50" y="65" text-anchor="middle" font-size="7.5" font-weight="700" fill="currentColor" stroke="none">${esc(thaiDate(iso))}</text>
+    </svg>`;
+  }
+
+  /**
+   * The approval moment: the stamp drops onto the page with a hard hit, the page gives a small thud,
+   * then the stamp settles into the banner (shape relay). Click or any key skips it; reduced motion shows the result directly.
+   */
+  async function playStamp(iso) {
+    const target = $('#detailPane .stamp[data-final]');
+    if (!target || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    target.style.visibility = 'hidden';
+    const ov = document.createElement('div');
+    ov.className = 'stamp-fx';
+    ov.setAttribute('aria-hidden', 'true');
+    ov.innerHTML = `<div class="dim"></div><div class="ink"><i class="ring"></i>${stampSvg(iso)}</div>`;
+    document.body.appendChild(ov);
+    const ink = $('.ink', ov);
+    let done = false;
+    let wake = null;
+    const finish = () => { if (done) return; done = true; if (wake) wake(); target.style.visibility = ''; ov.remove(); document.removeEventListener('keydown', finish); };
+    ov.addEventListener('click', finish);
+    document.addEventListener('keydown', finish);
+    const wait = ms => new Promise(r => { const t = setTimeout(r, ms); wake = () => { clearTimeout(t); r(); }; });
+    try {
+      await wait(560);                                   // the fall
+      if (done) return;
+      const pane = $('#detailPane .detail__inner');
+      if (pane) { pane.classList.add('thud'); setTimeout(() => pane.classList.remove('thud'), 320); }
+      await wait(450);                                   // rests on the paper
+      if (done) return;
+      const from = ink.getBoundingClientRect();
+      const to = target.getBoundingClientRect();
+      ov.classList.add('out');
+      const a = ink.animate([
+        { transform: 'translate(0, 0) scale(1)' },
+        { transform: `translate(${to.left + to.width / 2 - (from.left + from.width / 2)}px, ${to.top + to.height / 2 - (from.top + from.height / 2)}px) scale(${to.width / from.width})` }
+      ], { duration: 340, easing: 'cubic-bezier(0.5, 0, 0.2, 1)', fill: 'forwards' });
+      await a.finished.catch(() => {});
+    } finally {
+      finish();
+    }
+  }
 
   let toastTimer = 0;
   function toast(msg, kind = '') {
@@ -194,14 +273,14 @@
     days.forEach((d, i) => {
       const x = pad + i * gap + 4;
       const a = sub[d] || 0; const b = apr[d] || 0;
-      g += `<rect x="${x}" y="${y(a)}" width="${bw}" height="${H - 22 - y(a)}" rx="3" fill="oklch(0.47 0.18 258)"><title>${d}: ส่งตรวจ ${a} Site</title></rect>`;
-      g += `<rect x="${x + bw + 2}" y="${y(b)}" width="${bw}" height="${H - 22 - y(b)}" rx="3" fill="oklch(0.5 0.13 152)"><title>${d}: อนุมัติ ${b} Site</title></rect>`;
+      g += `<rect x="${x}" y="${y(a)}" width="${bw}" height="${H - 22 - y(a)}" rx="3" fill="#d98a00"><title>${d}: ส่งตรวจ ${a} Site</title></rect>`;
+      g += `<rect x="${x + bw + 2}" y="${y(b)}" width="${bw}" height="${H - 22 - y(b)}" rx="3" fill="#1fa84f"><title>${d}: อนุมัติ ${b} Site</title></rect>`;
       if (a) g += `<text x="${x + bw / 2}" y="${y(a) - 3}" text-anchor="middle">${a}</text>`;
       if (b) g += `<text x="${x + bw + 2 + bw / 2}" y="${y(b) - 3}" text-anchor="middle">${b}</text>`;
       if (i % 2 === 0 || i === days.length - 1) g += `<text x="${x + bw}" y="${H - 6}" text-anchor="middle">${d.slice(8)}/${d.slice(5, 7)}</text>`;
     });
     return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="จำนวน Site ที่ส่งตรวจและอนุมัติในแต่ละวัน 14 วันล่าสุด">
-      <line x1="${pad}" y1="${H - 22}" x2="${W}" y2="${H - 22}" stroke="oklch(0.8 0.012 250)" />${g}</svg>`;
+      <line x1="${pad}" y1="${H - 22}" x2="${W}" y2="${H - 22}" stroke="#aab4bf" />${g}</svg>`;
   }
 
   function renderDashboard() {
@@ -262,7 +341,7 @@
           <section class="section"><h2>ความคืบหน้าแต่ละภาค</h2>${regionRows || '<p class="muted">ยังไม่มีข้อมูล</p>'}</section>
           <section class="section">
             <h2>14 วันล่าสุด</h2>
-            <div class="bars-legend small"><span class="legend"><span><i class="dot" style="background:oklch(0.47 0.18 258)"></i>ส่งตรวจ</span><span><i class="dot" style="background:oklch(0.5 0.13 152)"></i>อนุมัติ</span></span></div>
+            <div class="bars-legend small"><span class="legend"><span><i class="dot" style="background:#d98a00"></i>ส่งตรวจ</span><span><i class="dot" style="background:#1fa84f"></i>อนุมัติ</span></span></div>
             ${activityChart(sites)}
             <p class="small muted" style="margin-top:8px">เวลาที่ช่างอยู่หน้างานต่อ Site (กลาง): <b class="num">${dur(medDur)}</b></p>
           </section>
@@ -369,14 +448,11 @@
     const list = filteredSites();
     const key = route().key;
     $('#queueList').innerHTML = list.length ? list.slice(0, 300).map(s => {
-      const flags = [];
-      if (s.state === 'pending_review' || s.state === 'working') flags.push(s.ready ? '<span class="chip chip--ok">ระบบตรวจผ่านครบ</span>' : `<span class="chip chip--warn">ข้อสังเกต ${s.problems.length}</span>`);
-      if (s.locked) flags.push('<span class="chip">ล็อกแล้ว</span>');
       const when = s.state === 'pending_review' ? `รอ ${ago(s.submitted_at)}` : s.state === 'approved' ? `อนุมัติ ${fmtDT(s.reviewed_at)}` : s.updated_at ? `อัปเดต ${ago(s.updated_at)} ที่แล้ว` : '';
       return `<button type="button" class="qitem" data-key="${esc(s.key)}" ${key === s.key ? 'aria-current="true"' : ''}>
         <div class="qitem__top"><span class="qitem__name">${esc(s.name)}</span>${chip(s.state)}</div>
         <div class="qitem__sub">${esc(s.province)} · ${s.circuits.length} วงจร${s.tech_name ? ` · ช่าง ${esc(s.tech_name)}` : ''}${when ? ` · ${esc(when)}` : ''}</div>
-        ${flags.length ? `<div class="qitem__flags">${flags.join('')}</div>` : ''}
+        ${ledStrip(s)}
       </button>`;
     }).join('') : '<div class="empty">ไม่มีรายการในตัวกรองนี้</div>';
   }
@@ -445,14 +521,14 @@
     const state = site.state;
 
     let banner = '';
-    if (state === 'approved') banner = `<div class="banner banner--ok"><div><b>อนุมัติและล็อกแล้ว — ช่างแก้ไขไม่ได้</b>โดย ${esc(site.reviewer || '-')} เมื่อ ${fmtDT(site.reviewed_at)}${site.review_note ? ` · “${esc(site.review_note)}”` : ''}<br><span class="small">Admin ยังแก้ไขข้อมูลได้ (ระบบบันทึกประวัติ) หรือปลดล็อกเพื่อกลับไปตรวจใหม่</span></div></div>`;
+    if (state === 'approved') banner = `<div class="banner banner--ok"><div><b>อนุมัติและล็อกแล้ว — ช่างแก้ไขไม่ได้</b>โดย ${esc(site.reviewer || '-')} เมื่อ ${fmtDT(site.reviewed_at)}${site.review_note ? ` · “${esc(site.review_note)}”` : ''}<br><span class="small">Admin ยังแก้ไขข้อมูลได้ (ระบบบันทึกประวัติ) หรือปลดล็อกเพื่อกลับไปตรวจใหม่</span></div>${stampSvg(site.reviewed_at, 'data-final')}</div>`;
     else if (state === 'rejected') banner = `<div class="banner banner--bad"><div><b>ส่งกลับให้ช่างแก้ไข — รอช่างส่งงานใหม่</b>${esc(site.review_note || '')}<br><span class="small">โดย ${esc(site.reviewer || '-')} เมื่อ ${fmtDT(site.reviewed_at)}</span></div></div>`;
     else if (state === 'working') banner = '<div class="banner banner--warn"><div><b>ช่างยังไม่ส่งตรวจ</b>ข้อมูลที่เห็นอาจยังไม่ครบ</div></div>';
     else if (state === 'todo') banner = '<div class="banner banner--info"><div><b>ยังไม่มีการทำงานใน Site นี้</b></div></div>';
 
     const sys = site.ready
-      ? '<div class="banner banner--ok"><div><b>ระบบตรวจผ่านครบ</b>รูปครบ · S/N ตรง · ความเร็วถึงเกณฑ์ · ใบส่งมอบครบ 2 หน้า (ยังต้องดูรูปเทียบข้อมูลด้วยตา)</div></div>'
-      : `<div class="banner banner--warn"><div><b>ระบบพบข้อสังเกต</b><ul>${circuits.map(c => c.checks.problems.length ? `<li>${multi ? `<b>${esc(c.so_number)}</b>: ` : ''}${c.checks.problems.map(esc).join(' · ')}</li>` : '').join('')}</ul></div></div>`;
+      ? '<div class="banner banner--ok"><i class="led led--ok"></i><div><b>ระบบตรวจผ่านครบ</b>รูปครบ · S/N ตรง · ความเร็วถึงเกณฑ์ · ใบส่งมอบครบ 2 หน้า (ยังต้องดูรูปเทียบข้อมูลด้วยตา)</div></div>'
+      : `<div class="banner banner--warn"><i class="led led--next"></i><div><b>ระบบพบข้อสังเกต</b><ul>${circuits.map(c => c.checks.problems.length ? `<li>${multi ? `<b>${esc(c.so_number)}</b>: ` : ''}${c.checks.problems.map(esc).join(' · ')}</li>` : '').join('')}</ul></div></div>`;
 
     const canApprove = state !== 'todo';
     const actions = `
@@ -470,11 +546,12 @@
     const circuitHtml = circuits.map((c, i) => {
       const col = CIRCUIT_COLORS[i % CIRCUIT_COLORS.length];
       const slots = (c.completeness && c.completeness.onsiteSlots) || [];
-      return `<section class="circuit" style="--cc-solid:${col.solid};--cc-line:${col.line};--cc-soft:${col.soft};--cc-ink:${col.ink}" aria-label="วงจร ${esc(c.so_number)}">
+      return `<section class="face face--screws circuit" style="--cc:${col.solid}" aria-label="วงจร ${esc(c.so_number)}">
         <div class="circuit__head">
-          <h2>${multi ? `วงจรที่ ${i + 1} · ` : ''}${esc(c.so_number)} <span style="font-weight:500;opacity:.9">· ${esc(c.service_no || '')}</span></h2>
-          <span>${chip(c.admin_status === 'approved' ? 'approved' : c.admin_status === 'rejected' ? 'rejected' : c.admin_status === 'pending_review' ? 'pending_review' : (c.checkin_time ? 'working' : 'todo'))}
-          <span class="chip">รูปหน้างาน ${c.checks.onsite.up}/${c.checks.onsite.req}</span></span>
+          <span class="cbadge" aria-hidden="true">${i + 1}</span>
+          <h2>${multi ? `วงจรที่ ${i + 1}` : 'วงจร'}</h2><span class="so">${esc(c.so_number)} · ${esc(c.service_no || '')}</span>
+          ${chip(c.admin_status === 'approved' ? 'approved' : c.admin_status === 'rejected' ? 'rejected' : c.admin_status === 'pending_review' ? 'pending_review' : (c.checkin_time ? 'working' : 'todo'))}
+          ${portStrip(c)}
         </div>
         <div class="circuit__body">
           ${deviceTable(c)}
@@ -500,7 +577,7 @@
 
     pane.innerHTML = `<div class="detail__inner">
       <a class="btn btn--quiet btn--sm back-only" href="#/review">← กลับไปรายการ</a>
-      <div class="dhead">
+      <section class="face face--screws dhead">
         <div>
           <h1>${esc(site.name)}</h1>
           <div class="meta"><span>${esc(site.province)} · ${esc(site.region)}</span><span>${circuits.length} วงจร</span>
@@ -508,7 +585,7 @@
             <span>เข้า <b>${fmtDT(site.checkin_at)}</b></span><span>ส่งตรวจ <b>${fmtDT(site.submitted_at)}</b></span><span>ใช้เวลา <b>${dur(site.duration_min)}</b></span></div>
         </div>
         ${chip(state)}
-      </div>
+      </section>
       ${actions}${banner}${sys}${circuitHtml}${handover}${history}
     </div>`;
     pane.scrollTop = keepScroll;
@@ -528,7 +605,10 @@
       ev.preventDefault();
       const ok = $('#dlgOk'); const err = $('#dlgErr');
       err.textContent = ''; ok.disabled = true;
-      try { await onConfirm(dlg); dlg.close(); } catch (e) { err.textContent = e.message; ok.disabled = false; }
+      let after = null;
+      try { after = await onConfirm(dlg); dlg.close(); } catch (e) { err.textContent = e.message; ok.disabled = false; return; }
+      // runs once the dialog is gone, so the approval stamp is not hidden behind it
+      if (typeof after === 'function') await after();
     };
     dlg.showModal();
     const f = dlg.querySelector('textarea, input'); if (f) f.focus();
@@ -542,13 +622,16 @@
     await loadSites();
     renderQueue();
     renderDetail();
-    // Keep the queue moving: after finishing a Site go to the next one waiting.
-    if (decision !== 'unlock' && S.filter === 'pending_review') {
-      const i = queueBefore.indexOf(S.detailKey);
-      const next = queueBefore.slice(i + 1).concat(queueBefore.slice(0, Math.max(0, i))).find(k => S.sites.find(s => s.key === k && s.state === 'pending_review'));
-      if (next) { toast(decision === 'approve' ? 'อนุมัติและล็อกแล้ว — ไป Site ถัดไป' : 'ส่งกลับแล้ว — ไป Site ถัดไป', 'ok'); location.hash = reviewHref(next); return; }
-    }
-    toast(decision === 'approve' ? 'อนุมัติและล็อกแล้ว' : decision === 'reject' ? 'ส่งกลับให้ช่างแก้ไขแล้ว' : 'ปลดล็อกแล้ว', 'ok');
+    return async () => {
+      if (decision === 'approve') await playStamp(res.site.reviewed_at);
+      // Keep the queue moving: after finishing a Site go to the next one waiting.
+      if (decision !== 'unlock' && S.filter === 'pending_review') {
+        const i = queueBefore.indexOf(S.detailKey);
+        const next = queueBefore.slice(i + 1).concat(queueBefore.slice(0, Math.max(0, i))).find(k => S.sites.find(s => s.key === k && s.state === 'pending_review'));
+        if (next) { toast(decision === 'approve' ? 'อนุมัติและล็อกแล้ว — ไป Site ถัดไป' : 'ส่งกลับแล้ว — ไป Site ถัดไป', 'ok'); location.hash = reviewHref(next); return; }
+      }
+      toast(decision === 'approve' ? 'อนุมัติและล็อกแล้ว' : decision === 'reject' ? 'ส่งกลับให้ช่างแก้ไขแล้ว' : 'ปลดล็อกแล้ว', 'ok');
+    };
   }
 
   function flaggedList() {
@@ -574,7 +657,7 @@
         <label class="field"><span>หมายเหตุ (ไม่บังคับ)</span><textarea class="textarea" id="dlgNote" style="min-height:70px"></textarea></label>`,
       onConfirm: async () => {
         if (needAck && !$('#ack').checked) throw new Error('กรุณาติ๊กยืนยันว่าตรวจแล้ว');
-        await sendReview('approve', $('#dlgNote').value.trim(), needAck);
+        return sendReview('approve', $('#dlgNote').value.trim(), needAck);
       }
     });
   }
@@ -592,7 +675,7 @@
       onConfirm: async () => {
         const note = $('#dlgNote').value.trim();
         if (note.length < 3) throw new Error('กรุณาระบุสิ่งที่ต้องแก้ไข');
-        await sendReview('reject', note);
+        return sendReview('reject', note);
       }
     });
     const add = $('#addSys');
@@ -609,7 +692,7 @@
       onConfirm: async () => {
         const note = $('#dlgNote').value.trim();
         if (note.length < 3) throw new Error('กรุณาระบุเหตุผลที่ปลดล็อก');
-        await sendReview('unlock', note);
+        return sendReview('unlock', note);
       }
     });
   }
