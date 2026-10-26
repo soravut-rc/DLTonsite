@@ -153,8 +153,7 @@ function calculateClientStats(circuits) {
     statusCounts,
     adminCounts: { working: 0, pending_review: 0, approved: 0, rejected: 0, sn_mismatch: 0, incomplete_photos: 0 },
     byRegion,
-    provinces: Object.values(byProvince).sort((a, b) => (a.province || '').localeCompare(b.province || '', 'th')),
-    cloudConfigured: true
+    provinces: Object.values(byProvince).sort((a, b) => (a.province || '').localeCompare(b.province || '', 'th'))
   };
 }
 
@@ -198,7 +197,6 @@ function renderHeaderAndCards() {
   const adminCounts = globalStats.adminCounts || globalStats.adminStatusCounts || {};
   const total = globalStats.total !== undefined ? globalStats.total : allCircuits.length;
   const withLegacyPdf = globalStats.withLegacyPdf || 0;
-  const cloudConfigured = Boolean(globalStats && globalStats.cloudConfigured);
   const completed = statusCounts.completed || 0;
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
@@ -221,16 +219,6 @@ function renderHeaderAndCards() {
     adminBadge.className = waitCnt > 0
       ? 'px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold'
       : 'px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold';
-  }
-
-  const cloudDot = document.getElementById('cloudDot');
-  const cloudStatusText = document.getElementById('cloudStatusText');
-  if (cloudConfigured) {
-    cloudDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
-    cloudStatusText.textContent = 'Supabase Connected';
-  } else {
-    cloudDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
-    cloudStatusText.textContent = 'Cloud Ready';
   }
 }
 
@@ -3956,85 +3944,6 @@ function formatThaiDateToday() {
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const buddhistYear = d.getFullYear() + 543;
   return `${day}/${month}/${buddhistYear}`;
-}
-
-// ============================================================================
-// Cloud Database Modal (Supabase / PostgreSQL)
-// ============================================================================
-async function openCloudModal() {
-  try {
-    const res = await fetch('/api/cloud/status');
-    const data = await res.json();
-    document.getElementById('cfgSupabaseUrl').value = data.supabaseUrl || '';
-    document.getElementById('cfgSupabaseKey').placeholder = data.hasKey ? '•••••••• (บันทึก API Key ไว้แล้ว)' : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
-    document.getElementById('cfgAutoSync').checked = data.autoSync !== false;
-    document.getElementById('cfgSchemaSql').value = data.schemaSql || '';
-    document.getElementById('cloudSyncMsg').textContent = '';
-    const modal = document.getElementById('cloudModal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-  } catch (err) {
-    showToast('โหลดการตั้งค่า Cloud ไม่สำเร็จ: ' + err.message, true);
-  }
-}
-
-function closeCloudModal() {
-  const modal = document.getElementById('cloudModal');
-  modal.classList.add('hidden');
-  modal.classList.remove('flex');
-}
-
-async function saveCloudSettings() {
-  try {
-    const supabaseUrl = document.getElementById('cfgSupabaseUrl').value.trim();
-    const supabaseKey = document.getElementById('cfgSupabaseKey').value.trim();
-    const autoSync = document.getElementById('cfgAutoSync').checked;
-
-    const res = await fetch('/api/cloud/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ supabaseUrl, supabaseKey, autoSync })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ');
-    showToast('บันทึกการตั้งค่า Supabase Cloud เรียบร้อยแล้ว');
-    await refreshAllData();
-  } catch (err) {
-    showToast(err.message, true);
-  }
-}
-
-async function triggerCloudSync(direction) {
-  const msgEl = document.getElementById('cloudSyncMsg');
-  msgEl.textContent = direction === 'push'
-    ? '⏳ กำลังอัปโหลดข้อมูลทั้ง 334 วงจรขึ้น Supabase Cloud...'
-    : '⏳ กำลังดึงข้อมูลล่าสุดจาก Supabase Cloud...';
-  msgEl.className = 'text-xs font-semibold text-center text-indigo-600';
-
-  try {
-    await saveCloudSettings();
-    const res = await fetch('/api/cloud/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ direction })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'ซิงค์ข้อมูลไม่สำเร็จ');
-    msgEl.textContent = direction === 'push'
-      ? `✅ ซิงค์ข้อมูลขึ้น Supabase Cloud สำเร็จครบ ${data.count} วงจร!`
-      : `✅ ดึงข้อมูลจาก Supabase Cloud สำเร็จ ${data.count} วงจร!`;
-    msgEl.className = 'text-xs font-bold text-center text-emerald-600';
-    await refreshAllData();
-  } catch (err) {
-    msgEl.textContent = '❌ ' + err.message;
-    msgEl.className = 'text-xs font-bold text-center text-rose-600';
-  }
-}
-
-function copySchemaSql() {
-  const sql = document.getElementById('cfgSchemaSql').value;
-  navigator.clipboard.writeText(sql);
-  showToast('คัดลอกคำสั่ง SQL สำหรับ Supabase เรียบร้อยแล้ว');
 }
 
 // ============================================================================

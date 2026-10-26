@@ -208,13 +208,6 @@ let runtimeLineConfig = {
   publicBaseUrl: ''
 };
 
-let runtimeCloudConfig = {
-  supabaseUrl: '',
-  supabaseKey: '',
-  supabaseBucket: 'dlt-onsite-uploads',
-  autoSync: true
-};
-
 function extractSiteNameServer(c) {
   if (!c) return '';
   if (c.site_name && String(c.site_name).trim()) return String(c.site_name).trim();
@@ -679,8 +672,7 @@ export default {
             provinces: Object.values(byProvince).sort((a, b) => a.province.localeCompare(b.province, 'th')),
             routerModels,
             apBrands,
-            totalApCount,
-            cloudConfigured: true
+            totalApCount
           });
         }
 
@@ -1040,26 +1032,7 @@ export default {
           });
         }
 
-        // 13. Cloud Status & Config
-        if (pathname === '/api/cloud/status' && request.method === 'GET') {
-          const supUrl = runtimeCloudConfig.supabaseUrl || env.SUPABASE_URL || '';
-          const supKey = runtimeCloudConfig.supabaseKey || env.SUPABASE_KEY || '';
-          return jsonResponse({
-            configured: Boolean(supUrl && supKey),
-            supabaseUrl: supUrl,
-            bucket: runtimeCloudConfig.supabaseBucket,
-            autoSync: runtimeCloudConfig.autoSync
-          });
-        }
-        if (pathname === '/api/cloud/config' && request.method === 'POST') {
-          const body = await request.json().catch(() => ({}));
-          if (body.supabaseUrl !== undefined) runtimeCloudConfig.supabaseUrl = body.supabaseUrl;
-          if (body.supabaseKey !== undefined) runtimeCloudConfig.supabaseKey = body.supabaseKey;
-          if (body.supabaseBucket !== undefined) runtimeCloudConfig.supabaseBucket = body.supabaseBucket;
-          return jsonResponse({ ok: true, configured: Boolean(runtimeCloudConfig.supabaseUrl && runtimeCloudConfig.supabaseKey) });
-        }
-
-        // 14. GET /api/export/csv — ส่งออกข้อมูลสรุปวงจรสาขาใหม่ (CSV UTF-8 with BOM สำหรับเปิดใน Excel)
+        // 13. GET /api/export/csv — ส่งออกข้อมูลสรุปวงจรสาขาใหม่ (CSV UTF-8 with BOM สำหรับเปิดใน Excel)
         if (pathname === '/api/export/csv' && request.method === 'GET') {
           const all = Array.from(circuitsMap.values()).map(enrichCircuit);
           const escCsv = val => {
