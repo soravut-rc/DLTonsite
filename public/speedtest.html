@@ -50,43 +50,17 @@
             background: var(--card-bg);
             border-radius: 30px;
             padding: 20px 40px 110px 40px;
-            background-clip: padding-box;
-            border: 2px solid transparent;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 60px rgba(0, 229, 255, 0.3);
             display: flex;
             flex-direction: column;
             min-height: 700px;
-            max-height: 95dvh;
-            overflow-y: auto;
-            animation: neonPulse 3s infinite alternate ease-in-out;
+            overflow: hidden;
             scrollbar-width: none;
             background-color: var(--card-bg);
         }
 
         .app-frame::-webkit-scrollbar { display: none; }
-
-        @keyframes neonPulse {
-            0% {
-                box-shadow: 0 0 20px rgba(0, 229, 255, 0.1),
-                            0 0 40px rgba(0, 255, 128, 0.05);
-                border-color: rgba(0, 229, 255, 0.1);
-            }
-            100% {
-                box-shadow: 0 0 60px rgba(0, 229, 255, 0.3),
-                            0 0 100px rgba(0, 255, 128, 0.2);
-                border-color: rgba(0, 229, 255, 0.3);
-            }
-        }
-
-        .app-frame::before {
-            content: '';
-            position: absolute;
-            top: -2px; left: -2px; right: -2px; bottom: -2px;
-            border-radius: 30px;
-            background: linear-gradient(135deg, var(--neon-cyan), transparent 40%, transparent 60%, var(--neon-green));
-            z-index: -1;
-            opacity: 0.5;
-            pointer-events: none;
-        }
 
         .color-cyan { color: var(--neon-cyan); }
         .color-green { color: var(--neon-green); }
@@ -189,11 +163,12 @@
             border: 2px solid var(--text-gold);
             padding: 12px 25px;
             font-size: 16px; font-weight: 700;
+            line-height: 1;
             border-radius: 30px; cursor: pointer;
             text-transform: uppercase; letter-spacing: 1px;
             transition: 0.3s; font-family: 'Rajdhani', sans-serif;
             box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
-            display: flex; align-items: center; gap: 8px;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
         }
         .btn-save:hover {
             background: var(--text-gold);
@@ -207,10 +182,12 @@
             border: 2px solid var(--neon-cyan);
             padding: 12px 25px;
             font-size: 16px; font-weight: 700;
+            line-height: 1;
             border-radius: 30px; cursor: pointer;
             text-transform: uppercase; letter-spacing: 1px;
             transition: 0.3s; font-family: 'Rajdhani', sans-serif;
             box-shadow: 0 0 15px rgba(0, 229, 255, 0.2);
+            display: inline-flex; align-items: center; justify-content: center;
         }
         #btnRestart:hover { background: var(--neon-cyan); color: #000; box-shadow: 0 0 30px rgba(0, 229, 255, 0.6); }
 
@@ -806,13 +783,295 @@
         }, 3200);
     }
 
-    // Exact saveResult(format) from speedtest.cat.net.th (with option to keep buttons visible like a screenshot)
-    function saveResult(format, keepButtonsVisible = false) {
-        const targetToCapture = document.querySelector('.app-frame');
+    function rRectPath(ctx, x, y, w, h, r) {
+        const rad = Math.min(r, w / 2, h / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + rad, y);
+        ctx.arcTo(x + w, y, x + w, y + h, rad);
+        ctx.arcTo(x + w, y + h, x, y + h, rad);
+        ctx.arcTo(x, y + h, x, y, rad);
+        ctx.arcTo(x, y, x + w, y, rad);
+        ctx.closePath();
+    }
+
+    function drawVisualCenteredText(ctx, text, x, cy, align = 'center', letterSpacingPx = 0) {
+        ctx.save();
+        ctx.textAlign = align;
+        ctx.textBaseline = 'alphabetic';
+        if ('letterSpacing' in ctx) {
+            ctx.letterSpacing = `${letterSpacingPx}px`;
+        }
+        const m = ctx.measureText(text);
+        const asc = m.actualBoundingBoxAscent || 0;
+        const desc = m.actualBoundingBoxDescent || 0;
+        if (asc > 0) {
+            ctx.fillText(text, x, cy + (asc - desc) / 2);
+        } else {
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, x, cy);
+        }
+        ctx.restore();
+    }
+
+    async function renderSpeedtestCanvas(scale = 2.5) {
+        if (document.fonts && document.fonts.ready) {
+            await document.fonts.ready;
+        }
+        const appFrame = document.querySelector('.app-frame');
         const btnGroup = document.querySelector('.btn-action-group');
+        if (btnGroup) btnGroup.style.display = 'flex';
 
-        if (btnGroup && !keepButtonsVisible) btnGroup.style.display = 'none';
+        // Temporarily lock desktop 800px width if on a narrow viewport so capture is always standard desktop layout
+        const prevWidth = appFrame.style.width;
+        const prevMinWidth = appFrame.style.minWidth;
+        if (appFrame.getBoundingClientRect().width < 760) {
+            appFrame.style.width = '800px';
+            appFrame.style.minWidth = '800px';
+        }
 
+        const frameRect = appFrame.getBoundingClientRect();
+        const stagePad = 44;
+        const W = Math.round(frameRect.width + stagePad * 2);
+        const H = Math.round(frameRect.height + stagePad * 2);
+
+        const rel = (el) => {
+            const r = el.getBoundingClientRect();
+            const x = r.left - frameRect.left + stagePad;
+            const y = r.top - frameRect.top + stagePad;
+            return {
+                x,
+                y,
+                w: r.width,
+                h: r.height,
+                cx: x + r.width / 2,
+                cy: y + r.height / 2
+            };
+        };
+
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(W * scale);
+        canvas.height = Math.round(H * scale);
+        const ctx = canvas.getContext('2d');
+        ctx.scale(scale, scale);
+
+        // 1. Outer Dark Page Background (#030b1b)
+        ctx.fillStyle = '#030b1b';
+        ctx.fillRect(0, 0, W, H);
+
+        const fx = stagePad;
+        const fy = stagePad;
+        const fw = frameRect.width;
+        const fh = frameRect.height;
+
+        // 2. Outer Neon Cyan Glow around .app-frame (box-shadow: 0 0 60px rgba(0, 229, 255, 0.3))
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 229, 255, 0.35)';
+        ctx.shadowBlur = 60 * scale;
+        ctx.fillStyle = '#051024';
+        rRectPath(ctx, fx, fy, fw, fh, 30);
+        ctx.fill();
+        ctx.restore();
+
+        // 3. Clip to .app-frame rounded rectangle and fill solid #051024 card background
+        ctx.save();
+        rRectPath(ctx, fx, fy, fw, fh, 30);
+        ctx.clip();
+        ctx.fillStyle = '#051024';
+        ctx.fillRect(fx, fy, fw, fh);
+
+        // 4. Draw NT Summary Logo (/nt.png) with white drop-shadow
+        const logoEl = document.querySelector('.sum-logo');
+        if (logoEl && logoEl.complete && logoEl.naturalWidth > 0) {
+            const lr = rel(logoEl);
+            ctx.save();
+            ctx.shadowColor = 'rgba(255, 255, 255, 0.2)';
+            ctx.shadowBlur = 15 * scale;
+            ctx.drawImage(logoEl, lr.x, lr.y, lr.w, lr.h);
+            ctx.restore();
+        }
+
+        // 5. Draw Title ("TEST COMPLETED")
+        const titleEl = document.querySelector('.sum-title');
+        if (titleEl) {
+            const tr = rel(titleEl);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '800 28px "Rajdhani", sans-serif';
+            drawVisualCenteredText(ctx, 'TEST COMPLETED', tr.cx, tr.cy, 'center', 2);
+        }
+
+        // 6. Draw Download & Upload Boxes (.sum-box)
+        const sumBoxes = document.querySelectorAll('.sum-box');
+        sumBoxes.forEach((box, idx) => {
+            const br = rel(box);
+            const accent = idx === 0 ? '#00e5ff' : '#00ff80';
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+            rRectPath(ctx, br.x, br.y, br.w, br.h, 15);
+            ctx.fill();
+
+            ctx.strokeStyle = accent;
+            ctx.lineWidth = 1;
+            rRectPath(ctx, br.x, br.y, br.w, br.h, 15);
+            ctx.stroke();
+
+            const lblEl = box.querySelector('.sum-label');
+            if (lblEl) {
+                const r = rel(lblEl);
+                ctx.fillStyle = accent;
+                ctx.font = '700 12px "Rajdhani", sans-serif';
+                drawVisualCenteredText(ctx, lblEl.textContent.trim().toUpperCase(), r.cx, r.cy, 'center', 0);
+            }
+
+            const valEl = box.querySelector('.sum-val-big');
+            if (valEl) {
+                const r = rel(valEl);
+                ctx.fillStyle = accent;
+                ctx.font = '800 32px "Rajdhani", sans-serif';
+                drawVisualCenteredText(ctx, valEl.textContent.trim(), r.cx, r.cy, 'center', 0);
+            }
+
+            const unitEl = box.querySelector('.stat-unit');
+            if (unitEl) {
+                const r = rel(unitEl);
+                ctx.fillStyle = '#6c7a9c';
+                ctx.font = '500 12px "Rajdhani", sans-serif';
+                drawVisualCenteredText(ctx, unitEl.textContent.trim(), r.cx, r.cy, 'center', 0);
+            }
+        });
+
+        // 7. Draw Details Grid (.sum-details-grid)
+        const detailsGrid = document.querySelector('.sum-details-grid');
+        if (detailsGrid) {
+            const gr = rel(detailsGrid);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+            rRectPath(ctx, gr.x, gr.y, gr.w, gr.h, 15);
+            ctx.fill();
+
+            const rows = detailsGrid.querySelectorAll('.det-row');
+            rows.forEach(row => {
+                const lblEl = row.querySelector('.det-lbl');
+                const valEl = row.querySelector('.det-val');
+                if (lblEl) {
+                    const lr = rel(lblEl);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '700 12px "Rajdhani", "Sarabun", sans-serif';
+                    drawVisualCenteredText(ctx, lblEl.textContent.trim().toUpperCase(), lr.x, lr.cy, 'left', 0);
+                }
+                if (valEl) {
+                    const vr = rel(valEl);
+                    const isRed = !!valEl.querySelector('[style*="ff4444"]') || /off|denied/i.test(valEl.textContent);
+                    ctx.fillStyle = isRed ? '#ff4444' : '#FFD700';
+                    ctx.font = '600 16px "Rajdhani", "Sarabun", sans-serif';
+                    drawVisualCenteredText(ctx, valEl.textContent.trim(), vr.x, vr.cy, 'left', 0);
+                }
+            });
+        }
+
+        // 8. Draw Action Buttons (SAVE JPG, SAVE PDF, TEST AGAIN) with exact visual centering
+        if (btnGroup) {
+            const buttons = btnGroup.querySelectorAll('button');
+            buttons.forEach(btn => {
+                const br = rel(btn);
+                const isRestart = btn.id === 'btnRestart';
+                const strokeCol = isRestart ? '#00e5ff' : '#FFD700';
+                const glowCol = isRestart ? 'rgba(0, 229, 255, 0.25)' : 'rgba(255, 215, 0, 0.25)';
+
+                ctx.save();
+                ctx.shadowColor = glowCol;
+                ctx.shadowBlur = 15 * scale;
+                ctx.strokeStyle = strokeCol;
+                ctx.lineWidth = 2;
+                rRectPath(ctx, br.x, br.y, br.w, br.h, br.h / 2);
+                ctx.stroke();
+                ctx.restore();
+
+                const svgEl = btn.querySelector('svg');
+                const pathEl = btn.querySelector('svg path');
+                const labelText = btn.textContent.trim().toUpperCase();
+
+                ctx.fillStyle = strokeCol;
+                ctx.font = '700 16px "Rajdhani", sans-serif';
+
+                if (svgEl && pathEl) {
+                    const sr = rel(svgEl);
+                    const d = pathEl.getAttribute('d');
+                    if (d) {
+                        ctx.save();
+                        ctx.translate(sr.x, sr.y);
+                        ctx.scale(sr.w / 24, sr.h / 24);
+                        ctx.fillStyle = strokeCol;
+                        ctx.fill(new Path2D(d));
+                        ctx.restore();
+                    }
+                    drawVisualCenteredText(ctx, labelText, sr.x + sr.w + 8, br.cy, 'left', 1);
+                } else {
+                    drawVisualCenteredText(ctx, labelText, br.cx, br.cy, 'center', 1);
+                }
+            });
+        }
+
+        // 9. Draw Bottom Social Bar (.social-bar)
+        const socialBar = document.querySelector('.social-bar');
+        if (socialBar) {
+            const sbr = rel(socialBar);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fillRect(sbr.x, sbr.y, sbr.w, sbr.h);
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(sbr.x, sbr.y);
+            ctx.lineTo(sbr.x + sbr.w, sbr.y);
+            ctx.stroke();
+
+            const socTxtEl = socialBar.querySelector('.social-text');
+            if (socTxtEl) {
+                const str = rel(socTxtEl);
+                ctx.fillStyle = '#FFD700';
+                ctx.font = '800 14px "Rajdhani", sans-serif';
+                drawVisualCenteredText(ctx, socTxtEl.textContent.trim().toUpperCase(), str.x, sbr.cy, 'left', 1);
+            }
+
+            const links = socialBar.querySelectorAll('.social-link');
+            links.forEach(lnk => {
+                const lr = rel(lnk);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+                ctx.beginPath();
+                ctx.arc(lr.cx, lr.cy, lr.w / 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                const svgEl = lnk.querySelector('svg');
+                const pathEl = lnk.querySelector('svg path');
+                if (svgEl && pathEl) {
+                    const sr = rel(svgEl);
+                    const d = pathEl.getAttribute('d');
+                    if (d) {
+                        ctx.save();
+                        ctx.translate(sr.x, sr.y);
+                        ctx.scale(sr.w / 24, sr.h / 24);
+                        ctx.fillStyle = '#FFD700';
+                        ctx.fill(new Path2D(d));
+                        ctx.restore();
+                    }
+                }
+            });
+        }
+
+        ctx.restore(); // End clip to .app-frame
+
+        // 10. Draw .app-frame 1px border (border: 1px solid rgba(255, 255, 255, 0.15))
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.lineWidth = 1;
+        rRectPath(ctx, fx, fy, fw, fh, 30);
+        ctx.stroke();
+
+        appFrame.style.width = prevWidth;
+        appFrame.style.minWidth = prevMinWidth;
+
+        return canvas;
+    }
+
+    async function saveResult(format) {
         const now = parseSpeedtestDateTime(document.getElementById('inpDateTime').value);
         const day = String(now.getDate()).padStart(2, '0');
         const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -823,17 +1082,12 @@
 
         const fileName = `ntspeedtest_${day}${month}${year}_${h}${m}${sec}`;
 
-        html2canvas(targetToCapture, {
-            scale: 3,
-            backgroundColor: '#030b1b',
-            logging: false,
-            useCORS: true,
-            allowTaint: true
-        }).then(canvas => {
+        try {
+            const canvas = await renderSpeedtestCanvas(2.5);
             if (format === 'jpg') {
                 const link = document.createElement('a');
                 link.download = fileName + '.jpg';
-                link.href = canvas.toDataURL('image/jpeg', 0.92);
+                link.href = canvas.toDataURL('image/jpeg', 0.94);
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -844,16 +1098,13 @@
                     unit: 'px',
                     format: [canvas.width, canvas.height]
                 });
-                pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, canvas.width, canvas.height);
+                pdf.addImage(canvas.toDataURL('image/jpeg', 0.94), 'JPEG', 0, 0, canvas.width, canvas.height);
                 pdf.save(fileName + '.pdf');
             }
-
-            if (btnGroup) btnGroup.style.display = 'flex';
-        }).catch(err => {
+        } catch (err) {
             console.error('Capture Failed:', err);
             showToastMsg('Error saving image: ' + err.message, true);
-            if (btnGroup) btnGroup.style.display = 'flex';
-        });
+        }
     }
 
     async function uploadGeneratedToCircuitSlot() {
@@ -870,15 +1121,8 @@
 
         try {
             showToastMsg(`⏳ กำลังสร้างภาพและอัปโหลดเข้าวงจร ${so} (${slot})...`);
-            const targetToCapture = document.querySelector('.app-frame');
-            const canvas = await html2canvas(targetToCapture, {
-                scale: 2.5,
-                backgroundColor: '#030b1b',
-                logging: false,
-                useCORS: true,
-                allowTaint: true
-            });
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            const canvas = await renderSpeedtestCanvas(2.2);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
 
             const res = await fetch('/api/upload', {
                 method: 'POST',
