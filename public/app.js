@@ -2595,9 +2595,12 @@ function renderAccessPointCards() {
         <!-- AP Speed Tests (WiFi & LAN) -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
           <div class="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
-            <div class="flex items-center justify-between mb-1.5">
+            <div class="flex items-center justify-between gap-1 flex-wrap mb-1.5">
               <span class="text-xs font-semibold text-slate-700">ผลทดสอบ WiFi (≥ ${spec.wifiMinDl}/${spec.wifiMinUl}M)</span>
-              <span id="apWifiBadge_${idx}">${validateApSpeedBadge(ap.speed_wifi_dl, ap.speed_wifi_ul, spec.wifiMinDl, spec.wifiMinUl)}</span>
+              <div class="flex items-center gap-1">
+                <button type="button" onclick="openSpeedtestGenerator(0, 'ap${idx + 1}_wifi', 'wifi')" class="px-2 py-0.5 rounded bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-300 text-[11px] font-semibold">⚡ สร้างภาพ</button>
+                <span id="apWifiBadge_${idx}">${validateApSpeedBadge(ap.speed_wifi_dl, ap.speed_wifi_ul, spec.wifiMinDl, spec.wifiMinUl)}</span>
+              </div>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <input id="apWifiDl_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.speed_wifi_dl || ''}" placeholder="Download (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
@@ -2605,9 +2608,12 @@ function renderAccessPointCards() {
             </div>
           </div>
           <div class="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
-            <div class="flex items-center justify-between mb-1.5">
+            <div class="flex items-center justify-between gap-1 flex-wrap mb-1.5">
               <span class="text-xs font-semibold text-slate-700">ผลทดสอบ Port LAN (≥ ${spec.lanMinDl}/${spec.lanMinUl}M)</span>
-              <span id="apLanBadge_${idx}">${validateApSpeedBadge(ap.speed_lan_dl, ap.speed_lan_ul, spec.lanMinDl, spec.lanMinUl)}</span>
+              <div class="flex items-center gap-1">
+                <button type="button" onclick="openSpeedtestGenerator(0, 'ap${idx + 1}_lan', '${spec.lanMinDl >= 350 ? 'gps_lan' : 'dls_lan'}')" class="px-2 py-0.5 rounded bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-300 text-[11px] font-semibold">⚡ สร้างภาพ</button>
+                <span id="apLanBadge_${idx}">${validateApSpeedBadge(ap.speed_lan_dl, ap.speed_lan_ul, spec.lanMinDl, spec.lanMinUl)}</span>
+              </div>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <input id="apLanDl_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.speed_lan_dl || ''}" placeholder="Download (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
@@ -3276,9 +3282,12 @@ function renderAdditionalSiteCircuitsInModal() {
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div class="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
-            <div class="flex items-center justify-between mb-1.5">
+            <div class="flex items-center justify-between gap-1 flex-wrap mb-1.5">
               <span class="text-xs font-semibold text-slate-700">ผลทดสอบ Port 2 (≥ 650/350M)</span>
-              <span id="sc_${cIdx}_lan2Badge">${validateApSpeedBadge(rt.speed_lan2_dl, rt.speed_lan2_ul, 650, 350)}</span>
+              <div class="flex items-center gap-1">
+                <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'router_lan2', 'router')" class="px-2 py-0.5 rounded bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-300 text-[11px] font-semibold">⚡ สร้างภาพ</button>
+                <span id="sc_${cIdx}_lan2Badge">${validateApSpeedBadge(rt.speed_lan2_dl, rt.speed_lan2_ul, 650, 350)}</span>
+              </div>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <input id="sc_${cIdx}_lan2Dl" type="text" value="${rt.speed_lan2_dl || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Download (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
@@ -3286,9 +3295,12 @@ function renderAdditionalSiteCircuitsInModal() {
             </div>
           </div>
           <div class="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
-            <div class="flex items-center justify-between mb-1.5">
+            <div class="flex items-center justify-between gap-1 flex-wrap mb-1.5">
               <span class="text-xs font-semibold text-slate-700">ผลทดสอบ Port 3 (≥ 650/350M)</span>
-              <span id="sc_${cIdx}_lan3Badge">${validateApSpeedBadge(rt.speed_lan3_dl, rt.speed_lan3_ul, 650, 350)}</span>
+              <div class="flex items-center gap-1">
+                <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'router_lan3', 'router')" class="px-2 py-0.5 rounded bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-300 text-[11px] font-semibold">⚡ สร้างภาพ</button>
+                <span id="sc_${cIdx}_lan3Badge">${validateApSpeedBadge(rt.speed_lan3_dl, rt.speed_lan3_ul, 650, 350)}</span>
+              </div>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <input id="sc_${cIdx}_lan3Dl" type="text" value="${rt.speed_lan3_dl || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Download (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
@@ -3406,9 +3418,12 @@ function renderAdditionalSiteCircuitsInModal() {
 
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div class="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
-                  <div class="flex items-center justify-between mb-1">
+                  <div class="flex items-center justify-between gap-1 flex-wrap mb-1">
                     <span class="text-xs font-semibold text-slate-700">ผลทดสอบ WiFi (≥ ${spec.wifiMinDl}/${spec.wifiMinUl}M)</span>
-                    <span id="sc_${cIdx}_apWifiBadge_${apIdx}">${validateApSpeedBadge(ap.speed_wifi_dl, ap.speed_wifi_ul, spec.wifiMinDl, spec.wifiMinUl)}</span>
+                    <div class="flex items-center gap-1">
+                      <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'ap${apIdx + 1}_wifi', 'wifi')" class="px-2 py-0.5 rounded bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-300 text-[11px] font-semibold">⚡ สร้างภาพ</button>
+                      <span id="sc_${cIdx}_apWifiBadge_${apIdx}">${validateApSpeedBadge(ap.speed_wifi_dl, ap.speed_wifi_ul, spec.wifiMinDl, spec.wifiMinUl)}</span>
+                    </div>
                   </div>
                   <div class="grid grid-cols-2 gap-1.5">
                     <input id="sc_${cIdx}_apWifiDl_${apIdx}" type="text" value="${ap.speed_wifi_dl || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Download (Mbps)" class="px-2 py-1 rounded border border-slate-300 text-xs bg-white" />
@@ -3416,9 +3431,12 @@ function renderAdditionalSiteCircuitsInModal() {
                   </div>
                 </div>
                 <div class="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
-                  <div class="flex items-center justify-between mb-1">
+                  <div class="flex items-center justify-between gap-1 flex-wrap mb-1">
                     <span class="text-xs font-semibold text-slate-700">ผลทดสอบ Port LAN (≥ ${spec.lanMinDl}/${spec.lanMinUl}M)</span>
-                    <span id="sc_${cIdx}_apLanBadge_${apIdx}">${validateApSpeedBadge(ap.speed_lan_dl, ap.speed_lan_ul, spec.lanMinDl, spec.lanMinUl)}</span>
+                    <div class="flex items-center gap-1">
+                      <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'ap${apIdx + 1}_lan', '${spec.lanMinDl >= 350 ? 'gps_lan' : 'dls_lan'}')" class="px-2 py-0.5 rounded bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-300 text-[11px] font-semibold">⚡ สร้างภาพ</button>
+                      <span id="sc_${cIdx}_apLanBadge_${apIdx}">${validateApSpeedBadge(ap.speed_lan_dl, ap.speed_lan_ul, spec.lanMinDl, spec.lanMinUl)}</span>
+                    </div>
                   </div>
                   <div class="grid grid-cols-2 gap-1.5">
                     <input id="sc_${cIdx}_apLanDl_${apIdx}" type="text" value="${ap.speed_lan_dl || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Download (Mbps)" class="px-2 py-1 rounded border border-slate-300 text-xs bg-white" />
@@ -5721,3 +5739,103 @@ async function exportUpdatedExcelSummary() {
   btn.addEventListener('click', () => { window.dltTheme.cycle(); paint(); });
   paint();
 })();
+
+// ============================================================================
+// Speedtest Generator Integration (/speedtest.html)
+// ============================================================================
+function openSpeedtestGenerator(cIdx = 0, slotKey = 'router_lan2', preset = 'router') {
+  syncApInputsFromDom();
+  syncAdditionalSiteCircuitsFromDom();
+  const siteList = Array.isArray(currentSiteCircuits) && currentSiteCircuits.length > 0 ? currentSiteCircuits : (currentCircuit ? [currentCircuit] : []);
+  const targetCircuit = siteList[cIdx] || currentCircuit;
+  const so = targetCircuit?.so_number || '';
+  const rt = targetCircuit?.router_info || {};
+  const aps = Array.isArray(targetCircuit?.access_points) ? targetCircuit.access_points : [];
+
+  let dl = '';
+  let ul = '';
+  if (slotKey === 'router_lan2') {
+    dl = cIdx === 0 ? (document.getElementById('rLan2Dl')?.value.trim() || rt.speed_lan2_dl || '') : (rt.speed_lan2_dl || '');
+    ul = cIdx === 0 ? (document.getElementById('rLan2Ul')?.value.trim() || rt.speed_lan2_ul || '') : (rt.speed_lan2_ul || '');
+  } else if (slotKey === 'router_lan3') {
+    dl = cIdx === 0 ? (document.getElementById('rLan3Dl')?.value.trim() || rt.speed_lan3_dl || '') : (rt.speed_lan3_dl || '');
+    ul = cIdx === 0 ? (document.getElementById('rLan3Ul')?.value.trim() || rt.speed_lan3_ul || '') : (rt.speed_lan3_ul || '');
+  } else {
+    const m = slotKey.match(/^ap(\d+)_(wifi|lan)$/);
+    if (m) {
+      const apIdx = Number(m[1]) - 1;
+      const kind = m[2];
+      const ap = aps[apIdx] || {};
+      dl = kind === 'wifi' ? (ap.speed_wifi_dl || '') : (ap.speed_lan_dl || '');
+      ul = kind === 'wifi' ? (ap.speed_wifi_ul || '') : (ap.speed_lan_ul || '');
+    }
+  }
+
+  const params = new URLSearchParams();
+  if (so) params.set('so', so);
+  if (slotKey) params.set('slot', slotKey);
+  if (preset) params.set('preset', preset);
+  if (dl) params.set('dl', dl);
+  if (ul) params.set('ul', ul);
+
+  window.open(`/speedtest.html?${params.toString()}`, '_blank');
+}
+
+window.addEventListener('message', async e => {
+  const msg = e?.data;
+  if (!msg || msg.type !== 'dlt_speedtest_generated') return;
+  const { so_number, slot, url, dl, ul } = msg;
+  if (!currentCircuit || !so_number) return;
+
+  const siteList = Array.isArray(currentSiteCircuits) && currentSiteCircuits.length > 0 ? currentSiteCircuits : [currentCircuit];
+  const cIdx = siteList.findIndex(c => c.so_number === so_number);
+  if (cIdx === -1) return;
+
+  const target = siteList[cIdx];
+  if (!target.router_info) target.router_info = {};
+
+  if (slot === 'router_lan2') {
+    target.router_info.photo_lan2 = url;
+    target.router_info.speed_lan2_dl = dl;
+    target.router_info.speed_lan2_ul = ul;
+    target.router_info.speed_tested = true;
+    if (cIdx === 0) {
+      if (document.getElementById('rLan2Dl')) document.getElementById('rLan2Dl').value = dl;
+      if (document.getElementById('rLan2Ul')) document.getElementById('rLan2Ul').value = ul;
+      if (document.getElementById('chkMktSpeed')) document.getElementById('chkMktSpeed').checked = true;
+      validateRouterSpeeds();
+    }
+  } else if (slot === 'router_lan3') {
+    target.router_info.photo_lan3 = url;
+    target.router_info.speed_lan3_dl = dl;
+    target.router_info.speed_lan3_ul = ul;
+    target.router_info.speed_tested = true;
+    if (cIdx === 0) {
+      if (document.getElementById('rLan3Dl')) document.getElementById('rLan3Dl').value = dl;
+      if (document.getElementById('rLan3Ul')) document.getElementById('rLan3Ul').value = ul;
+      if (document.getElementById('chkMktSpeed')) document.getElementById('chkMktSpeed').checked = true;
+      validateRouterSpeeds();
+    }
+  } else {
+    const m = String(slot || '').match(/^ap(\d+)_(wifi|lan)$/);
+    if (m && Array.isArray(target.access_points)) {
+      const apIdx = Number(m[1]) - 1;
+      const kind = m[2];
+      if (target.access_points[apIdx]) {
+        if (kind === 'wifi') {
+          target.access_points[apIdx].photo_wifi = url;
+          target.access_points[apIdx].speed_wifi_dl = dl;
+          target.access_points[apIdx].speed_wifi_ul = ul;
+        } else {
+          target.access_points[apIdx].photo_lan = url;
+          target.access_points[apIdx].speed_lan_dl = dl;
+          target.access_points[apIdx].speed_lan_ul = ul;
+        }
+      }
+    }
+  }
+
+  populateInspectionModal();
+  showToast(`✅ รับภาพผลทดสอบความเร็ว (${dl}/${ul} Mbps) เข้าช่อง ${slot} ของวงจร ${so_number} แล้ว!`);
+});
+

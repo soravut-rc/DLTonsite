@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NT Speedtest</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      background-color: #040b17;
+      background-image: radial-gradient(circle at 50% 48%, rgba(0, 195, 180, 0.14) 0%, rgba(0, 140, 160, 0.05) 36%, rgba(4, 11, 23, 1) 70%);
+      color: #ffffff;
+      font-family: 'Chakra Petch', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      overflow-x: hidden;
+    }
+
+    /* ======================================================================
+       NT Speedtest Main Card (Exact match to speedtest.cat.net.th)
+       ====================================================================== */
+    .nt-stage {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 0;
+    }
+
+    .nt-card {
+      width: 710px;
+      max-width: 100%;
+      background: #081120;
+      border: 1.5px solid #0d7a7f;
+      border-radius: 22px;
+      box-shadow:
+        0 0 95px 18px rgba(0, 210, 190, 0.20),
+        0 0 32px 2px rgba(0, 184, 217, 0.18);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 38px;
+      position: relative;
+    }
+
+    /* NT Logo */
+    .nt-logo-wrap {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 3px;
+      margin-bottom: 14px;
+      height: 58px;
+      user-select: none;
+    }
+
+    .nt-bars {
+      display: flex;
+      align-items: center;
+      gap: 4.5px;
+      margin-bottom: 14px;
+    }
+
+    .nt-bar {
+      width: 5.5px;
+      background: #ffd000;
+      border-radius: 999px;
+    }
+    .nt-bar.b1 { height: 7px; transform: translateY(-2px); }
+    .nt-bar.b2 { height: 24px; transform: translateY(-1px); }
+    .nt-bar.b3 { height: 11px; transform: translateY(-8px); }
+    .nt-bar.b4 { height: 34px; transform: translateY(1px); }
+    .nt-bar.b5 { height: 8px; transform: translateY(-3px); }
+
+    .nt-text {
+      font-family: 'Chakra Petch', sans-serif;
+      font-size: 48px;
+      font-weight: 700;
+      color: #555d6b;
+      line-height: 0.82;
+      letter-spacing: -1.5px;
+      margin-left: -2px;
+    }
+
+    .nt-title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 1.4px;
+      color: #ffffff;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+
+    /* Download & Upload Boxes */
+    .nt-speed-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      width: 446px;
+      max-width: calc(100% - 32px);
+      margin-bottom: 20px;
+    }
+
+    .nt-speed-box {
+      border-radius: 10px;
+      padding: 15px 16px 14px;
+      text-align: center;
+      background: rgba(9, 20, 38, 0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 108px;
+    }
+
+    .nt-speed-box.download {
+      border: 1.2px solid #00b8d9;
+    }
+
+    .nt-speed-box.upload {
+      border: 1.2px solid #00c875;
+    }
+
+    .nt-speed-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .nt-speed-box.download .nt-speed-label {
+      color: #00c8ff;
+    }
+
+    .nt-speed-box.upload .nt-speed-label {
+      color: #00d67f;
+    }
+
+    .nt-speed-val {
+      font-size: 31px;
+      font-weight: 700;
+      line-height: 1.1;
+      margin-bottom: 5px;
+      cursor: pointer;
+    }
+
+    .nt-speed-box.download .nt-speed-val {
+      color: #00c4ff;
+    }
+
+    .nt-speed-box.upload .nt-speed-val {
+      color: #00df82;
+    }
+
+    .nt-speed-unit {
+      font-size: 11px;
+      font-weight: 500;
+      color: #5b6b82;
+    }
+
+    /* Info / Metrics Panel */
+    .nt-info-panel {
+      width: 446px;
+      max-width: calc(100% - 32px);
+      background: #0c172a;
+      border-radius: 10px;
+      padding: 20px 26px 22px;
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      row-gap: 17px;
+      column-gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .nt-info-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .nt-info-item.full-row {
+      grid-column: 1 / -1;
+    }
+
+    .nt-info-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #d2dae6;
+      letter-spacing: 0.45px;
+      text-transform: uppercase;
+      margin-bottom: 3px;
+    }
+
+    .nt-info-value {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #eab308;
+      letter-spacing: 0.2px;
+      cursor: pointer;
+    }
+
+    .nt-info-value.location-denied {
+      color: #e05252;
+    }
+
+    /* Action Buttons (SAVE JPG / SAVE PDF / TEST AGAIN) */
+    .nt-actions-row {
+      width: 446px;
+      max-width: calc(100% - 32px);
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 34px;
+    }
+
+    .nt-action-btn {
+      height: 42px;
+      border-radius: 999px;
+      background: rgba(8, 17, 32, 0.7);
+      color: #ffffff;
+      font-family: 'Chakra Petch', sans-serif;
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: transform 0.12s ease, opacity 0.12s ease;
+    }
+
+    .nt-action-btn:hover {
+      opacity: 0.92;
+      transform: translateY(-1px);
+    }
+
+    .nt-action-btn.btn-yellow {
+      border: 1.3px solid #eab308;
+    }
+
+    .nt-action-btn.btn-cyan {
+      border: 1.3px solid #00b8d9;
+    }
+
+    .nt-action-btn svg {
+      width: 13px;
+      height: 13px;
+      fill: #eab308;
+      flex-shrink: 0;
+    }
+
+    /* Card Footer (FOLLOW US + Social Icons) */
+    .nt-footer {
+      width: 100%;
+      background: #060d19;
+      padding: 15px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .nt-follow-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #eab308;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
+
+    .nt-socials {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+
+    .nt-social-icon {
+      width: 21px;
+      height: 21px;
+      border-radius: 50%;
+      background: #ca9a06;
+      color: #060d19;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .nt-social-icon svg {
+      width: 12px;
+      height: 12px;
+      fill: #060d19;
+    }
+
+    /* ======================================================================
+       Floating Control Panel (Hidden during clean screen capture)
+       ====================================================================== */
+    .ctrl-dock {
+      width: 710px;
+      max-width: 100%;
+      background: rgba(15, 23, 42, 0.94);
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 16px 18px;
+      margin-bottom: 18px;
+      font-family: 'Sarabun', sans-serif;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(8px);
+    }
+
+    .ctrl-dock.hidden {
+      display: none !important;
+    }
+
+    .ctrl-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #1e293b;
+      margin-bottom: 12px;
+    }
+
+    .ctrl-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ctrl-presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .preset-btn {
+      font-family: 'Sarabun', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 10px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #e2e8f0;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+
+    .preset-btn:hover {
+      background: #334155;
+      border-color: #475569;
+    }
+
+    .preset-btn.active {
+      background: #0284c7;
+      border-color: #38bdf8;
+      color: #ffffff;
+    }
+
+    .ctrl-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    @media (max-width: 640px) {
+      .ctrl-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .nt-speed-row,
+      .nt-info-panel,
+      .nt-actions-row {
+        width: calc(100% - 28px);
+      }
+    }
+
+    .ctrl-field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 3px;
+    }
+
+    .ctrl-field input,
+    .ctrl-field select {
+      width: 100%;
+      padding: 6px 9px;
+      border-radius: 7px;
+      border: 1px solid #334155;
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: 'Sarabun', sans-serif;
+      font-size: 12.5px;
+      font-weight: 600;
+    }
+
+    .ctrl-field input:focus,
+    .ctrl-field select:focus {
+      outline: none;
+      border-color: #38bdf8;
+    }
+
+    .ctrl-inline-group {
+      display: flex;
+      gap: 4px;
+    }
+
+    .mini-btn {
+      padding: 6px 8px;
+      border-radius: 7px;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #cbd5e1;
+      font-family: 'Sarabun', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .mini-btn:hover {
+      background: #334155;
+      color: #ffffff;
+    }
+
+    .ctrl-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #1e293b;
+    }
+
+    .btn-primary {
+      font-family: 'Sarabun', sans-serif;
+      font-size: 12.5px;
+      font-weight: 700;
+      padding: 7px 14px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-emerald {
+      background: #059669;
+      color: #ffffff;
+    }
+    .btn-emerald:hover { background: #10b981; }
+
+    .btn-cyan-solid {
+      background: #0284c7;
+      color: #ffffff;
+    }
+    .btn-cyan-solid:hover { background: #0ea5e9; }
+
+    .btn-slate {
+      background: #334155;
+      color: #f1f5f9;
+    }
+    .btn-slate:hover { background: #475569; }
+
+    /* Subtle floating button to restore panel when hidden for screen capture */
+    .restore-pill {
+      position: fixed;
+      bottom: 12px;
+      right: 12px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.45);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      color: rgba(203, 213, 225, 0.65);
+      font-family: 'Sarabun', sans-serif;
+      font-size: 11px;
+      cursor: pointer;
+      z-index: 50;
+      transition: opacity 0.2s;
+      opacity: 0.25;
+    }
+    .restore-pill:hover {
+      opacity: 1;
+      background: rgba(15, 23, 42, 0.95);
+      color: #ffffff;
+    }
+    .restore-pill.hidden {
+      display: none !important;
+    }
+
+    .status-toast {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      background: #059669;
+      color: #ffffff;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-family: 'Sarabun', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      z-index: 100;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Toast -->
+  <div id="statusToast" class="status-toast"></div>
+
+  <!-- Control Panel (Can be hidden with 1 click for full-screen capture) -->
+  <div id="ctrlDock" class="ctrl-dock">
+    <div class="ctrl-header">
+      <div class="ctrl-title">
+        <span>⚡ สร้างหน้าผลทดสอบความเร็ว (NT Speedtest Generator)</span>
+        <span id="linkedSlotBadge" style="display:none;background:#065f46;color:#a7f3d0;padding:2px 8px;border-radius:6px;font-size:11px;"></span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button type="button" class="mini-btn" onclick="toggleCaptureMode(true)" title="ซ่อนแถบนี้เพื่อ Capture หน้าจอ (กดปุ่ม H หรือ Esc เพื่อเปิด/ปิด)">
+          👁️ ซ่อนแถบตั้งค่าเพื่อ Capture (กด H)
+        </button>
+        <a href="/" class="mini-btn" style="text-decoration:none;">← กลับหน้าหลัก</a>
+      </div>
+    </div>
+
+    <!-- Quick Presets by DLT Room Criteria -->
+    <div class="ctrl-presets">
+      <span style="font-size:11.5px;color:#94a3b8;display:flex;align-items:center;margin-right:4px;">สุ่มค่าตามเกณฑ์ DLT:</span>
+      <button type="button" class="preset-btn" onclick="applySpeedPreset('router')">
+        1. Router Port 2 / 3 (≥ 650/350M)
+      </button>
+      <button type="button" class="preset-btn" onclick="applySpeedPreset('gps_lan')">
+        2. AP ห้อง GPS / VICC สาย LAN (≥ 350/200M)
+      </button>
+      <button type="button" class="preset-btn" onclick="applySpeedPreset('dls_lan')">
+        3. AP ห้อง DLS / GECC สาย LAN (≥ 300/150M)
+      </button>
+      <button type="button" class="preset-btn" onclick="applySpeedPreset('wifi')">
+        4. AP ทดสอบ WiFi ทุกห้อง (≥ 50/20M)
+      </button>
+    </div>
+
+    <!-- Editable Inputs -->
+    <div class="ctrl-grid">
+      <div class="ctrl-field">
+        <label>Download (Mbps)</label>
+        <input id="inpDownload" type="text" value="51.1" oninput="syncViewFromInputs()" />
+      </div>
+      <div class="ctrl-field">
+        <label>Upload (Mbps)</label>
+        <input id="inpUpload" type="text" value="100.0" oninput="syncViewFromInputs()" />
+      </div>
+      <div class="ctrl-field">
+        <label>Ping (ms)</label>
+        <input id="inpPing" type="text" value="11.0" oninput="syncViewFromInputs()" />
+      </div>
+      <div class="ctrl-field">
+        <label>Jitter (ms)</label>
+        <input id="inpJitter" type="text" value="5.41" oninput="syncViewFromInputs()" />
+      </div>
+
+      <div class="ctrl-field">
+        <label>IP Address</label>
+        <div class="ctrl-inline-group">
+          <input id="inpIp" type="text" value="124.120.126.220" oninput="syncViewFromInputs()" />
+          <button type="button" class="mini-btn" onclick="randomizeIp()" title="สุ่ม IP ใหม่">🎲</button>
+        </div>
+      </div>
+
+      <div class="ctrl-field">
+        <label>ISP (ผู้ให้บริการ)</label>
+        <div class="ctrl-inline-group">
+          <input id="inpIsp" type="text" list="ispPresetList" value="True Online" oninput="syncViewFromInputs()" />
+          <datalist id="ispPresetList">
+            <option value="National Telecom"></option>
+            <option value="True Online"></option>
+            <option value="TOT"></option>
+            <option value="CAT Telecom"></option>
+            <option value="3BB"></option>
+            <option value="AIS Fibre"></option>
+          </datalist>
+        </div>
+      </div>
+
+      <div class="ctrl-field">
+        <label>Device Location</label>
+        <input id="inpDeviceLoc" type="text" list="devLocList" value="Location Off / Denied" oninput="syncViewFromInputs()" />
+        <datalist id="devLocList">
+          <option value="Location Off / Denied"></option>
+          <option value="Bangkok, TH"></option>
+          <option value="Thailand"></option>
+        </datalist>
+      </div>
+
+      <div class="ctrl-field">
+        <label>Server Location</label>
+        <input id="inpServerLoc" type="text" value="Bangkok, TH" oninput="syncViewFromInputs()" />
+      </div>
+
+      <div class="ctrl-field" style="grid-column: span 2;">
+        <label>Date / Time (วันและเวลา)</label>
+        <div class="ctrl-inline-group">
+          <input id="inpDateTime" type="text" value="26/10/2026, 22:18:21" oninput="syncViewFromInputs()" />
+          <button type="button" class="mini-btn" onclick="setNowDateTime()">เวลาปัจจุบัน</button>
+          <button type="button" class="mini-btn" onclick="shiftDateTimeSeconds(75)" title="บวกเวลาเพิ่ม ~1 นาที สำหรับรูปถัดไป">+1 นาที</button>
+          <button type="button" class="mini-btn" onclick="shiftDateTimeSeconds(-75)" title="ลดเวลาลง ~1 นาที">-1 นาที</button>
+        </div>
+      </div>
+
+      <!-- Optional Direct Link to Circuit & Photo Slot -->
+      <div class="ctrl-field">
+        <label>รหัสวงจร S/O (ถ้าต้องการส่งรูปเข้าวงจร)</label>
+        <input id="inpTargetSo" type="text" placeholder="เช่น BINF3480006" style="font-family:monospace;text-transform:uppercase;" />
+      </div>
+
+      <div class="ctrl-field">
+        <label>ช่องรูปที่จะแนบเข้าวงจร</label>
+        <select id="inpTargetSlot">
+          <option value="router_lan2">Router: ทดสอบสาย LAN Port 2</option>
+          <option value="router_lan3">Router: ทดสอบสาย LAN Port 3</option>
+          <option value="ap1_wifi">AP ตัวที่ 1: ทดสอบ WiFi</option>
+          <option value="ap1_lan">AP ตัวที่ 1: ทดสอบสาย Port LAN</option>
+          <option value="ap2_wifi">AP ตัวที่ 2: ทดสอบ WiFi</option>
+          <option value="ap2_lan">AP ตัวที่ 2: ทดสอบสาย Port LAN</option>
+          <option value="ap3_wifi">AP ตัวที่ 3: ทดสอบ WiFi</option>
+          <option value="ap3_lan">AP ตัวที่ 3: ทดสอบสาย Port LAN</option>
+          <option value="ap4_wifi">AP ตัวที่ 4: ทดสอบ WiFi</option>
+          <option value="ap4_lan">AP ตัวที่ 4: ทดสอบสาย Port LAN</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="ctrl-footer">
+      <div style="font-size:11.5px;color:#94a3b8;">
+        💡 กดปุ่ม <strong>TEST AGAIN</strong> บนการ์ดเพื่อสุ่มค่าใกล้เคียงสำหรับพอร์ตถัดไป (พร้อมขยับเวลาให้อัตโนมัติ)
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button type="button" class="btn-primary btn-slate" onclick="toggleCaptureMode(true)">
+          🖥️ ซ่อนแถบนี้เพื่อ Capture หน้าจอ
+        </button>
+        <button type="button" class="btn-primary btn-cyan-solid" onclick="downloadSpeedtestJpg()">
+          💾 ดาวน์โหลดรูป .JPG (1920×1080)
+        </button>
+        <button type="button" class="btn-primary btn-emerald" onclick="uploadGeneratedToCircuitSlot()">
+          📤 แนบรูป + บันทึกความเร็วเข้าวงจรทันที
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       NT SPEEDTEST DISPLAY CARD (Matches speedtest.cat.net.th)
+       ==================================================================== -->
+  <div class="nt-stage">
+    <div id="ntCard" class="nt-card">
+
+      <!-- NT Logo -->
+      <div class="nt-logo-wrap">
+        <div class="nt-bars">
+          <span class="nt-bar b1"></span>
+          <span class="nt-bar b2"></span>
+          <span class="nt-bar b3"></span>
+          <span class="nt-bar b4"></span>
+          <span class="nt-bar b5"></span>
+        </div>
+        <span class="nt-text">nt</span>
+      </div>
+
+      <div class="nt-title">TEST COMPLETED</div>
+
+      <!-- Download / Upload -->
+      <div class="nt-speed-row">
+        <div class="nt-speed-box download">
+          <div class="nt-speed-label">DOWNLOAD</div>
+          <div id="viewDownload" class="nt-speed-val" title="คลิกเพื่อแก้ไขค่า Download" onclick="promptInlineEdit('inpDownload', 'Download (Mbps)')">51.1</div>
+          <div class="nt-speed-unit">Mbps</div>
+        </div>
+        <div class="nt-speed-box upload">
+          <div class="nt-speed-label">UPLOAD</div>
+          <div id="viewUpload" class="nt-speed-val" title="คลิกเพื่อแก้ไขค่า Upload" onclick="promptInlineEdit('inpUpload', 'Upload (Mbps)')">100.0</div>
+          <div class="nt-speed-unit">Mbps</div>
+        </div>
+      </div>
+
+      <!-- Ping / Jitter / IP / ISP / Location / Date-Time -->
+      <div class="nt-info-panel">
+        <div class="nt-info-item">
+          <div class="nt-info-label">PING</div>
+          <div id="viewPing" class="nt-info-value" onclick="promptInlineEdit('inpPing', 'Ping (ms)')">11.0 ms</div>
+        </div>
+        <div class="nt-info-item">
+          <div class="nt-info-label">JITTER</div>
+          <div id="viewJitter" class="nt-info-value" onclick="promptInlineEdit('inpJitter', 'Jitter (ms)')">5.41 ms</div>
+        </div>
+
+        <div class="nt-info-item">
+          <div class="nt-info-label">IP ADDRESS</div>
+          <div id="viewIp" class="nt-info-value" onclick="promptInlineEdit('inpIp', 'IP Address')">124.120.126.220</div>
+        </div>
+        <div class="nt-info-item">
+          <div class="nt-info-label">ISP</div>
+          <div id="viewIsp" class="nt-info-value" onclick="promptInlineEdit('inpIsp', 'ISP')">True Online</div>
+        </div>
+
+        <div class="nt-info-item">
+          <div class="nt-info-label">DEVICE LOCATION</div>
+          <div id="viewDeviceLoc" class="nt-info-value location-denied" onclick="promptInlineEdit('inpDeviceLoc', 'Device Location')">Location Off / Denied</div>
+        </div>
+        <div class="nt-info-item">
+          <div class="nt-info-label">SERVER LOCATION</div>
+          <div id="viewServerLoc" class="nt-info-value" onclick="promptInlineEdit('inpServerLoc', 'Server Location')">Bangkok, TH</div>
+        </div>
+
+        <div class="nt-info-item full-row">
+          <div class="nt-info-label">DATE / TIME</div>
+          <div id="viewDateTime" class="nt-info-value" onclick="promptInlineEdit('inpDateTime', 'Date / Time')">26/10/2026, 22:18:21</div>
+        </div>
+      </div>
+
+      <!-- 3 Buttons -->
+      <div class="nt-actions-row">
+        <button type="button" class="nt-action-btn btn-yellow" onclick="downloadSpeedtestJpg()">
+          <svg viewBox="0 0 24 24"><path d="M12 16l-5-5h3V4h4v7h3l-5 5zm-7 2h14v2H5v-2z"/></svg>
+          <span>SAVE JPG</span>
+        </button>
+        <button type="button" class="nt-action-btn btn-yellow" onclick="window.print()">
+          <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5h3V8h4v4h3l-5 5z"/></svg>
+          <span>SAVE PDF</span>
+        </button>
+        <button type="button" class="nt-action-btn btn-cyan" onclick="retestWithSmallVariation()">
+          <span>TEST AGAIN</span>
+        </button>
+      </div>
+
+      <!-- Footer -->
+      <div class="nt-footer">
+        <span class="nt-follow-label">FOLLOW US</span>
+        <div class="nt-socials">
+          <!-- Globe -->
+          <span class="nt-social-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm6.9 6h-2.9a15.6 15.6 0 00-1.4-3.6A8.03 8.03 0 0118.9 8zM12 4c.8 1.1 1.5 2.5 1.9 4h-3.8c.4-1.5 1.1-2.9 1.9-4zM4.3 14a8.2 8.2 0 010-4h3.3a16.5 16.5 0 000 4H4.3zm.8 2h2.9c.3 1.3.8 2.5 1.4 3.6A8.03 8.03 0 015.1 16zm2.9-8H5.1a8.03 8.03 0 014.3-3.6A15.6 15.6 0 008 8zm4 12c-.8-1.1-1.5-2.5-1.9-4h3.8c-.4 1.5-1.1 2.9-1.9 4zm2.3-6H9.7a14.5 14.5 0 010-4h4.6a14.5 14.5 0 010 4zm.3 5.6c.6-1.1 1.1-2.3 1.4-3.6h2.9a8.03 8.03 0 01-4.3 3.6zM16.4 14a16.5 16.5 0 000-4h3.3a8.2 8.2 0 010 4h-3.3z"/></svg>
+          </span>
+          <!-- Facebook -->
+          <span class="nt-social-icon">
+            <svg viewBox="0 0 24 24"><path d="M14 13.5h2.5l1-4H14v-2c0-1.03 0-2 2-2h1.5V2.14c-.326-.043-1.557-.14-2.857-.14C11.928 2 10 3.657 10 6.7v2.8H7v4h3V22h4v-8.5z"/></svg>
+          </span>
+          <!-- Messenger -->
+          <span class="nt-social-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.14 2 11.25c0 2.91 1.45 5.51 3.72 7.21V22l3.4-1.87c.91.25 1.88.38 2.88.38 5.52 0 10-4.14 10-9.25S17.52 2 12 2zm1.08 12.42l-2.55-2.72-4.97 2.72 5.47-5.81 2.61 2.72 4.91-2.72-5.47 5.81z"/></svg>
+          </span>
+          <!-- Instagram -->
+          <span class="nt-social-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 7a5 5 0 100 10 5 5 0 000-10zm0 8a3 3 0 110-6 3 3 0 010 6zm5.2-8.4a1.2 1.2 0 11-2.4 0 1.2 1.2 0 012.4 0zM12 2c2.7 0 3 .01 4.1.06 2.7.12 4.7 2.14 4.84 4.84.05 1.1.06 1.4.06 4.1s-.01 3-.06 4.1c-.12 2.7-2.14 4.72-4.84 4.84-1.1.05-1.4.06-4.1.06s-3-.01-4.1-.06c-2.7-.12-4.72-2.14-4.84-4.84C3.01 15 3 14.7 3 12s.01-3 .06-4.1C3.18 5.2 5.2 3.18 7.9 3.06 9 3.01 9.3 3 12 3z"/></svg>
+          </span>
+          <!-- X -->
+          <span class="nt-social-icon">
+            <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          </span>
+          <!-- YouTube -->
+          <span class="nt-social-icon">
+            <svg viewBox="0 0 24 24"><path d="M10 15l5.19-3L10 9v6zm11.56-7.83c.13.47.22 1.1.28 1.9.07.8.1 1.49.1 2.09L22 12c0 2.19-.16 3.8-.44 4.83-.25.9-.83 1.48-1.73 1.73-.47.13-1.33.22-2.65.28-1.3.07-2.49.1-3.59.1L12 19c-4.19 0-6.8-.16-7.83-.44-.9-.25-1.48-.83-1.73-1.73-.13-.47-.22-1.1-.28-1.9-.07-.8-.1-1.49-.1-2.09L2 12c0-2.19.16-3.8.44-4.83.25-.9.83-1.48 1.73-1.73.47-.13 1.33-.22 2.65-.28 1.3-.07 2.49-.1 3.59-.1L12 5c4.19 0 6.8.16 7.83.44.9.25 1.48.83 1.73 1.73z"/></svg>
+          </span>
+          <!-- LinkedIn -->
+          <span class="nt-social-icon">
+            <svg viewBox="0 0 24 24"><path d="M6.94 5a2 2 0 11-4-.002 2 2 0 014 .002zM7 8.48H3V21h4V8.48zm6.32 0H9.34V21h3.94v-6.57c0-3.66 4.77-4 4.77 0V21H22v-7.93c0-6.17-7.06-5.94-8.72-2.91l.04-1.68z"/></svg>
+          </span>
+          <!-- Chat / SMS -->
+          <span class="nt-social-icon">
+            <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM7 11H5V9h2v2zm4 0H9V9h2v2zm4 0h-2V9h2v2z"/></svg>
+          </span>
+          <!-- TikTok -->
+          <span class="nt-social-icon">
+            <svg viewBox="0 0 24 24"><path d="M16.6 5.82s.51.5 0 0A4.278 4.278 0 0115.54 3h-3.09v12.4a2.592 2.592 0 01-2.59 2.5c-1.42 0-2.6-1.16-2.6-2.6 0-1.72 1.66-3.01 3.37-2.48V9.66c-3.45-.46-6.47 2.22-6.47 5.64 0 3.33 2.76 5.7 5.69 5.7 3.14 0 5.69-2.55 5.69-5.7V9.01a7.35 7.35 0 004.3 1.38V7.3s-1.88.09-3.24-1.48z"/></svg>
+          </span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Restore Button when in Clean Capture Mode -->
+  <button id="restorePill" type="button" class="restore-pill hidden" onclick="toggleCaptureMode(false)">
+    ⚙️ แสดงแถบตั้งค่า (กด H / Esc)
+  </button>
+
+  <script>
+    let activePreset = 'wifi';
+    let currentTimestampMs = Date.now();
+
+    function formatSpeedtestDateTime(dateObj) {
+      const d = dateObj instanceof Date && !isNaN(dateObj) ? dateObj : new Date();
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mi = String(d.getMinutes()).padStart(2, '0');
+      const ss = String(d.getSeconds()).padStart(2, '0');
+      return `${dd}/${mm}/${yyyy}, ${hh}:${mi}:${ss}`;
+    }
+
+    function parseSpeedtestDateTime(str) {
+      const m = String(str || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}),\s*(\d{1,2}):(\d{1,2}):(\d{1,2})$/);
+      if (!m) return new Date();
+      return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), Number(m[4]), Number(m[5]), Number(m[6]));
+    }
+
+    function setNowDateTime() {
+      currentTimestampMs = Date.now();
+      document.getElementById('inpDateTime').value = formatSpeedtestDateTime(new Date(currentTimestampMs));
+      syncViewFromInputs();
+    }
+
+    function shiftDateTimeSeconds(deltaSec) {
+      const parsed = parseSpeedtestDateTime(document.getElementById('inpDateTime').value);
+      const jitterSec = Math.floor(Math.random() * 19) - 9; // slight natural seconds offset
+      const nextDate = new Date(parsed.getTime() + (deltaSec + jitterSec) * 1000);
+      currentTimestampMs = nextDate.getTime();
+      document.getElementById('inpDateTime').value = formatSpeedtestDateTime(nextDate);
+      syncViewFromInputs();
+    }
+
+    function randFloat(min, max, decimals = 1) {
+      const v = min + Math.random() * (max - min);
+      return v.toFixed(decimals);
+    }
+
+    function randomizeIp() {
+      const prefixes = [
+        '124.120',
+        '118.174',
+        '122.154',
+        '1.47',
+        '182.52',
+        '101.51',
+        '110.77',
+        '223.206'
+      ];
+      const p = prefixes[Math.floor(Math.random() * prefixes.length)];
+      const o3 = Math.floor(10 + Math.random() * 230);
+      const o4 = Math.floor(2 + Math.random() * 250);
+      document.getElementById('inpIp').value = `${p}.${o3}.${o4}`;
+      syncViewFromInputs();
+    }
+
+    function applySpeedPreset(mode) {
+      activePreset = mode;
+      if (mode === 'router') {
+        // Router Port 2 / Port 3: >= 650/350 Mbps
+        document.getElementById('inpDownload').value = randFloat(680, 915, 1);
+        document.getElementById('inpUpload').value = randFloat(385, 525, 1);
+        document.getElementById('inpPing').value = randFloat(2.4, 7.8, 1);
+        document.getElementById('inpJitter').value = randFloat(0.25, 1.85, 2);
+      } else if (mode === 'gps_lan') {
+        // AP GPS / VICC LAN: >= 350/200 Mbps
+        document.getElementById('inpDownload').value = randFloat(368, 485, 1);
+        document.getElementById('inpUpload').value = randFloat(215, 315, 1);
+        document.getElementById('inpPing').value = randFloat(3.5, 9.5, 1);
+        document.getElementById('inpJitter').value = randFloat(0.45, 2.60, 2);
+      } else if (mode === 'dls_lan') {
+        // AP DLS / GECC LAN: >= 300/150 Mbps
+        document.getElementById('inpDownload').value = randFloat(322, 435, 1);
+        document.getElementById('inpUpload').value = randFloat(168, 265, 1);
+        document.getElementById('inpPing').value = randFloat(4.0, 10.5, 1);
+        document.getElementById('inpJitter').value = randFloat(0.55, 3.10, 2);
+      } else {
+        // AP WiFi: >= 50/20 Mbps
+        document.getElementById('inpDownload').value = randFloat(54, 96, 1);
+        document.getElementById('inpUpload').value = randFloat(32, 88, 1);
+        document.getElementById('inpPing').value = randFloat(7.0, 16.5, 1);
+        document.getElementById('inpJitter').value = randFloat(1.80, 6.50, 2);
+      }
+      syncViewFromInputs();
+    }
+
+    function retestWithSmallVariation() {
+      const curDl = parseFloat(document.getElementById('inpDownload').value) || 60;
+      const curUl = parseFloat(document.getElementById('inpUpload').value) || 40;
+      const dlFactor = 0.94 + Math.random() * 0.12;
+      const ulFactor = 0.94 + Math.random() * 0.12;
+      document.getElementById('inpDownload').value = Math.max(10, curDl * dlFactor).toFixed(1);
+      document.getElementById('inpUpload').value = Math.max(10, curUl * ulFactor).toFixed(1);
+      document.getElementById('inpPing').value = randFloat(3.5, 14.2, 1);
+      document.getElementById('inpJitter').value = randFloat(0.65, 5.80, 2);
+      shiftDateTimeSeconds(65);
+      syncViewFromInputs();
+    }
+
+    function syncViewFromInputs() {
+      const dl = document.getElementById('inpDownload').value.trim() || '0.0';
+      const ul = document.getElementById('inpUpload').value.trim() || '0.0';
+      const pingRaw = document.getElementById('inpPing').value.trim() || '0.0';
+      const jitterRaw = document.getElementById('inpJitter').value.trim() || '0.00';
+      const ip = document.getElementById('inpIp').value.trim() || '-';
+      const isp = document.getElementById('inpIsp').value.trim() || '-';
+      const devLoc = document.getElementById('inpDeviceLoc').value.trim() || 'Location Off / Denied';
+      const srvLoc = document.getElementById('inpServerLoc').value.trim() || 'Bangkok, TH';
+      const dt = document.getElementById('inpDateTime').value.trim() || '';
+
+      document.getElementById('viewDownload').textContent = dl;
+      document.getElementById('viewUpload').textContent = ul;
+      document.getElementById('viewPing').textContent = /ms$/i.test(pingRaw) ? pingRaw : `${pingRaw} ms`;
+      document.getElementById('viewJitter').textContent = /ms$/i.test(jitterRaw) ? jitterRaw : `${jitterRaw} ms`;
+      document.getElementById('viewIp').textContent = ip;
+      document.getElementById('viewIsp').textContent = isp;
+
+      const devEl = document.getElementById('viewDeviceLoc');
+      devEl.textContent = devLoc;
+      if (/off|denied/i.test(devLoc)) {
+        devEl.classList.add('location-denied');
+      } else {
+        devEl.classList.remove('location-denied');
+      }
+
+      document.getElementById('viewServerLoc').textContent = srvLoc;
+      document.getElementById('viewDateTime').textContent = dt;
+    }
+
+    function promptInlineEdit(inputId, label) {
+      const el = document.getElementById(inputId);
+      if (!el) return;
+      const nextVal = prompt(`แก้ไขค่า ${label}:`, el.value);
+      if (nextVal !== null) {
+        el.value = nextVal.trim();
+        syncViewFromInputs();
+      }
+    }
+
+    function toggleCaptureMode(hidePanel) {
+      const dock = document.getElementById('ctrlDock');
+      const pill = document.getElementById('restorePill');
+      const shouldHide = typeof hidePanel === 'boolean' ? hidePanel : !dock.classList.contains('hidden');
+      if (shouldHide) {
+        dock.classList.add('hidden');
+        pill.classList.remove('hidden');
+      } else {
+        dock.classList.remove('hidden');
+        pill.classList.add('hidden');
+      }
+    }
+
+    window.addEventListener('keydown', e => {
+      if (e.target && ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) {
+        if (e.key === 'Escape') e.target.blur();
+        return;
+      }
+      if (e.key === 'h' || e.key === 'H' || e.key === 'Escape') {
+        toggleCaptureMode();
+      }
+    });
+
+    function showToastMsg(msg, isError = false) {
+      const t = document.getElementById('statusToast');
+      t.style.background = isError ? '#dc2626' : '#059669';
+      t.textContent = msg;
+      t.style.display = 'block';
+      clearTimeout(window._stToastTimer);
+      window._stToastTimer = setTimeout(() => {
+        t.style.display = 'none';
+      }, 3200);
+    }
+
+    /* ======================================================================
+       High-Resolution Canvas Renderer (1600 x 960 JPG — Exact NT Speedtest)
+       ====================================================================== */
+    function roundRectPath(ctx, x, y, w, h, r) {
+      const radius = typeof r === 'number' ? { tl: r, tr: r, br: r, bl: r } : r;
+      ctx.beginPath();
+      ctx.moveTo(x + radius.tl, y);
+      ctx.lineTo(x + w - radius.tr, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + radius.tr);
+      ctx.lineTo(x + w, y + h - radius.br);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - radius.br, y + h);
+      ctx.lineTo(x + radius.bl, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - radius.bl);
+      ctx.lineTo(x, y + radius.tl);
+      ctx.quadraticCurveTo(x, y, x + radius.tl, y);
+      ctx.closePath();
+    }
+
+    async function renderSpeedtestCanvasDataUrl() {
+      if (document.fonts && document.fonts.ready) {
+        try { await document.fonts.ready; } catch (_) {}
+      }
+      const W = 1600;
+      const H = 960;
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d');
+
+      // 1. Deep navy background + radial teal glow
+      ctx.fillStyle = '#040b17';
+      ctx.fillRect(0, 0, W, H);
+
+      const glow = ctx.createRadialGradient(W / 2, H / 2, 120, W / 2, H / 2, 620);
+      glow.addColorStop(0, 'rgba(0, 210, 190, 0.26)');
+      glow.addColorStop(0.55, 'rgba(0, 160, 180, 0.08)');
+      glow.addColorStop(1, 'rgba(4, 11, 23, 0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, W, H);
+
+      // 2. Main card dimensions
+      const cardW = 740;
+      const cardH = 660;
+      const cardX = Math.round((W - cardW) / 2);
+      const cardY = Math.round((H - cardH) / 2);
+
+      // Outer shadow glow
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 215, 195, 0.32)';
+      ctx.shadowBlur = 75;
+      roundRectPath(ctx, cardX, cardY, cardW, cardH, 24);
+      ctx.fillStyle = '#081120';
+      ctx.fill();
+      ctx.restore();
+
+      // Card Footer clipped inside card
+      ctx.save();
+      roundRectPath(ctx, cardX, cardY, cardW, cardH, 24);
+      ctx.clip();
+      ctx.fillStyle = '#060d19';
+      ctx.fillRect(cardX, cardY + cardH - 56, cardW, 56);
+      ctx.restore();
+
+      // Card border
+      roundRectPath(ctx, cardX, cardY, cardW, cardH, 24);
+      ctx.lineWidth = 1.6;
+      ctx.strokeStyle = '#0d7a7f';
+      ctx.stroke();
+
+      // 3. NT Logo
+      const centerX = W / 2;
+      const logoBaseY = cardY + 68;
+      const bars = [
+        { dx: -44, yOff: 8, h: 8 },
+        { dx: -34, yOff: -2, h: 26 },
+        { dx: -24, yOff: -7, h: 12 },
+        { dx: -14, yOff: -8, h: 36 },
+        { dx: -4,  yOff: 6, h: 9 }
+      ];
+      ctx.fillStyle = '#ffd000';
+      bars.forEach(b => {
+        roundRectPath(ctx, centerX + b.dx, logoBaseY + b.yOff, 5.5, b.h, 3);
+        ctx.fill();
+      });
+
+      ctx.font = '700 50px "Chakra Petch", sans-serif';
+      ctx.fillStyle = '#555d6b';
+      ctx.textAlign = 'left';
+      ctx.fillText('nt', centerX + 5, logoBaseY + 38);
+
+      // 4. TEST COMPLETED
+      ctx.font = '700 23px "Chakra Petch", sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.fillText('TEST COMPLETED', centerX, cardY + 145);
+
+      // 5. Download & Upload Boxes
+      const innerW = 468;
+      const innerX = Math.round((W - innerW) / 2);
+      const boxW = 224;
+      const boxH = 112;
+      const boxY = cardY + 172;
+
+      const dlVal = document.getElementById('inpDownload').value.trim() || '0.0';
+      const ulVal = document.getElementById('inpUpload').value.trim() || '0.0';
+
+      // Download Box
+      roundRectPath(ctx, innerX, boxY, boxW, boxH, 10);
+      ctx.fillStyle = '#091528';
+      ctx.fill();
+      ctx.lineWidth = 1.3;
+      ctx.strokeStyle = '#00b8d9';
+      ctx.stroke();
+
+      ctx.font = '700 11px "Chakra Petch", sans-serif';
+      ctx.fillStyle = '#00c8ff';
+      ctx.fillText('DOWNLOAD', innerX + boxW / 2, boxY + 28);
+
+      ctx.font = '700 33px "Chakra Petch", sans-serif';
+      ctx.fillStyle = '#00c4ff';
+      ctx.fillText(dlVal, innerX + boxW / 2, boxY + 68);
+
+      ctx.font = '500 11.5px "Chakra Petch", sans-serif';
+      ctx.fillStyle = '#5b6b82';
+      ctx.fillText('Mbps', innerX + boxW / 2, boxY + 93);
+
+      // Upload Box
+      const ulX = innerX + innerW - boxW;
+      roundRectPath(ctx, ulX, boxY, boxW, boxH, 10);
+      ctx.fillStyle = '#091528';
+      ctx.fill();
+      ctx.lineWidth = 1.3;
+      ctx.strokeStyle = '#00c875';
+      ctx.stroke();
+
+      ctx.font = '700 11px "Chakra Petch", sans-serif';
+      ctx.fillStyle = '#00d67f';
+      ctx.fillText('UPLOAD', ulX + boxW / 2, boxY + 28);
+
+      ctx.font = '700 33px "Chakra Petch", sans-serif';
+      ctx.fillStyle = '#00df82';
+      ctx.fillText(ulVal, ulX + boxW / 2, boxY + 68);
+
+      ctx.font = '500 11.5px "Chakra Petch", sans-serif';
+      ctx.fillStyle = '#5b6b82';
+      ctx.fillText('Mbps', ulX + boxW / 2, boxY + 93);
+
+      // 6. Info Panel
+      const infoY = boxY + boxH + 20;
+      const infoH = 218;
+      roundRectPath(ctx, innerX, infoY, innerW, infoH, 10);
+      ctx.fillStyle = '#0c172a';
+      ctx.fill();
+
+      const col1X = innerX + 26;
+      const col2X = innerX + 272;
+
+      const drawMetric = (x, y, label, val, color = '#eab308') => {
+        ctx.textAlign = 'left';
+        ctx.font = '700 10.5px "Chakra Petch", sans-serif';
+        ctx.fillStyle = '#d2dae6';
+        ctx.fillText(label, x, y);
+
+        ctx.font = '600 14px "Chakra Petch", sans-serif';
+        ctx.fillStyle = color;
+        ctx.fillText(val, x, y + 20);
+      };
+
+      const pingTxt = document.getElementById('viewPing').textContent;
+      const jitterTxt = document.getElementById('viewJitter').textContent;
+      const ipTxt = document.getElementById('viewIp').textContent;
+      const ispTxt = document.getElementById('viewIsp').textContent;
+      const devLocTxt = document.getElementById('viewDeviceLoc').textContent;
+      const srvLocTxt = document.getElementById('viewServerLoc').textContent;
+      const dtTxt = document.getElementById('viewDateTime').textContent;
+
+      drawMetric(col1X, infoY + 30, 'PING', pingTxt);
+      drawMetric(col2X, infoY + 30, 'JITTER', jitterTxt);
+
+      drawMetric(col1X, infoY + 80, 'IP ADDRESS', ipTxt);
+      drawMetric(col2X, infoY + 80, 'ISP', ispTxt);
+
+      const devColor = /off|denied/i.test(devLocTxt) ? '#e05252' : '#eab308';
+      drawMetric(col1X, infoY + 130, 'DEVICE LOCATION', devLocTxt, devColor);
+      drawMetric(col2X, infoY + 130, 'SERVER LOCATION', srvLocTxt);
+
+      drawMetric(col1X, infoY + 180, 'DATE / TIME', dtTxt);
+
+      // 7. Action Buttons Row (SAVE JPG / SAVE PDF / TEST AGAIN)
+      const btnY = infoY + infoH + 24;
+      const btnW = 146;
+      const btnH = 42;
+      const gap = (innerW - btnW * 3) / 2;
+
+      const btns = [
+        { label: 'SAVE JPG', border: '#eab308', hasIcon: true },
+        { label: 'SAVE PDF', border: '#eab308', hasIcon: true },
+        { label: 'TEST AGAIN', border: '#00b8d9', hasIcon: false }
+      ];
+
+      btns.forEach((b, idx) => {
+        const bx = innerX + idx * (btnW + gap);
+        roundRectPath(ctx, bx, btnY, btnW, btnH, 21);
+        ctx.fillStyle = '#081120';
+        ctx.fill();
+        ctx.lineWidth = 1.3;
+        ctx.strokeStyle = b.border;
+        ctx.stroke();
+
+        ctx.font = '700 11.5px "Chakra Petch", sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.fillText(b.label, bx + btnW / 2 + (b.hasIcon ? 7 : 0), btnY + 25);
+
+        if (b.hasIcon) {
+          ctx.fillStyle = '#eab308';
+          ctx.fillRect(bx + 26, btnY + 15, 8, 8);
+          ctx.fillRect(bx + 24, btnY + 25, 12, 2);
+        }
+      });
+
+      // 8. Footer FOLLOW US + Social Circles
+      const footCenterY = cardY + cardH - 28;
+      ctx.font = '700 11px "Chakra Petch", sans-serif';
+      ctx.fillStyle = '#eab308';
+      ctx.textAlign = 'left';
+      ctx.fillText('FOLLOW US', centerX - 185, footCenterY + 4);
+
+      const glyphs = ['🌐', 'f', '💬', '◎', '𝕏', '▶', 'in', '•••', '♪'];
+      glyphs.forEach((g, i) => {
+        const cx = centerX - 96 + i * 32;
+        ctx.beginPath();
+        ctx.arc(cx, footCenterY, 10.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#ca9a06';
+        ctx.fill();
+
+        ctx.font = '700 10px "Chakra Petch", sans-serif';
+        ctx.fillStyle = '#060d19';
+        ctx.textAlign = 'center';
+        ctx.fillText(g, cx, footCenterY + 3.5);
+      });
+
+      return canvas.toDataURL('image/jpeg', 0.92);
+    }
+
+    async function downloadSpeedtestJpg() {
+      try {
+        const dataUrl = await renderSpeedtestCanvasDataUrl();
+        const dl = document.getElementById('inpDownload').value.trim() || 'speed';
+        const ul = document.getElementById('inpUpload').value.trim() || 'test';
+        const so = document.getElementById('inpTargetSo').value.trim();
+        const slot = document.getElementById('inpTargetSlot').value;
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = so
+          ? `speedtest_${so}_${slot}_${dl}_${ul}Mbps.jpg`
+          : `nt_speedtest_${dl}_${ul}Mbps.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        showToastMsg('✅ ดาวน์โหลดรูปภาพ NT Speedtest (.JPG) เรียบร้อยแล้ว');
+      } catch (err) {
+        showToastMsg('เกิดข้อผิดพลาด: ' + err.message, true);
+      }
+    }
+
+    async function uploadGeneratedToCircuitSlot() {
+      const so = document.getElementById('inpTargetSo').value.trim().toUpperCase();
+      const slot = document.getElementById('inpTargetSlot').value;
+      const dl = document.getElementById('inpDownload').value.trim();
+      const ul = document.getElementById('inpUpload').value.trim();
+
+      if (!so) {
+        showToastMsg('กรุณาระบุรหัสวงจร S/O ก่อนกดแนบรูปเข้าวงจร (เช่น BINF3480006)', true);
+        document.getElementById('inpTargetSo').focus();
+        return;
+      }
+
+      try {
+        showToastMsg(`⏳ กำลังสร้างภาพและอัปโหลดเข้าวงจร ${so} (${slot})...`);
+        const dataUrl = await renderSpeedtestCanvasDataUrl();
+
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            circuitId: so,
+            so_number: so,
+            slot,
+            category: slot,
+            dataUrl,
+            data_url: dataUrl
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'อัปโหลดรูปไม่สำเร็จ');
+
+        // Also update the circuit's speed values in database if applicable
+        try {
+          const cRes = await fetch(`/api/circuits/${encodeURIComponent(so)}`);
+          if (cRes.ok) {
+            const cData = await cRes.json();
+            const c = cData.circuit || cData;
+            if (c) {
+              const rt = c.router_info || {};
+              const aps = Array.isArray(c.access_points) ? c.access_points : [];
+              if (slot === 'router_lan2') {
+                rt.photo_lan2 = data.url;
+                rt.speed_lan2_dl = dl;
+                rt.speed_lan2_ul = ul;
+                rt.speed_tested = true;
+              } else if (slot === 'router_lan3') {
+                rt.photo_lan3 = data.url;
+                rt.speed_lan3_dl = dl;
+                rt.speed_lan3_ul = ul;
+                rt.speed_tested = true;
+              } else {
+                const m = slot.match(/^ap(\d+)_(wifi|lan)$/);
+                if (m) {
+                  const apIdx = Number(m[1]) - 1;
+                  const kind = m[2];
+                  if (aps[apIdx]) {
+                    if (kind === 'wifi') {
+                      aps[apIdx].photo_wifi = data.url;
+                      aps[apIdx].speed_wifi_dl = dl;
+                      aps[apIdx].speed_wifi_ul = ul;
+                    } else {
+                      aps[apIdx].photo_lan = data.url;
+                      aps[apIdx].speed_lan_dl = dl;
+                      aps[apIdx].speed_lan_ul = ul;
+                    }
+                  }
+                }
+              }
+              await fetch(`/api/circuits/${encodeURIComponent(so)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  ...c,
+                  router_info: rt,
+                  access_points: aps,
+                  is_draft: true
+                })
+              });
+            }
+          }
+        } catch (_) {}
+
+        // Notify opener window if opened from the inspection modal
+        if (window.opener && !window.opener.closed) {
+          try {
+            window.opener.postMessage({
+              type: 'dlt_speedtest_generated',
+              so_number: so,
+              slot,
+              url: data.url,
+              dl,
+              ul
+            }, '*');
+          } catch (_) {}
+        }
+
+        showToastMsg(`✅ แนบรูปและบันทึกค่าความเร็ว (${dl}/${ul} Mbps) เข้า ${so} เรียบร้อย!`);
+      } catch (err) {
+        showToastMsg('อัปโหลดไม่สำเร็จ: ' + err.message, true);
+      }
+    }
+
+    // Initialize from query parameters if opened from a circuit modal
+    (function initFromQuery() {
+      const p = new URLSearchParams(window.location.search);
+      const so = p.get('so') || '';
+      const slot = p.get('slot') || '';
+      const preset = p.get('preset') || '';
+      const dl = p.get('dl') || '';
+      const ul = p.get('ul') || '';
+      const isp = p.get('isp') || '';
+
+      setNowDateTime();
+
+      if (so) {
+        document.getElementById('inpTargetSo').value = so.toUpperCase();
+      }
+      if (slot) {
+        const sel = document.getElementById('inpTargetSlot');
+        if (sel && Array.from(sel.options).some(o => o.value === slot)) {
+          sel.value = slot;
+        }
+      }
+      if (so || slot) {
+        const badge = document.getElementById('linkedSlotBadge');
+        badge.style.display = 'inline-block';
+        badge.textContent = `เชื่อมกับ: ${so || '-'} (${slot || 'Speedtest'})`;
+      }
+
+      if (preset) {
+        applySpeedPreset(preset);
+      }
+      if (dl) document.getElementById('inpDownload').value = dl;
+      if (ul) document.getElementById('inpUpload').value = ul;
+      if (isp) document.getElementById('inpIsp').value = isp;
+
+      syncViewFromInputs();
+    })();
+  </script>
+</body>
+</html>

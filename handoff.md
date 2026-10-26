@@ -100,6 +100,7 @@
 | `public/index.html` | หน้าเว็บหลักแบบ **Plain & Clean UI** (รายการสาขา/วงจร, ตัวกรองภูมิภาคและจังหวัด, หน้าต่างบันทึกงาน 4 แท็บ, LINE Bot Simulator, Dashboard 77 จังหวัด, และหน้าผู้ตรวจรับงาน) |
 | `public/app.js` | Frontend Logic ทั้งหมด (การจัดกลุ่มวงจรตาม Site, ระบบ Auto-Save Draft 2 ชั้น, OCR สแกน S/N, การพิมพ์ใบส่งมอบงานรวม 4 วงจร, และระบบผู้ตรวจรับงาน) |
 | `public/report.html` | หน้าแสดงและสั่งพิมพ์รายงานรวมประจำ Site (Print / Save as PDF) ขนาด A4 ตรงตามโครงสร้างรายงานส่งมอบงาน |
+| `public/speedtest.html` | **หน้าสร้างภาพผลทดสอบความเร็ว (`/speedtest.html`)** — จำลองหน้าจอ NT Speedtest (`speedtest.cat.net.th`) สำหรับกรอกหรือสุ่มค่า Download, Upload, Ping, Jitter, IP, ISP, Date/Time ตามเกณฑ์ห้อง แล้วกด Capture / ดาวน์โหลด `.JPG` หรือส่งเข้าช่องรูปของวงจรได้ทันที |
 | `lib/admin.js` | หลังบ้านผู้ตรวจรับ: login (cookie), ตรวจสอบ/อนุมัติ/ส่งกลับ/ปลดล็อก, กฎล็อก, สรุป Site, ส่งออก CSV, reset ข้อมูล UAT, โหลดรูปจาก R2 ให้ `.docx` (ดูหัวข้อ 3.2) |
 | `public/admin.html`, `admin.css`, `admin.js` | **ศูนย์ตรวจรับงาน (`/admin`)** — 4 แท็บ: ภาพรวม · ตรวจสอบ · ส่งออก · เครื่องมือ UAT |
 | `public/tech.html`, `tech.css`, `tech.js` | **หน้าสำหรับช่างบนมือถือ (`/tech`)** — UI แบบเรียบง่ายสำหรับใช้มือเดียว ใช้ API ชุดเดียวกับหน้าเดิม (ดูหัวข้อ 3.1) |

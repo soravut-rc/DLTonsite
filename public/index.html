@@ -78,6 +78,10 @@
           คู่มือขั้นตอน
         </button>
 
+        <a href="/speedtest.html" target="_blank" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-300 transition inline-flex items-center gap-1">
+          <span>⚡ สร้างภาพ Speedtest</span>
+        </a>
+
         <button onclick="openAddCircuitModal()" class="hidden sm:inline-flex px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 transition">
           + เพิ่มวงจร
         </button>
@@ -1006,9 +1010,14 @@
             <!-- Router Speed Test (Port 2 & Port 3) -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div class="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between gap-1 flex-wrap">
                   <span class="text-xs font-semibold text-slate-700">ผลเทส Port 2 (เกณฑ์ ≥ 650/350 Mbps)</span>
-                  <span id="badgeLan2Pass" class="text-[11px] px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-500">รอผล</span>
+                  <div class="flex items-center gap-1">
+                    <button type="button" onclick="openSpeedtestGenerator(0, 'router_lan2', 'router')" class="px-2 py-0.5 rounded bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-300 text-[11px] font-semibold">
+                      ⚡ สร้างภาพ
+                    </button>
+                    <span id="badgeLan2Pass" class="text-[11px] px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-500">รอผล</span>
+                  </div>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                   <input id="rLan2Dl" type="text" oninput="validateRouterSpeeds()" placeholder="Download (Mbps)" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-sm bg-white" />
@@ -1017,9 +1026,14 @@
               </div>
 
               <div class="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between gap-1 flex-wrap">
                   <span class="text-xs font-semibold text-slate-700">ผลเทส Port 3 (เกณฑ์ ≥ 650/350 Mbps)</span>
-                  <span id="badgeLan3Pass" class="text-[11px] px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-500">รอผล</span>
+                  <div class="flex items-center gap-1">
+                    <button type="button" onclick="openSpeedtestGenerator(0, 'router_lan3', 'router')" class="px-2 py-0.5 rounded bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-300 text-[11px] font-semibold">
+                      ⚡ สร้างภาพ
+                    </button>
+                    <span id="badgeLan3Pass" class="text-[11px] px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-500">รอผล</span>
+                  </div>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                   <input id="rLan3Dl" type="text" oninput="validateRouterSpeeds()" placeholder="Download (Mbps)" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-sm bg-white" />
@@ -1319,6 +1333,6 @@
   <!-- Toast Notification -->
   <div id="toastBox" class="fixed bottom-4 right-4 z-50 hidden bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl border border-slate-700 text-xs font-semibold"></div>
 
-  <script src="/app.js?v=20261026c"></script>
+  <script src="/app.js?v=20261026d"></script>
 </body>
 </html>
