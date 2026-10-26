@@ -28,12 +28,47 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --color-primary: #0f172a;
+      --color-secondary: #334155;
+      --color-accent: #0369a1;
+      --color-background: #f8fafc;
+      --color-foreground: #020617;
+      --color-card: #ffffff;
+      --color-border: #e2e8f0;
+      --color-ring: #0f172a;
+    }
     body {
-      font-family: 'Sarabun', sans-serif;
+      font-family: 'Atkinson Hyperlegible', 'IBM Plex Sans Thai', 'Sarabun', -apple-system, BlinkMacSystemFont, sans-serif;
       background-color: #f8fafc;
       color: #0f172a;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    .font-mono, code, pre {
+      font-family: 'JetBrains Mono', 'Atkinson Hyperlegible', ui-monospace, SFMono-Regular, monospace !important;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+    }
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+    button, a, select, summary, [role="button"], label.cursor-pointer {
+      cursor: pointer;
+    }
+    input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible {
+      outline: 2px solid rgb(var(--bd-slate-400, 148 163 184));
+      outline-offset: 1px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, ::before, ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
     }
     .hidden {
       display: none !important;
@@ -56,17 +91,17 @@
 </head>
 <body class="min-h-screen flex flex-col bg-slate-50 text-slate-900">
 
-  <!-- Clean, Plain Top Header -->
+  <!-- Enterprise Operations Top Header -->
   <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
     <div class="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
       <div class="flex items-center gap-2.5 min-w-0">
-        <div class="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-xs shrink-0">
+        <div class="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-xs tracking-tight shrink-0">
           DLT
         </div>
         <div class="min-w-0">
           <div class="flex items-center gap-2">
-            <h1 class="text-sm sm:text-base font-bold text-slate-900 truncate">ระบบตรวจรับและส่งมอบงาน กรมการขนส่งทางบก</h1>
-            <span class="bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold px-2 py-0.5 rounded shrink-0">
+            <h1 class="text-sm sm:text-base font-bold text-slate-900 tracking-tight truncate">ระบบตรวจรับและส่งมอบงาน กรมการขนส่งทางบก</h1>
+            <span class="bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold px-2 py-0.5 rounded tabular-nums shrink-0">
               <span id="hdrTotalCircuits">334</span> วงจร
             </span>
           </div>
@@ -74,21 +109,25 @@
       </div>
 
       <div class="flex items-center gap-2 shrink-0">
-        <button onclick="toggleSopBanner()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition">
-          คู่มือขั้นตอน
+        <button onclick="toggleSopBanner()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition inline-flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 text-slate-500" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          <span>คู่มือขั้นตอน</span>
         </button>
 
-        <a href="/speedtest.html" target="_blank" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-300 transition inline-flex items-center gap-1">
-          <span>⚡ สร้างภาพ Speedtest</span>
+        <a href="/speedtest.html" target="_blank" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 transition inline-flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 text-sky-600" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
+          <span>สร้างภาพ Speedtest</span>
         </a>
 
-        <button onclick="openAddCircuitModal()" class="hidden sm:inline-flex px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 transition">
-          + เพิ่มวงจร
+        <button onclick="openAddCircuitModal()" class="hidden sm:inline-flex px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 transition items-center gap-1">
+          <svg class="w-3.5 h-3.5 text-slate-500" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          <span>เพิ่มวงจร</span>
         </button>
 
         <button type="button" id="themeBtn" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 transition whitespace-nowrap" aria-label="เปลี่ยนธีมหน้าจอ"></button>
 
-        <button type="button" onclick="exportUpdatedExcelSummary()" class="inline-flex px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white transition items-center gap-1">
+        <button type="button" onclick="exportUpdatedExcelSummary()" class="inline-flex px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white transition items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           <span>ดาวน์โหลด Excel (.xlsx)</span>
         </button>
       </div>
@@ -97,13 +136,13 @@
     <!-- Clean Navigation Tabs -->
     <div class="bg-slate-50 border-t border-slate-200">
       <div class="max-w-7xl mx-auto px-4 flex items-center justify-between gap-2 py-1.5 overflow-x-auto">
-        <div class="flex items-center gap-1 shrink-0">
+        <div class="flex items-center gap-1 shrink-0" role="tablist">
           <button id="tabBtnCircuits" onclick="switchTab('circuits')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white transition whitespace-nowrap">
             1. หน้างานช่าง (Site)
           </button>
           <button id="tabBtnAdmin" onclick="switchTab('admin')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-200/70 transition whitespace-nowrap flex items-center gap-1.5">
             <span>2. ผู้ตรวจรับงาน</span>
-            <span id="adminQueueBadge" class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-800">0</span>
+            <span id="adminQueueBadge" class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-800 tabular-nums">0</span>
           </button>
           <button id="tabBtnDashboard" onclick="switchTab('dashboard')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-200/70 transition whitespace-nowrap">
             3. ภาพรวม 77 จังหวัด & รายงาน
@@ -113,7 +152,7 @@
           </button>
         </div>
 
-        <div class="hidden md:flex items-center gap-2 text-xs text-slate-600 shrink-0">
+        <div class="hidden md:flex items-center gap-2 text-xs text-slate-600 shrink-0 tabular-nums">
           <span>ความคืบหน้า:</span>
           <strong id="hdrProgressText" class="text-slate-900">0 / 334 (0%)</strong>
           <div class="w-24 bg-slate-200 h-1.5 rounded-full overflow-hidden">
@@ -154,21 +193,22 @@
     </div>
 
     <!-- ================================================================== -->
-    <!-- VIEW 1: FIELD TECHNICIAN SITE FINDER & CIRCUITS (PLAIN & CLEAN)    -->
+    <!-- VIEW 1: FIELD TECHNICIAN SITE FINDER & CIRCUITS                    -->
     <!-- ================================================================== -->
     <section id="viewCircuits" class="space-y-4">
 
-      <!-- Clean Unified Search, Filter & Technician Toolbar -->
+      <!-- Unified Search, Filter & Technician Toolbar -->
       <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
         <!-- Row 1: Search + Province + Status + Actions -->
         <div class="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-center">
           <div class="md:col-span-5 relative">
+            <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <input
               id="filterSearch"
               type="text"
               placeholder="ค้นหาจังหวัด, สาขา, รหัสวงจร BINF, S/N..."
               oninput="onSearchInputChanged()"
-              class="w-full pl-3.5 pr-14 py-2 rounded-lg border border-slate-300 focus:border-slate-900 text-sm outline-none transition"
+              class="w-full pl-9 pr-14 py-2 rounded-lg border border-slate-300 focus:border-slate-900 text-sm outline-none transition"
             />
             <button
               id="btnClearSearch"
@@ -197,13 +237,14 @@
           </div>
 
           <div class="md:col-span-2 flex items-center gap-1.5">
-            <button type="button" onclick="findNearestCircuitsByGps()" class="flex-1 px-2.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition whitespace-nowrap" title="ค้นหาสาขาใกล้ฉันด้วย GPS">
-              📍 ใกล้ฉัน
+            <button type="button" onclick="findNearestCircuitsByGps()" class="flex-1 px-2.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition whitespace-nowrap inline-flex items-center justify-center gap-1" title="ค้นหาสาขาใกล้ฉันด้วย GPS">
+              <svg class="w-3.5 h-3.5 text-slate-600 shrink-0" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              <span>ใกล้ฉัน</span>
             </button>
             <button type="button" id="btnToggleViewMode" onclick="toggleBrowseMode()" class="flex-1 px-2.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition whitespace-nowrap">
               ดูทั้งหมด
             </button>
-            <button type="button" onclick="resetFilters()" class="px-2.5 py-2 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-500 text-xs" title="รีเซ็ตตัวกรอง">
+            <button type="button" onclick="resetFilters()" class="px-2.5 py-2 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-500 text-xs" title="รีเซ็ตตัวกรอง" aria-label="รีเซ็ตตัวกรอง">
               ↺
             </button>
           </div>
@@ -264,28 +305,43 @@
         </div>
       </div>
 
-      <!-- Simple Status Summary Row -->
+      <!-- Status KPI Summary Row -->
       <div class="grid grid-cols-5 gap-2">
-        <button onclick="setQuickStatus('')" id="statCardAll" class="bg-white p-2.5 rounded-xl border border-slate-300 text-left hover:border-slate-500 transition">
-          <div class="text-xs text-slate-500">ทั้งหมด</div>
-          <div id="countAll" class="text-lg font-bold text-slate-900">334</div>
+        <button onclick="setQuickStatus('')" id="statCardAll" class="bg-white p-3 rounded-xl border border-slate-300 text-left hover:border-slate-500 hover:shadow-sm transition">
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-xs font-medium text-slate-500">ทั้งหมด</span>
+            <span class="w-2 h-2 rounded-full bg-slate-900" aria-hidden="true"></span>
+          </div>
+          <div id="countAll" class="text-xl font-bold text-slate-900 tabular-nums mt-0.5">334</div>
           <span id="countWithPdf" class="hidden">333</span>
         </button>
-        <button onclick="setQuickStatus('pending')" id="statCardPending" class="bg-white p-2.5 rounded-xl border border-slate-200 text-left hover:border-slate-400 transition">
-          <div class="text-xs text-slate-500">รอดำเนินการ</div>
-          <div id="countPending" class="text-lg font-bold text-slate-700">0</div>
+        <button onclick="setQuickStatus('pending')" id="statCardPending" class="bg-white p-3 rounded-xl border border-slate-200 text-left hover:border-slate-400 hover:shadow-sm transition">
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-xs font-medium text-slate-500">รอดำเนินการ</span>
+            <span class="w-2 h-2 rounded-full bg-slate-400" aria-hidden="true"></span>
+          </div>
+          <div id="countPending" class="text-xl font-bold text-slate-700 tabular-nums mt-0.5">0</div>
         </button>
-        <button onclick="setQuickStatus('in_progress')" id="statCardInProgress" class="bg-white p-2.5 rounded-xl border border-slate-200 text-left hover:border-slate-400 transition">
-          <div class="text-xs text-amber-700">กำลังทำ</div>
-          <div id="countInProgress" class="text-lg font-bold text-amber-600">0</div>
+        <button onclick="setQuickStatus('in_progress')" id="statCardInProgress" class="bg-white p-3 rounded-xl border border-slate-200 text-left hover:border-slate-400 hover:shadow-sm transition">
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-xs font-medium text-amber-700">กำลังทำ</span>
+            <span class="w-2 h-2 rounded-full bg-amber-500" aria-hidden="true"></span>
+          </div>
+          <div id="countInProgress" class="text-xl font-bold text-amber-600 tabular-nums mt-0.5">0</div>
         </button>
-        <button onclick="setQuickStatus('completed')" id="statCardCompleted" class="bg-white p-2.5 rounded-xl border border-slate-200 text-left hover:border-slate-400 transition">
-          <div class="text-xs text-emerald-700">ส่งมอบแล้ว</div>
-          <div id="countCompleted" class="text-lg font-bold text-emerald-600">0</div>
+        <button onclick="setQuickStatus('completed')" id="statCardCompleted" class="bg-white p-3 rounded-xl border border-slate-200 text-left hover:border-slate-400 hover:shadow-sm transition">
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-xs font-medium text-emerald-700">ส่งมอบแล้ว</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-500" aria-hidden="true"></span>
+          </div>
+          <div id="countCompleted" class="text-xl font-bold text-emerald-600 tabular-nums mt-0.5">0</div>
         </button>
-        <button onclick="setQuickStatus('issue')" id="statCardIssue" class="bg-white p-2.5 rounded-xl border border-slate-200 text-left hover:border-slate-400 transition">
-          <div class="text-xs text-rose-700">ติดปัญหา</div>
-          <div id="countIssue" class="text-lg font-bold text-rose-600">0</div>
+        <button onclick="setQuickStatus('issue')" id="statCardIssue" class="bg-white p-3 rounded-xl border border-slate-200 text-left hover:border-slate-400 hover:shadow-sm transition">
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-xs font-medium text-rose-700">ติดปัญหา</span>
+            <span class="w-2 h-2 rounded-full bg-rose-500" aria-hidden="true"></span>
+          </div>
+          <div id="countIssue" class="text-xl font-bold text-rose-600 tabular-nums mt-0.5">0</div>
         </button>
       </div>
 
@@ -316,7 +372,7 @@
                   <span class="text-sm font-bold text-slate-900" id="selectedProvinceTitle">จังหวัด...</span>
                   <span class="text-xs text-slate-500" id="selectedProvinceMeta"></span>
                 </div>
-                <div class="text-xs text-slate-500">แสดง <strong id="showingCount" class="text-slate-800">0</strong> วงจร <span id="activeFilterSummary"></span></div>
+                <div class="text-xs text-slate-500">แสดง <strong id="showingCount" class="text-slate-800 tabular-nums">0</strong> วงจร <span id="activeFilterSummary"></span></div>
               </div>
             </div>
           </div>
@@ -334,46 +390,48 @@
     <!-- ================================================================== -->
     <!-- VIEW 2: DASHBOARD & PROVINCIAL PROGRESS (77 PROVINCES) + EXCEL EXPORT -->
     <!-- ================================================================== -->
-    <section id="viewDashboard" class="hidden space-y-6">
-      <div class="bg-gradient-to-r from-indigo-950 via-slate-900 to-emerald-950 text-white rounded-2xl p-4 sm:p-5 shadow-md border border-indigo-500/30 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+    <section id="viewDashboard" class="hidden space-y-5">
+      <div class="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div class="space-y-1">
           <div class="flex items-center gap-2 flex-wrap">
-            <span class="px-2.5 py-0.5 rounded-full bg-emerald-400 text-slate-950 text-xs font-extrabold">ขั้นตอนที่ 6: ส่งมอบงานลูกค้า</span>
-            <h2 class="text-base sm:text-lg font-extrabold text-amber-300">
-              ระบบสร้างรายงาน PDF รายวงจรเพื่อปริ้นนำส่งลูกค้า & ทำสรุป Excel ใหม่ (.xlsx)
+            <span class="px-2.5 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200 text-xs font-semibold">ขั้นตอนที่ 6: ส่งมอบงานลูกค้า</span>
+            <h2 class="text-sm sm:text-base font-bold text-slate-900">
+              รายงาน PDF ประจำ Site และสรุปข้อมูลส่งมอบ Excel (.xlsx)
             </h2>
           </div>
-          <p class="text-xs text-slate-200">
-            รวบรวมข้อมูลทั้ง 334 วงจรอัตโนมัติ (รวมห้องที่ปรับเพิ่ม/ยุบใหม่, รุ่นอุปกรณ์, เลขครุภัณฑ์, S/N ใหม่, ผลเทสความเร็วทุกห้อง และสถานะไฟล์สแกนใบส่งมอบงาน) ออกมาเป็นไฟล์ <strong>Excel ใหม่ (.xlsx 2 ชีต)</strong> และรายงาน <strong>PDF รายวงจร</strong>
+          <p class="text-xs text-slate-600">
+            รวบรวมข้อมูลทั้ง 334 วงจรอัตโนมัติ (ห้องติดตั้ง, รุ่นอุปกรณ์, เลขครุภัณฑ์, รหัส S/N ใหม่, ผลทดสอบความเร็วทุกห้อง และไฟล์สแกนใบส่งมอบงาน) ออกเป็นไฟล์ <strong>Excel (.xlsx 2 ชีต)</strong> และรายงาน <strong>PDF ราย Site</strong>
           </p>
         </div>
         <div class="flex items-center gap-2 flex-wrap shrink-0">
-          <button type="button" onclick="exportUpdatedExcelSummary()" class="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs sm:text-sm font-extrabold shadow-lg transition flex items-center gap-1.5">
-            <span>📊 ดาวน์โหลดสรุป Excel ใหม่ (.xlsx)</span>
+          <button type="button" onclick="exportUpdatedExcelSummary()" class="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition inline-flex items-center gap-1.5">
+            <svg class="w-4 h-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2"/><path d="M8 17h2"/><path d="M14 13h2"/><path d="M14 17h2"/></svg>
+            <span>ดาวน์โหลดสรุป Excel (.xlsx)</span>
           </button>
-          <a href="/api/export/csv" class="px-3.5 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/30 text-xs font-bold transition flex items-center gap-1">
-            <span>📥 ดาวน์โหลด CSV</span>
+          <a href="/api/export/csv" class="px-3.5 py-2 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold transition inline-flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-slate-500" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>ดาวน์โหลด CSV</span>
           </a>
         </div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
         <div class="lg:col-span-7 bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-          <h2 class="text-base font-bold text-slate-900 mb-1">ความคืบหน้าการตรวจรับแยกตามภูมิภาค (6 ภาค - 334 วงจร)</h2>
+          <h2 class="text-sm sm:text-base font-bold text-slate-900 mb-1">ความคืบหน้าการตรวจรับแยกตามภูมิภาค (6 ภาค - 334 วงจร)</h2>
           <p class="text-xs text-slate-500 mb-4">คลิกที่แต่ละภูมิภาคเพื่อดูรายการวงจรของภาคนั้น</p>
-          <div id="regionProgressList" class="space-y-3.5"></div>
+          <div id="regionProgressList" class="space-y-3"></div>
         </div>
 
         <div class="lg:col-span-5 space-y-5">
           <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-            <h2 class="text-base font-bold text-slate-900 mb-3">สัดส่วนอุปกรณ์ Router (1 ตัว/วงจร)</h2>
+            <h2 class="text-sm sm:text-base font-bold text-slate-900 mb-3">สัดส่วนอุปกรณ์ Router (1 ตัว/วงจร)</h2>
             <div id="routerModelStats" class="grid grid-cols-2 gap-2.5 text-sm"></div>
           </div>
 
           <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
             <div class="flex items-center justify-between mb-3">
-              <h2 class="text-base font-bold text-slate-900">สัดส่วนอุปกรณ์ Access Point ตามห้อง</h2>
-              <span id="totalApBadge" class="text-xs bg-indigo-50 text-indigo-700 font-semibold px-2.5 py-0.5 rounded-full">รวม 668 ตัว</span>
+              <h2 class="text-sm sm:text-base font-bold text-slate-900">สัดส่วนอุปกรณ์ Access Point ตามห้อง</h2>
+              <span id="totalApBadge" class="text-xs bg-slate-100 text-slate-700 border border-slate-200 font-semibold px-2.5 py-0.5 rounded tabular-nums">รวม 668 ตัว</span>
             </div>
             <div id="apBrandStats" class="grid grid-cols-2 gap-2.5 text-sm"></div>
           </div>
@@ -383,7 +441,7 @@
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
           <div>
-            <h2 class="text-base font-bold text-slate-900">สรุปสถานะการตรวจรับรายจังหวัด (ครบทั้ง 77 จังหวัด)</h2>
+            <h2 class="text-sm sm:text-base font-bold text-slate-900">สรุปสถานะการตรวจรับรายจังหวัด (ครบทั้ง 77 จังหวัด)</h2>
             <p class="text-xs text-slate-500">คลิกที่จังหวัดใดก็ได้เพื่อเปิดดูและเข้าดำเนินการวงจรในจังหวัดนั้นทันที</p>
           </div>
           <input
@@ -391,13 +449,13 @@
             type="text"
             placeholder="ค้นหาชื่อจังหวัด..."
             oninput="renderProvinceTable()"
-            class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs w-full sm:w-56 outline-none focus:ring-2 focus:ring-indigo-500"
+            class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs w-full sm:w-56 outline-none focus:border-slate-900"
           />
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse text-xs sm:text-sm">
+          <table class="w-full text-left border-collapse text-xs sm:text-sm tabular-nums">
             <thead>
-              <tr class="bg-slate-100 text-slate-700 border-b border-slate-200">
+              <tr class="bg-slate-50 text-slate-700 border-y border-slate-200">
                 <th class="py-2.5 px-3 font-semibold">จังหวัด</th>
                 <th class="py-2.5 px-3 font-semibold">ภูมิภาค</th>
                 <th class="py-2.5 px-3 font-semibold text-center">จำนวนวงจร</th>
@@ -418,53 +476,54 @@
     <!-- VIEW 3: LINE BOT ONSITE SIMULATOR & WEBHOOK SETTINGS (Req 1 - 6)   -->
     <!-- ================================================================== -->
     <section id="viewLinebot" class="hidden space-y-4">
-      <div class="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 text-white rounded-2xl p-4 sm:p-5 shadow-md flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div class="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <div class="flex items-center gap-2">
-            <span class="px-2.5 py-0.5 rounded-full bg-emerald-400 text-slate-950 text-xs font-extrabold">LINE Official Account + LIFF</span>
-            <h2 class="text-base sm:text-lg font-extrabold">ระบบเชื่อมต่อ LINE Bot ช่างเข้าดำเนินการ Onsite (ครบ 6 ขั้นตอน)</h2>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold">LINE Official Account + LIFF</span>
+            <h2 class="text-sm sm:text-base font-bold text-slate-900">ระบบเชื่อมต่อ LINE Bot ช่างเข้าดำเนินการ Onsite</h2>
           </div>
-          <p class="text-xs text-emerald-100 mt-1">
-            1. Check-in เข้า Site (ชื่อช่าง/เวลา) ➔ 2. ส่งรูป + แปลง S/N (OCR) เทียบช่องช่างกรอก (Recheck) ➔ 3. ตรวจจำนวนรูปครบ/ไม่ครบ ➔ 4. Check-out ส่ง Admin ตรวจ + สร้างไฟล์ MS Word (.docx)
+          <p class="text-xs text-slate-600 mt-1">
+            1. Check-in เข้า Site (ชื่อช่าง/เวลา) → 2. ส่งรูป + แปลง S/N (OCR) เทียบช่องช่างกรอก (Recheck) → 3. ตรวจจำนวนรูปครบ/ไม่ครบ → 4. Check-out ส่งตรวจ + ออกไฟล์ Word (.docx)
           </p>
         </div>
         <div class="flex items-center gap-2 shrink-0">
-          <button type="button" onclick="toggleLineSettingsBox()" class="px-3.5 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/30 text-xs font-bold transition">
-            ⚙️ ตั้งค่า LINE Webhook / Token
+          <button type="button" onclick="toggleLineSettingsBox()" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-semibold transition inline-flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-slate-500" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span>ตั้งค่า LINE Webhook / Token</span>
           </button>
-          <button type="button" onclick="clearLineSimulatorChat()" class="px-3 py-2 rounded-xl bg-rose-600/80 hover:bg-rose-600 text-white text-xs font-bold transition">
-            🗑️ ล้างประวัติแชท
+          <button type="button" onclick="clearLineSimulatorChat()" class="px-3 py-1.5 rounded-lg bg-white hover:bg-rose-50 text-rose-700 border border-slate-300 text-xs font-semibold transition">
+            ล้างประวัติแชท
           </button>
         </div>
       </div>
 
       <!-- Collapsible LINE Webhook Configuration Box -->
-      <div id="lineSettingsBox" class="hidden bg-white rounded-2xl p-4 sm:p-5 shadow-sm border-2 border-emerald-300 space-y-3">
+      <div id="lineSettingsBox" class="hidden bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-slate-200 space-y-3">
         <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
           <div>
-            <h3 class="font-bold text-sm text-slate-900">⚙️ ตั้งค่าการเชื่อมต่อ LINE Messaging API (Webhook)</h3>
+            <h3 class="font-bold text-sm text-slate-900">ตั้งค่าการเชื่อมต่อ LINE Messaging API (Webhook)</h3>
             <p class="text-xs text-slate-500">นำ Webhook URL ด้านล่างไปใส่ใน LINE Developers Console เพื่อใช้งานกับแอป LINE จริง หรือทดสอบผ่านหน้าจอมือถือจำลองด้านล่างได้ทันที</p>
           </div>
-          <span id="lineConfigStatusBadge" class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">โหมดจำลอง + Webhook พร้อมใช้งาน</span>
+          <span id="lineConfigStatusBadge" class="px-2.5 py-1 rounded text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">โหมดจำลอง + Webhook พร้อมใช้งาน</span>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
           <div>
-            <label class="block font-bold text-slate-700 mb-1">Webhook URL (สำหรับวางใน LINE Console)</label>
+            <label class="block font-semibold text-slate-700 mb-1">Webhook URL (สำหรับวางใน LINE Console)</label>
             <input id="cfgLineWebhookUrl" type="text" readonly class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-slate-100 font-mono text-xs" value="http://localhost:3480/api/line/webhook" />
           </div>
           <div>
-            <label class="block font-bold text-slate-700 mb-1">Public Base URL (เช่น ngrok / डोเมนจริง)</label>
+            <label class="block font-semibold text-slate-700 mb-1">Public Base URL (เช่น ngrok / โดเมนจริง)</label>
             <input id="cfgLinePublicUrl" type="text" placeholder="https://your-domain.ngrok-free.app" class="w-full px-3 py-2 rounded-lg border border-slate-300 font-mono text-xs" />
           </div>
           <div>
-            <label class="block font-bold text-slate-700 mb-1">LINE Channel Secret</label>
+            <label class="block font-semibold text-slate-700 mb-1">LINE Channel Secret</label>
             <input id="cfgLineSecret" type="password" placeholder="ระบุ Channel Secret..." class="w-full px-3 py-2 rounded-lg border border-slate-300 font-mono text-xs" />
           </div>
           <div>
-            <label class="block font-bold text-slate-700 mb-1">LINE Channel Access Token</label>
+            <label class="block font-semibold text-slate-700 mb-1">LINE Channel Access Token</label>
             <div class="flex gap-1.5">
               <input id="cfgLineToken" type="password" placeholder="ระบุ Channel Access Token..." class="flex-1 px-3 py-2 rounded-lg border border-slate-300 font-mono text-xs" />
-              <button type="button" onclick="saveLineBotConfig()" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold shrink-0">บันทึก</button>
+              <button type="button" onclick="saveLineBotConfig()" class="px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold shrink-0">บันทึก</button>
             </div>
           </div>
         </div>
@@ -473,42 +532,42 @@
       <!-- Main 2-Column Layout: Left = LINE Smartphone Chat & Controls | Right = Live Completeness & S/N Recheck Status -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         <!-- Left (7 cols): LINE Bot Interactive Smartphone Interface -->
-        <div class="lg:col-span-7 bg-white rounded-2xl shadow-md border-2 border-slate-200 overflow-hidden flex flex-col">
+        <div class="lg:col-span-7 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
           <!-- LINE App Header -->
           <div class="bg-[#06C755] text-white px-4 py-3 flex items-center justify-between">
             <div class="flex items-center gap-2.5">
-              <div class="w-9 h-9 rounded-full bg-white text-[#06C755] font-extrabold flex items-center justify-center text-sm shadow">
+              <div class="w-8 h-8 rounded-lg bg-white text-[#06C755] font-bold flex items-center justify-center text-xs shadow-sm">
                 LINE
               </div>
               <div>
-                <div class="font-extrabold text-sm leading-tight">DLT Onsite Bot (ช่างเข้าหน้างาน)</div>
+                <div class="font-bold text-sm leading-tight">DLT Onsite Bot (ช่างเข้าหน้างาน)</div>
                 <div id="lineActiveCircuitHeader" class="text-[11px] text-emerald-50">ยังไม่ได้เลือกวงจร — กรุณาเลือกวงจรด้านล่างเพื่อ Check-in</div>
               </div>
             </div>
-            <button type="button" onclick="openActiveLineCircuitInModal()" class="px-2.5 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition">
-              📋 เปิดฟอร์มเต็ม
+            <button type="button" onclick="openActiveLineCircuitInModal()" class="px-2.5 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-semibold transition">
+              เปิดฟอร์มเต็ม →
             </button>
           </div>
 
           <!-- Step 1 Quick Bar: Select Circuit & Technician Info for Check-in -->
-          <div class="bg-slate-50 p-3 border-b border-slate-200 space-y-2.5">
-            <div class="text-xs font-extrabold text-slate-800 flex items-center justify-between">
-              <span>1️⃣ ขั้นตอนที่ 1: เลือกวงจรและกด Check-in เข้า Site (บันทึกชื่อช่าง & เวลาเข้า)</span>
-              <span id="lineCheckinBadge" class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700">ยังไม่ Check-in</span>
+          <div class="bg-slate-50 p-3.5 border-b border-slate-200 space-y-2.5">
+            <div class="text-xs font-bold text-slate-800 flex items-center justify-between">
+              <span>ขั้นตอนที่ 1: เลือกวงจรและกด Check-in เข้า Site (บันทึกชื่อช่าง & เวลาเข้า)</span>
+              <span id="lineCheckinBadge" class="px-2 py-0.5 rounded text-[11px] font-semibold bg-white border border-slate-200 text-slate-700">ยังไม่ Check-in</span>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <select id="lineSelectProvince" onchange="onLineProvinceSelectChange()" class="px-2.5 py-2 rounded-xl border border-slate-300 text-xs font-semibold bg-white">
+              <select id="lineSelectProvince" onchange="onLineProvinceSelectChange()" class="px-2.5 py-2 rounded-lg border border-slate-300 text-xs font-medium bg-white">
                 <option value="">-- เลือกจังหวัด --</option>
               </select>
-              <select id="lineSelectCircuit" onchange="onLineCircuitSelectChange()" class="sm:col-span-2 px-2.5 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white">
+              <select id="lineSelectCircuit" onchange="onLineCircuitSelectChange()" class="sm:col-span-2 px-2.5 py-2 rounded-lg border border-slate-300 text-xs font-semibold bg-white">
                 <option value="">-- เลือกวงจร S/O ที่เข้าหน้างาน --</option>
               </select>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <input id="lineTechName" type="text" placeholder="👷 ชื่อ-นามสกุลช่าง (บังคับ)" class="px-2.5 py-2 rounded-xl border border-slate-300 text-xs bg-white font-semibold" />
-              <input id="lineTechPhone" type="text" placeholder="📞 เบอร์โทรช่าง" class="px-2.5 py-2 rounded-xl border border-slate-300 text-xs bg-white" />
-              <button type="button" onclick="triggerLineCheckin()" class="px-3 py-2 rounded-xl bg-[#06C755] hover:bg-emerald-600 text-white text-xs font-extrabold shadow-sm transition">
-                📍 1. กด Check-in เข้า Site
+              <input id="lineTechName" type="text" placeholder="ชื่อ-นามสกุลช่าง (บังคับ)" class="px-2.5 py-2 rounded-lg border border-slate-300 text-xs bg-white font-medium" />
+              <input id="lineTechPhone" type="text" placeholder="เบอร์โทรช่าง" class="px-2.5 py-2 rounded-lg border border-slate-300 text-xs bg-white" />
+              <button type="button" onclick="triggerLineCheckin()" class="px-3 py-2 rounded-lg bg-[#06C755] hover:bg-emerald-600 text-white text-xs font-bold transition">
+                1. กด Check-in เข้า Site
               </button>
             </div>
           </div>
@@ -521,10 +580,10 @@
           <!-- Step 2: Photo Upload + Auto OCR S/N + Manual Recheck Box inside LINE Bot -->
           <div class="bg-white p-3.5 border-t border-slate-200 space-y-3">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <label class="text-xs font-extrabold text-slate-800">
-                2️⃣ ขั้นตอนที่ 2: เลือกหัวข้อรูปที่จะส่ง (ถ้าเป็นอุปกรณ์ที่มี S/N ระบบจะแปลง OCR + มีช่องให้ช่างกรอก Recheck)
+              <label class="text-xs font-bold text-slate-800">
+                ขั้นตอนที่ 2: เลือกหัวข้อรูปที่จะส่ง (อุปกรณ์ที่มี S/N ระบบจะแปลง OCR พร้อมช่องกรอก Recheck)
               </label>
-              <select id="lineActiveSlotSelect" onchange="onLineSlotSelectChange()" class="px-2.5 py-1.5 rounded-xl border-2 border-indigo-300 text-xs font-bold bg-indigo-50 text-indigo-900">
+              <select id="lineActiveSlotSelect" onchange="onLineSlotSelectChange()" class="px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold bg-slate-50 text-slate-900">
                 <option value="router_device">1.1 รูปถ่ายจุดติดตั้ง MikroTik ตัวที่ 1 (มี S/N + OCR)</option>
                 <option value="router_lan2">1.2 รูปภาพ Test speed port LAN 2</option>
                 <option value="router_lan3">1.3 รูปภาพ Test speed port LAN 3</option>
@@ -539,27 +598,27 @@
               </select>
             </div>
 
-            <!-- S/N OCR + Technician Manual Recheck Panel (Shown when active slot has S/N) -->
-            <div id="lineSnRecheckPanel" class="bg-amber-50/90 border border-amber-300 rounded-xl p-3 space-y-2">
+            <!-- S/N OCR + Technician Manual Recheck Panel -->
+            <div id="lineSnRecheckPanel" class="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-extrabold text-amber-950">🔎 ระบบแปลง S/N จากรูป (OCR) & ช่องให้ช่างกรอกเพื่อ Recheck ความถูกต้อง</span>
-                <span id="lineSnMatchLiveBadge" class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700">รอรูป/รหัส S/N</span>
+                <span class="text-xs font-bold text-slate-800">ระบบแปลง S/N จากรูป (OCR) & ช่องให้ช่างกรอกเพื่อ Recheck ความถูกต้อง</span>
+                <span id="lineSnMatchLiveBadge" class="px-2 py-0.5 rounded text-[11px] font-semibold bg-white border border-slate-200 text-slate-700">รอรูป/รหัส S/N</span>
               </div>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
-                  <label class="block text-[11px] font-bold text-indigo-900 mb-0.5">🤖 ค่า S/N ที่แปลงได้จากรูป (OCR อัตโนมัติ)</label>
+                  <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">ค่า S/N ที่แปลงได้จากรูป (OCR อัตโนมัติ)</label>
                   <div class="flex gap-1">
-                    <input id="lineOcrSnInput" type="text" oninput="updateLineLiveSnComparison()" placeholder="ระบบจะเติมให้อัตโนมัติเมื่อเลือกรูป..." class="flex-1 px-2.5 py-1.5 rounded-lg border border-indigo-300 bg-white font-mono text-xs uppercase font-bold text-indigo-800" />
-                    <button type="button" onclick="copyLineOcrToManual()" class="px-2 py-1 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-indigo-800 text-[11px] font-bold shrink-0" title="คัดลอกค่า OCR ไปยังช่องช่างกรอก">
-                      ➡️ ใช้ค่านี้
+                    <input id="lineOcrSnInput" type="text" oninput="updateLineLiveSnComparison()" placeholder="ระบบจะเติมให้อัตโนมัติเมื่อเลือกรูป..." class="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white font-mono text-xs uppercase font-semibold text-slate-800" />
+                    <button type="button" onclick="copyLineOcrToManual()" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold shrink-0" title="คัดลอกค่า OCR ไปยังช่องช่างกรอก">
+                      ใช้ค่านี้ →
                     </button>
                   </div>
                 </div>
                 <div>
-                  <label class="block text-[11px] font-bold text-emerald-900 mb-0.5">✍️ ช่องให้ช่างกรอก S/N เอง (เพื่อ Recheck กับ OCR)</label>
+                  <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">ช่องให้ช่างกรอก S/N เอง (เพื่อ Recheck กับ OCR)</label>
                   <div class="flex gap-1">
-                    <input id="lineManualSnInput" type="text" oninput="updateLineLiveSnComparison()" placeholder="ช่างพิมพ์รหัส S/N เพื่อยืนยัน..." class="flex-1 px-2.5 py-1.5 rounded-lg border border-emerald-400 bg-white font-mono text-xs uppercase font-bold text-slate-900" />
-                    <button type="button" onclick="submitLineSnRecheckOnly()" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold shrink-0">
+                    <input id="lineManualSnInput" type="text" oninput="updateLineLiveSnComparison()" placeholder="ช่างพิมพ์รหัส S/N เพื่อยืนยัน..." class="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white font-mono text-xs uppercase font-semibold text-slate-900" />
+                    <button type="button" onclick="submitLineSnRecheckOnly()" class="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-semibold shrink-0">
                       ยืนยัน S/N
                     </button>
                   </div>
@@ -569,22 +628,23 @@
 
             <!-- Action Buttons Row: Upload Photo | Check Completeness (Step 3) | Check-out (Step 4) -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <label class="cursor-pointer px-3 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-extrabold text-center shadow-sm transition flex items-center justify-center gap-1.5">
-                <span>📷 2. ถ่าย/ส่งรูปเข้า LINE</span>
+              <label class="cursor-pointer px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold text-center transition flex items-center justify-center gap-1.5">
+                <svg class="w-3.5 h-3.5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+                <span>2. ถ่าย/ส่งรูปเข้า LINE</span>
                 <input id="linePhotoFileInput" type="file" accept="image/*" class="hidden" onchange="onLinePhotoFileSelected(this)" />
               </label>
-              <button type="button" onclick="triggerLineCheckCompleteness()" class="px-3 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold shadow-sm transition">
-                📋 3. ตรวจจำนวนรูปครบ/ไม่ครบ
+              <button type="button" onclick="triggerLineCheckCompleteness()" class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 text-xs font-semibold transition">
+                3. ตรวจจำนวนรูปครบ/ไม่ครบ
               </button>
-              <button type="button" onclick="triggerLineCheckout()" class="px-3 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold shadow-sm transition">
-                🏁 4. Check-out ส่งงาน + Word
+              <button type="button" onclick="triggerLineCheckout()" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition">
+                4. Check-out ส่งงาน + Word
               </button>
             </div>
 
             <!-- Free text bar -->
             <div class="flex gap-2 pt-1">
-              <input id="lineFreeTextInput" type="text" onkeydown="if(event.key==='Enter')sendLineFreeText()" placeholder="พิมพ์ข้อความหรือคำสั่ง เช่น เช็ครูป, เช็คเอาท์, BINF3480028..." class="flex-1 px-3 py-1.5 rounded-xl border border-slate-300 text-xs" />
-              <button type="button" onclick="sendLineFreeText()" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold">
+              <input id="lineFreeTextInput" type="text" onkeydown="if(event.key==='Enter')sendLineFreeText()" placeholder="พิมพ์ข้อความหรือคำสั่ง เช่น เช็ครูป, เช็คเอาท์, BINF3480028..." class="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 text-xs" />
+              <button type="button" onclick="sendLineFreeText()" class="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold">
                 ส่งข้อความ
               </button>
             </div>
@@ -593,32 +653,32 @@
 
         <!-- Right (5 cols): Live Site Status, Photo Checklist (Step 3), S/N Recheck Table & MS Word Download (Step 6) -->
         <div class="lg:col-span-5 space-y-4">
-          <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3">
+          <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 space-y-3">
             <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
               <div>
-                <h3 class="font-extrabold text-sm text-slate-900">📊 สถานะความครบถ้วนของวงจรที่กำลังทำ</h3>
+                <h3 class="font-bold text-sm text-slate-900">สถานะความครบถ้วนของวงจรที่กำลังทำ</h3>
                 <p id="lineSideCircuitSubtitle" class="text-xs text-slate-500">เลือกวงจรฝั่งซ้ายเพื่อดูรายการตรวจสอบ</p>
               </div>
-              <a id="btnLineDownloadDocx" href="#" target="_blank" class="hidden px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold shadow-sm transition items-center gap-1">
-                📝 ดาวน์โหลด MS Word (.docx)
+              <a id="btnLineDownloadDocx" href="#" target="_blank" class="hidden px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition items-center gap-1">
+                <span>ดาวน์โหลด Word (.docx)</span>
               </a>
             </div>
 
             <!-- Photo Completeness Progress -->
-            <div class="bg-slate-50 rounded-xl p-3 border border-slate-200 space-y-2">
+            <div class="bg-slate-50 rounded-lg p-3 border border-slate-200 space-y-2">
               <div class="flex items-center justify-between text-xs">
-                <span class="font-bold text-slate-700">3️⃣ ระบบตรวจสอบจำนวนรูปถ่าย (9 รูปอุปกรณ์ + 2 หน้าใบส่งมอบ):</span>
-                <span id="linePhotoProgressText" class="font-extrabold text-indigo-700">0 / 11 รูป</span>
+                <span class="font-semibold text-slate-700">ระบบตรวจสอบจำนวนรูปถ่าย (อุปกรณ์หน้างาน + ใบส่งมอบ):</span>
+                <span id="linePhotoProgressText" class="font-bold text-slate-900 tabular-nums">0 / 11 รูป</span>
               </div>
-              <div class="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
+              <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
                 <div id="linePhotoProgressBar" class="bg-emerald-500 h-full transition-all duration-300" style="width: 0%"></div>
               </div>
               <div id="linePhotoSlotsChecklist" class="grid grid-cols-1 gap-1.5 pt-1 text-xs"></div>
             </div>
 
             <!-- S/N Recheck Summary Table (Technician vs OCR) -->
-            <div class="bg-slate-50 rounded-xl p-3 border border-slate-200 space-y-2">
-              <div class="text-xs font-bold text-slate-800">2️⃣ ตาราง Recheck ความถูกต้องรหัส S/N (ช่างกรอก vs OCR แปลงจากรูป)</div>
+            <div class="bg-slate-50 rounded-lg p-3 border border-slate-200 space-y-2">
+              <div class="text-xs font-semibold text-slate-800">ตาราง Recheck ความถูกต้องรหัส S/N (ช่างกรอก vs OCR แปลงจากรูป)</div>
               <div id="lineSnRecheckList" class="space-y-1.5 text-xs"></div>
             </div>
           </div>
@@ -630,63 +690,85 @@
     <!-- VIEW 4: ADMIN VERIFICATION & QA CENTER (Req 5 & Req 6)             -->
     <!-- ================================================================== -->
     <section id="viewAdmin" class="hidden space-y-4">
-      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-4 sm:p-5 shadow-md flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div class="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <div class="flex items-center gap-2 flex-wrap">
-            <span class="px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-xs font-extrabold">2. เจ้าหน้าที่ตรวจรับงานฝั่งบริษัท</span>
-            <h2 class="text-base sm:text-lg font-extrabold">ระบบประสานช่างหน้างาน & ตรวจสอบความถูกต้องของข้อมูลก่อนให้ช่างออกจาก Site</h2>
+            <span class="px-2.5 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200 text-xs font-semibold">เจ้าหน้าที่ตรวจรับงานฝั่งบริษัท</span>
+            <h2 class="text-sm sm:text-base font-bold text-slate-900">ระบบประสานช่างหน้างาน & ตรวจสอบความถูกต้องก่อนอนุมัติออกจาก Site</h2>
           </div>
-          <p class="text-xs text-slate-300 mt-1">
-            ทำหน้าที่ประสานช่างหน้างาน (40–50 คน) และตรวจสอบความครบถ้วนของรูปถ่ายอุปกรณ์ + Sticker S/N + ผลทดสอบความเร็วทุกห้อง (DLS / GPS / VICC / GECC) <strong>ก่อนกดอนุมัติให้ช่าง Check-out ออกจากหน้างาน</strong>
+          <p class="text-xs text-slate-600 mt-1">
+            ตรวจสอบความครบถ้วนของรูปถ่ายอุปกรณ์ + Sticker S/N + ผลทดสอบความเร็วทุกห้อง (DLS / GPS / VICC / GECC) <strong>ก่อนกดอนุมัติให้ช่าง Check-out ออกจากหน้างาน</strong>
           </p>
         </div>
         <div class="flex items-center gap-2 shrink-0">
-          <input id="adminNameInput" type="text" value="เจ้าหน้าที่ตรวจรับ (บริษัท)" placeholder="ชื่อผู้ตรวจรับงาน..." class="px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-600 text-white text-xs font-semibold w-48" />
-          <button type="button" onclick="loadAdminOverview()" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow transition">
-            🔄 รีเฟรชข้อมูลสด
+          <input id="adminNameInput" type="text" value="เจ้าหน้าที่ตรวจรับ (บริษัท)" placeholder="ชื่อผู้ตรวจรับงาน..." class="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-300 text-slate-900 text-xs font-medium w-48" />
+          <button type="button" onclick="loadAdminOverview()" class="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition inline-flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+            <span>รีเฟรชข้อมูลสด</span>
           </button>
         </div>
       </div>
 
       <!-- Admin Filter KPI Cards -->
       <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-        <button type="button" onclick="setAdminFilter('active_all')" id="admCardActiveAll" class="text-left bg-white p-3 rounded-xl shadow-sm border-2 border-indigo-600 transition">
-          <div class="text-[11px] font-bold text-slate-500">งานที่มีความเคลื่อนไหว</div>
-          <div id="admCountActiveAll" class="text-xl font-extrabold text-slate-900 mt-0.5">0</div>
+        <button type="button" onclick="setAdminFilter('active_all')" id="admCardActiveAll" class="text-left bg-white p-3 rounded-xl shadow-sm border-2 border-slate-900 transition">
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-[11px] font-semibold text-slate-500">งานที่มีความเคลื่อนไหว</span>
+            <span class="w-2 h-2 rounded-full bg-slate-900 shrink-0" aria-hidden="true"></span>
+          </div>
+          <div id="admCountActiveAll" class="text-xl font-bold text-slate-900 tabular-nums mt-0.5">0</div>
         </button>
-        <button type="button" onclick="setAdminFilter('pending_review')" id="admCardPendingReview" class="text-left bg-white p-3 rounded-xl shadow-sm border-2 border-transparent hover:border-amber-400 transition">
-          <div class="text-[11px] font-bold text-amber-700">⏳ รอตรวจก่อนช่างออก</div>
-          <div id="admCountPendingReview" class="text-xl font-extrabold text-amber-600 mt-0.5">0</div>
+        <button type="button" onclick="setAdminFilter('pending_review')" id="admCardPendingReview" class="text-left bg-white p-3 rounded-xl shadow-sm border border-slate-200 hover:border-amber-400 transition">
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-[11px] font-semibold text-amber-700">รอตรวจก่อนช่างออก</span>
+            <span class="w-2 h-2 rounded-full bg-amber-500 shrink-0" aria-hidden="true"></span>
+          </div>
+          <div id="admCountPendingReview" class="text-xl font-bold text-amber-600 tabular-nums mt-0.5">0</div>
         </button>
-        <button type="button" onclick="setAdminFilter('working')" id="admCardWorking" class="text-left bg-white p-3 rounded-xl shadow-sm border-2 border-transparent hover:border-blue-400 transition">
-          <div class="text-[11px] font-bold text-blue-700">🟢 ช่างอยู่ใน Site</div>
-          <div id="admCountWorking" class="text-xl font-extrabold text-blue-600 mt-0.5">0</div>
+        <button type="button" onclick="setAdminFilter('working')" id="admCardWorking" class="text-left bg-white p-3 rounded-xl shadow-sm border border-slate-200 hover:border-blue-400 transition">
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-[11px] font-semibold text-blue-700">ช่างอยู่ใน Site</span>
+            <span class="w-2 h-2 rounded-full bg-blue-500 shrink-0" aria-hidden="true"></span>
+          </div>
+          <div id="admCountWorking" class="text-xl font-bold text-blue-600 tabular-nums mt-0.5">0</div>
         </button>
-        <button type="button" onclick="setAdminFilter('gecc_remote')" id="admCardGeccRemote" class="text-left bg-white p-3 rounded-xl shadow-sm border-2 border-transparent hover:border-purple-400 transition">
-          <div class="text-[11px] font-bold text-purple-700">🔐 มีห้อง GECC (Authen)</div>
-          <div id="admCountGeccRemote" class="text-xl font-extrabold text-purple-600 mt-0.5">0</div>
+        <button type="button" onclick="setAdminFilter('gecc_remote')" id="admCardGeccRemote" class="text-left bg-white p-3 rounded-xl shadow-sm border border-slate-200 hover:border-purple-400 transition">
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-[11px] font-semibold text-purple-700">มีห้อง GECC (Authen)</span>
+            <span class="w-2 h-2 rounded-full bg-purple-500 shrink-0" aria-hidden="true"></span>
+          </div>
+          <div id="admCountGeccRemote" class="text-xl font-bold text-purple-600 tabular-nums mt-0.5">0</div>
         </button>
-        <button type="button" onclick="setAdminFilter('sn_mismatch')" id="admCardSnMismatch" class="text-left bg-white p-3 rounded-xl shadow-sm border-2 border-transparent hover:border-rose-400 transition">
-          <div class="text-[11px] font-bold text-rose-700">⚠️ S/N ช่าง ≠ OCR</div>
-          <div id="admCountSnMismatch" class="text-xl font-extrabold text-rose-600 mt-0.5">0</div>
+        <button type="button" onclick="setAdminFilter('sn_mismatch')" id="admCardSnMismatch" class="text-left bg-white p-3 rounded-xl shadow-sm border border-slate-200 hover:border-rose-400 transition">
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-[11px] font-semibold text-rose-700">S/N ช่าง ≠ OCR</span>
+            <span class="w-2 h-2 rounded-full bg-rose-500 shrink-0" aria-hidden="true"></span>
+          </div>
+          <div id="admCountSnMismatch" class="text-xl font-bold text-rose-600 tabular-nums mt-0.5">0</div>
         </button>
-        <button type="button" onclick="setAdminFilter('incomplete_photos')" id="admCardIncompletePhotos" class="text-left bg-white p-3 rounded-xl shadow-sm border-2 border-transparent hover:border-orange-400 transition">
-          <div class="text-[11px] font-bold text-orange-700">📷 รูป/ความเร็วไม่ครบ</div>
-          <div id="admCountIncompletePhotos" class="text-xl font-extrabold text-orange-600 mt-0.5">0</div>
+        <button type="button" onclick="setAdminFilter('incomplete_photos')" id="admCardIncompletePhotos" class="text-left bg-white p-3 rounded-xl shadow-sm border border-slate-200 hover:border-orange-400 transition">
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-[11px] font-semibold text-orange-700">รูป/ความเร็วไม่ครบ</span>
+            <span class="w-2 h-2 rounded-full bg-orange-500 shrink-0" aria-hidden="true"></span>
+          </div>
+          <div id="admCountIncompletePhotos" class="text-xl font-bold text-orange-600 tabular-nums mt-0.5">0</div>
         </button>
-        <button type="button" onclick="setAdminFilter('approved')" id="admCardApproved" class="text-left bg-white p-3 rounded-xl shadow-sm border-2 border-transparent hover:border-emerald-400 transition">
-          <div class="text-[11px] font-bold text-emerald-700">✅ ตรวจผ่าน/ช่างออกได้</div>
-          <div id="admCountApproved" class="text-xl font-extrabold text-emerald-600 mt-0.5">0</div>
+        <button type="button" onclick="setAdminFilter('approved')" id="admCardApproved" class="text-left bg-white p-3 rounded-xl shadow-sm border border-slate-200 hover:border-emerald-400 transition">
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-[11px] font-semibold text-emerald-700">ตรวจผ่าน/ช่างออกได้</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0" aria-hidden="true"></span>
+          </div>
+          <div id="admCountApproved" class="text-xl font-bold text-emerald-600 tabular-nums mt-0.5">0</div>
         </button>
       </div>
 
       <!-- Admin Search & Table -->
-      <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3">
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 space-y-3">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <h3 class="font-extrabold text-sm text-slate-900">📋 รายการประสานช่างหน้างานและตรวจสอบความถูกต้องก่อนให้ช่างออก (Coordinator & QA Queue)</h3>
+          <h3 class="font-bold text-sm text-slate-900">รายการประสานช่างหน้างานและตรวจสอบความถูกต้องก่อนให้ช่างออก (Coordinator & QA Queue)</h3>
           <div class="flex items-center gap-2">
-            <input id="adminSearchInput" type="text" oninput="renderAdminQueueTable()" placeholder="ค้นหารหัสวงจร, จังหวัด, ชื่อช่าง, S/N..." class="px-3 py-1.5 rounded-xl border border-slate-300 text-xs w-full sm:w-64" />
-            <button type="button" onclick="setAdminFilter('all_334')" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold shrink-0">
+            <input id="adminSearchInput" type="text" oninput="renderAdminQueueTable()" placeholder="ค้นหารหัสวงจร, จังหวัด, ชื่อช่าง, S/N..." class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs w-full sm:w-64" />
+            <button type="button" onclick="setAdminFilter('all_334')" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold shrink-0">
               ดูทั้ง 334 วงจร
             </button>
           </div>
@@ -1013,15 +1095,16 @@
                 <div class="flex items-center justify-between gap-1 flex-wrap">
                   <span class="text-xs font-semibold text-slate-700">ผลเทส Port 2 (เกณฑ์ ≥ 650/350 Mbps)</span>
                   <div class="flex items-center gap-1">
-                    <button type="button" onclick="openSpeedtestGenerator(0, 'router_lan2', 'router')" class="px-2 py-0.5 rounded bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-300 text-[11px] font-semibold">
-                      ⚡ สร้างภาพ
+                    <button type="button" onclick="openSpeedtestGenerator(0, 'router_lan2', 'router')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold inline-flex items-center gap-1">
+                      <svg class="w-3 h-3 text-sky-600" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
+                      <span>สร้างภาพ</span>
                     </button>
                     <span id="badgeLan2Pass" class="text-[11px] px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-500">รอผล</span>
                   </div>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
-                  <input id="rLan2Dl" type="text" oninput="validateRouterSpeeds()" placeholder="Download (Mbps)" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-sm bg-white" />
-                  <input id="rLan2Ul" type="text" oninput="validateRouterSpeeds()" placeholder="Upload (Mbps)" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-sm bg-white" />
+                  <input id="rLan2Dl" type="text" oninput="validateRouterSpeeds()" placeholder="Download (Mbps)" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-sm bg-white tabular-nums" />
+                  <input id="rLan2Ul" type="text" oninput="validateRouterSpeeds()" placeholder="Upload (Mbps)" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-sm bg-white tabular-nums" />
                 </div>
               </div>
 
@@ -1029,15 +1112,16 @@
                 <div class="flex items-center justify-between gap-1 flex-wrap">
                   <span class="text-xs font-semibold text-slate-700">ผลเทส Port 3 (เกณฑ์ ≥ 650/350 Mbps)</span>
                   <div class="flex items-center gap-1">
-                    <button type="button" onclick="openSpeedtestGenerator(0, 'router_lan3', 'router')" class="px-2 py-0.5 rounded bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-300 text-[11px] font-semibold">
-                      ⚡ สร้างภาพ
+                    <button type="button" onclick="openSpeedtestGenerator(0, 'router_lan3', 'router')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold inline-flex items-center gap-1">
+                      <svg class="w-3 h-3 text-sky-600" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
+                      <span>สร้างภาพ</span>
                     </button>
                     <span id="badgeLan3Pass" class="text-[11px] px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-500">รอผล</span>
                   </div>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
-                  <input id="rLan3Dl" type="text" oninput="validateRouterSpeeds()" placeholder="Download (Mbps)" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-sm bg-white" />
-                  <input id="rLan3Ul" type="text" oninput="validateRouterSpeeds()" placeholder="Upload (Mbps)" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-sm bg-white" />
+                  <input id="rLan3Dl" type="text" oninput="validateRouterSpeeds()" placeholder="Download (Mbps)" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-sm bg-white tabular-nums" />
+                  <input id="rLan3Ul" type="text" oninput="validateRouterSpeeds()" placeholder="Upload (Mbps)" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-sm bg-white tabular-nums" />
                 </div>
               </div>
             </div>
@@ -1257,8 +1341,8 @@
           <input id="newBranchName" type="text" placeholder="เช่น สำนักงานขนส่งจังหวัด..." class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm" />
         </div>
         <div class="pt-2 flex justify-end gap-2">
-          <button onclick="closeAddCircuitModal()" class="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600">ยกเลิก</button>
-          <button onclick="submitNewCircuit()" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold">บันทึกวงจรใหม่</button>
+          <button onclick="closeAddCircuitModal()" class="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-50">ยกเลิก</button>
+          <button onclick="submitNewCircuit()" class="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold">บันทึกวงจรใหม่</button>
         </div>
       </div>
     </div>
@@ -1267,24 +1351,25 @@
   <!-- ==================================================================== -->
   <!-- SMART S/N SCANNER & OCR MODAL (ถ่ายรูปอ่าน S/N หรือสแกนบาร์โค้ด)       -->
   <!-- ==================================================================== -->
-  <div id="snScannerModal" class="fixed inset-0 bg-slate-900/80 z-50 hidden items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden max-h-[92vh] flex flex-col">
+  <div id="snScannerModal" class="fixed inset-0 bg-slate-900/75 z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden max-h-[92vh] flex flex-col">
       <div class="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
         <div>
-          <h3 id="snModalTitle" class="font-bold text-sm sm:text-base">📷 ถ่ายรูปสติ๊กเกอร์ / สแกนอ่านค่า Serial No. (S/N) อัตโนมัติ</h3>
-          <p class="text-[11px] text-slate-300">รองรับทั้งการอ่านตัวอักษรจากรูปถ่ายสติ๊กเกอร์ (OCR) และสแกน Barcode / QR Code บนตัวเครื่อง</p>
+          <h3 id="snModalTitle" class="font-bold text-sm sm:text-base">ถ่ายรูปสติ๊กเกอร์ / สแกนอ่านค่า Serial No. (S/N)</h3>
+          <p class="text-[11px] text-slate-300">รองรับการอ่านตัวอักษรจากรูปถ่ายสติ๊กเกอร์ (OCR) และสแกน Barcode / QR Code บนตัวเครื่อง</p>
         </div>
-        <button onclick="closeSnScanner()" class="text-slate-400 hover:text-white text-sm">✕</button>
+        <button onclick="closeSnScanner()" class="text-slate-400 hover:text-white text-sm" aria-label="ปิดหน้าต่าง">✕</button>
       </div>
 
       <div class="p-4 sm:p-5 overflow-y-auto space-y-4 text-sm">
         <!-- Mode 1: Take/Select Photo for OCR + Barcode -->
-        <div class="bg-indigo-50/80 border-2 border-dashed border-indigo-300 rounded-xl p-4 text-center space-y-2.5">
-          <div class="text-xs font-bold text-indigo-950">📸 วิธีที่ 1: ถ่ายรูปสติ๊กเกอร์ / ป้ายหลังเครื่อง (อ่านตัวอักษร OCR + Barcode อัตโนมัติ)</div>
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center space-y-2.5">
+          <div class="text-xs font-bold text-slate-900">วิธีที่ 1: ถ่ายรูปสติ๊กเกอร์ / ป้ายหลังเครื่อง (อ่านตัวอักษร OCR + Barcode อัตโนมัติ)</div>
           <p class="text-[11px] text-slate-600">ระบบจะดึงรหัส S/N จากรูปถ่ายพร้อมบันทึกเป็นรูปถ่ายอุปกรณ์ให้ทันที</p>
           <div class="flex justify-center gap-2">
-            <label for="snOcrFileInput" class="cursor-pointer px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow inline-flex items-center gap-1.5">
-              <span>📷 ถ่ายรูป / เลือกรูปสติ๊กเกอร์เพื่ออ่าน S/N</span>
+            <label for="snOcrFileInput" class="cursor-pointer px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5">
+              <svg class="w-4 h-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+              <span>ถ่ายรูป / เลือกรูปสติ๊กเกอร์เพื่ออ่าน S/N</span>
             </label>
             <input id="snOcrFileInput" type="file" accept="image/*" capture="environment" onchange="handleSnPhotoSelected(event)" class="hidden" />
           </div>
@@ -1293,9 +1378,9 @@
         <!-- Mode 2: Live Camera Barcode / QR Scanner -->
         <div class="border border-slate-200 rounded-xl p-3.5 space-y-2.5 bg-slate-50">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-slate-800">🔍 วิธีที่ 2: เปิดกล้องส่อง Barcode / QR Code สด</span>
-            <button id="btnStartLiveBarcode" type="button" onclick="toggleLiveBarcodeCamera()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold">
-              🎥 เปิดกล้องสแกนสด
+            <span class="text-xs font-bold text-slate-800">วิธีที่ 2: เปิดกล้องส่อง Barcode / QR Code สด</span>
+            <button id="btnStartLiveBarcode" type="button" onclick="toggleLiveBarcodeCamera()" class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 text-xs font-semibold">
+              เปิดกล้องสแกนสด
             </button>
           </div>
           <div id="liveBarcodeReader" class="w-full rounded-lg overflow-hidden hidden"></div>
@@ -1304,14 +1389,14 @@
         <!-- OCR Progress & Preview -->
         <div id="snOcrStatusBox" class="hidden space-y-3 border border-slate-200 rounded-xl p-3.5 bg-white">
           <div class="flex items-center justify-between">
-            <span id="snOcrStatusText" class="text-xs font-bold text-indigo-700">⏳ กำลังอ่านรหัส S/N จากรูปภาพ...</span>
+            <span id="snOcrStatusText" class="text-xs font-bold text-slate-800">กำลังอ่านรหัส S/N จากรูปภาพ...</span>
             <span id="snOcrPct" class="text-xs font-mono text-slate-500"></span>
           </div>
-          <img id="snPreviewImg" src="" class="max-h-40 mx-auto rounded-lg border border-slate-200 object-contain" />
+          <img id="snPreviewImg" src="" class="max-h-40 mx-auto rounded-lg border border-slate-200 object-contain" alt="ตัวอย่างรูปสติ๊กเกอร์ S/N" />
 
           <!-- Detected Candidates -->
           <div class="space-y-1.5">
-            <div class="text-xs font-bold text-slate-700">🎯 รหัส S/N ที่ตรวจพบ (คลิกเพื่อเลือกใช้ทันที):</div>
+            <div class="text-xs font-bold text-slate-700">รหัส S/N ที่ตรวจพบ (คลิกเพื่อเลือกใช้ทันที):</div>
             <div id="snModalCandidates" class="flex flex-wrap gap-1.5"></div>
           </div>
 
@@ -1333,6 +1418,6 @@
   <!-- Toast Notification -->
   <div id="toastBox" class="fixed bottom-4 right-4 z-50 hidden bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl border border-slate-700 text-xs font-semibold"></div>
 
-  <script src="/app.js?v=20261026d"></script>
+  <script src="/app.js?v=20261026e"></script>
 </body>
 </html>

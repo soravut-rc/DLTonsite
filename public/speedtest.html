@@ -389,12 +389,13 @@
 <div id="ctrlDock" class="ctrl-dock">
     <div class="ctrl-header">
         <div class="ctrl-title">
-            <span>⚡ ตั้งค่าผลทดสอบความเร็ว (NT SpeedTest Generator)</span>
+            <svg style="width:16px;height:16px;color:#38bdf8;" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
+            <span>ตั้งค่าผลทดสอบความเร็ว (NT SpeedTest Generator)</span>
             <span id="linkedSlotBadge" style="display:none;background:#065f46;color:#a7f3d0;padding:2px 8px;border-radius:6px;font-size:11px;"></span>
         </div>
         <div style="display:flex;gap:6px;align-items:center;">
             <button type="button" class="mini-btn" onclick="toggleCaptureMode(true)" title="ซ่อนแถบตั้งค่าเพื่อ Capture เต็มจอ (กดปุ่ม H หรือ Esc เพื่อเปิด/ปิด)">
-                👁️ ซ่อนแถบนี้เพื่อ Capture เต็มจอ (กด H)
+                ซ่อนแถบตั้งค่า (กด H)
             </button>
             <a href="/" class="mini-btn" style="text-decoration:none;">← กลับหน้าหลัก</a>
         </div>
@@ -438,8 +439,8 @@
             <label>IP Address</label>
             <div class="ctrl-inline-group">
                 <input id="inpIp" type="text" value="124.120.126.220" oninput="syncViewFromInputs()" />
-                <button type="button" class="mini-btn" onclick="randomizeIp()" title="สุ่ม IP">🎲</button>
-                <button type="button" class="mini-btn" onclick="fetchRealIpInfo()" title="ดึง IP/ISP จริงของเครื่องนี้">🌐</button>
+                <button type="button" class="mini-btn" onclick="randomizeIp()" title="สุ่ม IP">สุ่ม</button>
+                <button type="button" class="mini-btn" onclick="fetchRealIpInfo()" title="ดึง IP/ISP จริงของเครื่องนี้">IP จริง</button>
             </div>
         </div>
 
@@ -504,17 +505,17 @@
 
     <div class="ctrl-footer">
         <div style="font-size:11.5px;color:#94a3b8;">
-            💡 คลิกที่ตัวเลขบนการ์ดเพื่อแก้ตรงๆ ได้ หรือกดปุ่ม <strong>Test Again</strong> เพื่อสุ่มค่าใกล้เคียงสำหรับพอร์ตถัดไป
+            คลิกที่ตัวเลขบนการ์ดเพื่อแก้ตรงๆ ได้ หรือกดปุ่ม <strong>Test Again</strong> เพื่อสุ่มค่าใกล้เคียงสำหรับพอร์ตถัดไป
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button type="button" class="btn-primary btn-slate" onclick="toggleCaptureMode(true)">
-                🖥️ ซ่อนแถบตั้งค่า (Capture เต็มจอ)
+                ซ่อนแถบตั้งค่า (Capture เต็มจอ)
             </button>
-            <button type="button" class="btn-primary btn-cyan-solid" onclick="saveResult('jpg', true)">
-                💾 ดาวน์โหลดรูป .JPG
+            <button type="button" class="btn-primary btn-cyan-solid" onclick="saveResult('jpg')">
+                ดาวน์โหลดรูป .JPG
             </button>
             <button type="button" class="btn-primary btn-emerald" onclick="uploadGeneratedToCircuitSlot()">
-                📤 แนบรูป + บันทึกความเร็วเข้าวงจรทันที
+                แนบรูป + บันทึกความเร็วเข้าวงจรทันที
             </button>
         </div>
     </div>

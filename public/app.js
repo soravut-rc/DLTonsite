@@ -9,10 +9,10 @@ let currentModalStep = 'step1'; // 'step1' | 'step23' | 'step4' | 'info' | 'all'
 const sigPads = {};
 
 const STATUS_BADGE = {
-  pending: { label: '⏳ รอดำเนินการ', cls: 'bg-slate-100 text-slate-700 border-slate-300' },
-  in_progress: { label: '🔧 กำลังดำเนินการ', cls: 'bg-amber-50 text-amber-800 border-amber-300' },
-  completed: { label: '✅ ส่งมอบครบถ้วน', cls: 'bg-emerald-50 text-emerald-800 border-emerald-300' },
-  issue: { label: '⚠️ ติดปัญหา/รอแก้ไข', cls: 'bg-rose-50 text-rose-800 border-rose-300' }
+  pending: { label: 'รอดำเนินการ', cls: 'bg-slate-100 text-slate-700 border-slate-300' },
+  in_progress: { label: 'กำลังดำเนินการ', cls: 'bg-amber-50 text-amber-800 border-amber-300' },
+  completed: { label: 'ส่งมอบครบถ้วน', cls: 'bg-emerald-50 text-emerald-800 border-emerald-300' },
+  issue: { label: 'ติดปัญหา/รอแก้ไข', cls: 'bg-rose-50 text-rose-800 border-rose-300' }
 };
 
 const AP_MODEL_PRESETS = {
@@ -902,19 +902,19 @@ function renderDashboard() {
     const d = globalStats.byRegion[reg] || { total: 0, completed: 0, in_progress: 0, pending: 0, issue: 0 };
     const pct = d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0;
     return `
-      <div onclick="filterByRegionFromDash('${reg}')" class="p-3 rounded-xl border border-slate-200 hover:border-indigo-400 cursor-pointer transition bg-slate-50/50">
+      <div onclick="filterByRegionFromDash('${reg}')" class="p-3.5 rounded-xl border border-slate-200 hover:border-slate-400 cursor-pointer transition bg-slate-50/60 tabular-nums">
         <div class="flex items-center justify-between text-xs sm:text-sm mb-1.5">
-          <span class="font-bold text-slate-800">${reg} <span class="text-slate-500 font-normal">(${d.total} วงจร)</span></span>
+          <span class="font-bold text-slate-900">${reg} <span class="text-slate-500 font-normal">(${d.total} วงจร)</span></span>
           <span class="text-xs font-semibold text-emerald-700">ส่งมอบแล้ว ${d.completed}/${d.total} (${pct}%)</span>
         </div>
-        <div class="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden flex">
+        <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden flex">
           <div class="bg-emerald-500 h-full" style="width: ${pct}%"></div>
         </div>
-        <div class="flex items-center gap-4 mt-1.5 text-[11px] text-slate-500">
-          <span>✅ ส่งมอบแล้ว: <strong>${d.completed}</strong></span>
-          <span>🔧 กำลังทำ: <strong>${d.in_progress}</strong></span>
-          <span>⏳ รอดำเนินการ: <strong>${d.pending}</strong></span>
-          <span>⚠️ ติดปัญหา: <strong>${d.issue}</strong></span>
+        <div class="flex items-center flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] text-slate-600">
+          <span class="inline-flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>ส่งมอบแล้ว: <strong class="text-slate-900">${d.completed}</strong></span>
+          <span class="inline-flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>กำลังทำ: <strong class="text-slate-900">${d.in_progress}</strong></span>
+          <span class="inline-flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>รอดำเนินการ: <strong class="text-slate-900">${d.pending}</strong></span>
+          <span class="inline-flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>ติดปัญหา: <strong class="text-slate-900">${d.issue}</strong></span>
         </div>
       </div>
     `;
@@ -922,18 +922,18 @@ function renderDashboard() {
 
   const rmEl = document.getElementById('routerModelStats');
   rmEl.innerHTML = Object.entries(globalStats.routerModels || {}).map(([m, cnt]) => `
-    <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+    <div class="p-3 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between tabular-nums">
       <span class="font-semibold text-slate-700 text-xs">${m}</span>
-      <span class="text-base font-bold text-indigo-700">${cnt} <small class="text-[11px] font-normal text-slate-500">ตัว</small></span>
+      <span class="text-base font-bold text-slate-900">${cnt} <small class="text-[11px] font-normal text-slate-500">ตัว</small></span>
     </div>
   `).join('');
 
   document.getElementById('totalApBadge').textContent = `รวม ${globalStats.totalApCount || 0} ตัว`;
   const apEl = document.getElementById('apBrandStats');
   apEl.innerHTML = Object.entries(globalStats.apBrands || {}).map(([b, cnt]) => `
-    <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+    <div class="p-3 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between tabular-nums">
       <span class="font-semibold text-slate-700 text-xs">${b}</span>
-      <span class="text-base font-bold text-emerald-700">${cnt} <small class="text-[11px] font-normal text-slate-500">ตัว</small></span>
+      <span class="text-base font-bold text-slate-900">${cnt} <small class="text-[11px] font-normal text-slate-500">ตัว</small></span>
     </div>
   `).join('');
 
@@ -949,8 +949,8 @@ function renderProvinceTable() {
   tbody.innerHTML = list.map(p => {
     const pct = p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0;
     return `
-      <tr class="hover:bg-indigo-50/40 transition">
-        <td class="py-2.5 px-3 font-bold text-slate-800">${p.province}</td>
+      <tr class="hover:bg-slate-50 transition tabular-nums">
+        <td class="py-2.5 px-3 font-bold text-slate-900">${p.province}</td>
         <td class="py-2.5 px-3 text-slate-600">${p.region}</td>
         <td class="py-2.5 px-3 text-center font-semibold">${p.total}</td>
         <td class="py-2.5 px-3 text-center font-bold text-emerald-600">${p.completed}</td>
@@ -958,14 +958,14 @@ function renderProvinceTable() {
         <td class="py-2.5 px-3 text-center text-slate-500">${p.pending}</td>
         <td class="py-2.5 px-3 w-40">
           <div class="flex items-center gap-2">
-            <div class="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+            <div class="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
               <div class="bg-emerald-500 h-full" style="width:${pct}%"></div>
             </div>
             <span class="text-xs font-semibold text-slate-600 w-9 text-right">${pct}%</span>
           </div>
         </td>
         <td class="py-2.5 px-3 text-right">
-          <button onclick="filterByProvinceFromDash('${p.region}', '${p.province}')" class="px-2.5 py-1 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs">
+          <button onclick="filterByProvinceFromDash('${p.region}', '${p.province}')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 font-semibold text-xs">
             ดูวงจร (${p.total}) →
           </button>
         </td>
@@ -2598,26 +2598,26 @@ function renderAccessPointCards() {
             <div class="flex items-center justify-between gap-1 flex-wrap mb-1.5">
               <span class="text-xs font-semibold text-slate-700">ผลทดสอบ WiFi (≥ ${spec.wifiMinDl}/${spec.wifiMinUl}M)</span>
               <div class="flex items-center gap-1">
-                <button type="button" onclick="openSpeedtestGenerator(0, 'ap${idx + 1}_wifi', 'wifi')" class="px-2 py-0.5 rounded bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-300 text-[11px] font-semibold">⚡ สร้างภาพ</button>
+                <button type="button" onclick="openSpeedtestGenerator(0, 'ap${idx + 1}_wifi', 'wifi')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold">สร้างภาพ</button>
                 <span id="apWifiBadge_${idx}">${validateApSpeedBadge(ap.speed_wifi_dl, ap.speed_wifi_ul, spec.wifiMinDl, spec.wifiMinUl)}</span>
               </div>
             </div>
             <div class="grid grid-cols-2 gap-2">
-              <input id="apWifiDl_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.speed_wifi_dl || ''}" placeholder="Download (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
-              <input id="apWifiUl_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.speed_wifi_ul || ''}" placeholder="Upload (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
+              <input id="apWifiDl_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.speed_wifi_dl || ''}" placeholder="Download (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white tabular-nums" />
+              <input id="apWifiUl_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.speed_wifi_ul || ''}" placeholder="Upload (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white tabular-nums" />
             </div>
           </div>
           <div class="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
             <div class="flex items-center justify-between gap-1 flex-wrap mb-1.5">
               <span class="text-xs font-semibold text-slate-700">ผลทดสอบ Port LAN (≥ ${spec.lanMinDl}/${spec.lanMinUl}M)</span>
               <div class="flex items-center gap-1">
-                <button type="button" onclick="openSpeedtestGenerator(0, 'ap${idx + 1}_lan', '${spec.lanMinDl >= 350 ? 'gps_lan' : 'dls_lan'}')" class="px-2 py-0.5 rounded bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-300 text-[11px] font-semibold">⚡ สร้างภาพ</button>
+                <button type="button" onclick="openSpeedtestGenerator(0, 'ap${idx + 1}_lan', '${spec.lanMinDl >= 350 ? 'gps_lan' : 'dls_lan'}')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold">สร้างภาพ</button>
                 <span id="apLanBadge_${idx}">${validateApSpeedBadge(ap.speed_lan_dl, ap.speed_lan_ul, spec.lanMinDl, spec.lanMinUl)}</span>
               </div>
             </div>
             <div class="grid grid-cols-2 gap-2">
-              <input id="apLanDl_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.speed_lan_dl || ''}" placeholder="Download (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
-              <input id="apLanUl_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.speed_lan_ul || ''}" placeholder="Upload (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
+              <input id="apLanDl_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.speed_lan_dl || ''}" placeholder="Download (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white tabular-nums" />
+              <input id="apLanUl_${idx}" oninput="onApSpeedOrStickerInput(${idx})" type="text" value="${ap.speed_lan_ul || ''}" placeholder="Upload (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white tabular-nums" />
             </div>
           </div>
         </div>
@@ -3285,26 +3285,26 @@ function renderAdditionalSiteCircuitsInModal() {
             <div class="flex items-center justify-between gap-1 flex-wrap mb-1.5">
               <span class="text-xs font-semibold text-slate-700">ผลทดสอบ Port 2 (≥ 650/350M)</span>
               <div class="flex items-center gap-1">
-                <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'router_lan2', 'router')" class="px-2 py-0.5 rounded bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-300 text-[11px] font-semibold">⚡ สร้างภาพ</button>
+                <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'router_lan2', 'router')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold">สร้างภาพ</button>
                 <span id="sc_${cIdx}_lan2Badge">${validateApSpeedBadge(rt.speed_lan2_dl, rt.speed_lan2_ul, 650, 350)}</span>
               </div>
             </div>
             <div class="grid grid-cols-2 gap-2">
-              <input id="sc_${cIdx}_lan2Dl" type="text" value="${rt.speed_lan2_dl || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Download (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
-              <input id="sc_${cIdx}_lan2Ul" type="text" value="${rt.speed_lan2_ul || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Upload (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
+              <input id="sc_${cIdx}_lan2Dl" type="text" value="${rt.speed_lan2_dl || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Download (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white tabular-nums" />
+              <input id="sc_${cIdx}_lan2Ul" type="text" value="${rt.speed_lan2_ul || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Upload (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white tabular-nums" />
             </div>
           </div>
           <div class="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
             <div class="flex items-center justify-between gap-1 flex-wrap mb-1.5">
               <span class="text-xs font-semibold text-slate-700">ผลทดสอบ Port 3 (≥ 650/350M)</span>
               <div class="flex items-center gap-1">
-                <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'router_lan3', 'router')" class="px-2 py-0.5 rounded bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-300 text-[11px] font-semibold">⚡ สร้างภาพ</button>
+                <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'router_lan3', 'router')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold">สร้างภาพ</button>
                 <span id="sc_${cIdx}_lan3Badge">${validateApSpeedBadge(rt.speed_lan3_dl, rt.speed_lan3_ul, 650, 350)}</span>
               </div>
             </div>
             <div class="grid grid-cols-2 gap-2">
-              <input id="sc_${cIdx}_lan3Dl" type="text" value="${rt.speed_lan3_dl || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Download (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
-              <input id="sc_${cIdx}_lan3Ul" type="text" value="${rt.speed_lan3_ul || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Upload (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white" />
+              <input id="sc_${cIdx}_lan3Dl" type="text" value="${rt.speed_lan3_dl || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Download (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white tabular-nums" />
+              <input id="sc_${cIdx}_lan3Ul" type="text" value="${rt.speed_lan3_ul || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Upload (Mbps)" class="px-2.5 py-1.5 rounded border border-slate-300 text-xs bg-white tabular-nums" />
             </div>
           </div>
         </div>
@@ -3421,26 +3421,26 @@ function renderAdditionalSiteCircuitsInModal() {
                   <div class="flex items-center justify-between gap-1 flex-wrap mb-1">
                     <span class="text-xs font-semibold text-slate-700">ผลทดสอบ WiFi (≥ ${spec.wifiMinDl}/${spec.wifiMinUl}M)</span>
                     <div class="flex items-center gap-1">
-                      <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'ap${apIdx + 1}_wifi', 'wifi')" class="px-2 py-0.5 rounded bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-300 text-[11px] font-semibold">⚡ สร้างภาพ</button>
+                      <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'ap${apIdx + 1}_wifi', 'wifi')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold">สร้างภาพ</button>
                       <span id="sc_${cIdx}_apWifiBadge_${apIdx}">${validateApSpeedBadge(ap.speed_wifi_dl, ap.speed_wifi_ul, spec.wifiMinDl, spec.wifiMinUl)}</span>
                     </div>
                   </div>
                   <div class="grid grid-cols-2 gap-1.5">
-                    <input id="sc_${cIdx}_apWifiDl_${apIdx}" type="text" value="${ap.speed_wifi_dl || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Download (Mbps)" class="px-2 py-1 rounded border border-slate-300 text-xs bg-white" />
-                    <input id="sc_${cIdx}_apWifiUl_${apIdx}" type="text" value="${ap.speed_wifi_ul || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Upload (Mbps)" class="px-2 py-1 rounded border border-slate-300 text-xs bg-white" />
+                    <input id="sc_${cIdx}_apWifiDl_${apIdx}" type="text" value="${ap.speed_wifi_dl || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Download (Mbps)" class="px-2 py-1 rounded border border-slate-300 text-xs bg-white tabular-nums" />
+                    <input id="sc_${cIdx}_apWifiUl_${apIdx}" type="text" value="${ap.speed_wifi_ul || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Upload (Mbps)" class="px-2 py-1 rounded border border-slate-300 text-xs bg-white tabular-nums" />
                   </div>
                 </div>
                 <div class="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
                   <div class="flex items-center justify-between gap-1 flex-wrap mb-1">
                     <span class="text-xs font-semibold text-slate-700">ผลทดสอบ Port LAN (≥ ${spec.lanMinDl}/${spec.lanMinUl}M)</span>
                     <div class="flex items-center gap-1">
-                      <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'ap${apIdx + 1}_lan', '${spec.lanMinDl >= 350 ? 'gps_lan' : 'dls_lan'}')" class="px-2 py-0.5 rounded bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-300 text-[11px] font-semibold">⚡ สร้างภาพ</button>
+                      <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'ap${apIdx + 1}_lan', '${spec.lanMinDl >= 350 ? 'gps_lan' : 'dls_lan'}')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold">สร้างภาพ</button>
                       <span id="sc_${cIdx}_apLanBadge_${apIdx}">${validateApSpeedBadge(ap.speed_lan_dl, ap.speed_lan_ul, spec.lanMinDl, spec.lanMinUl)}</span>
                     </div>
                   </div>
                   <div class="grid grid-cols-2 gap-1.5">
-                    <input id="sc_${cIdx}_apLanDl_${apIdx}" type="text" value="${ap.speed_lan_dl || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Download (Mbps)" class="px-2 py-1 rounded border border-slate-300 text-xs bg-white" />
-                    <input id="sc_${cIdx}_apLanUl_${apIdx}" type="text" value="${ap.speed_lan_ul || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Upload (Mbps)" class="px-2 py-1 rounded border border-slate-300 text-xs bg-white" />
+                    <input id="sc_${cIdx}_apLanDl_${apIdx}" type="text" value="${ap.speed_lan_dl || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Download (Mbps)" class="px-2 py-1 rounded border border-slate-300 text-xs bg-white tabular-nums" />
+                    <input id="sc_${cIdx}_apLanUl_${apIdx}" type="text" value="${ap.speed_lan_ul || ''}" oninput="onAdditionalCircuitInput(${cIdx})" placeholder="Upload (Mbps)" class="px-2 py-1 rounded border border-slate-300 text-xs bg-white tabular-nums" />
                   </div>
                 </div>
               </div>
@@ -5195,11 +5195,11 @@ function setAdminFilter(mode) {
     const el = document.getElementById(cardId);
     if (!el) return;
     if (key === currentAdminFilter) {
-      el.classList.add('border-indigo-600', 'ring-2', 'ring-indigo-500/30');
-      el.classList.remove('border-transparent');
+      el.classList.add('border-2', 'border-slate-900');
+      el.classList.remove('border', 'border-slate-200');
     } else {
-      el.classList.remove('border-indigo-600', 'ring-2', 'ring-indigo-500/30');
-      el.classList.add('border-transparent');
+      el.classList.remove('border-2', 'border-slate-900');
+      el.classList.add('border', 'border-slate-200');
     }
   });
   renderAdminQueueTable();
@@ -5258,10 +5258,10 @@ function renderAdminQueueTable() {
 
   if (rows.length === 0) {
     container.innerHTML = `
-      <div class="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-500 text-xs shadow-sm space-y-2">
+      <div class="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-500 text-xs space-y-2">
         <p class="font-bold text-slate-700">ยังไม่มีรายการวงจรในตัวกรองหมวดนี้</p>
         <p>เมื่อช่างกด Check-in, บันทึกร่าง หรือส่งตรวจงานก่อนออกจากหน้างาน รายการจะแสดงที่นี่ทันที</p>
-        <button type="button" onclick="setAdminFilter('all_334')" class="px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white font-bold">
+        <button type="button" onclick="setAdminFilter('all_334')" class="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold">
           ดูรายชื่อครบทั้ง 334 วงจร
         </button>
       </div>
@@ -5284,7 +5284,7 @@ function renderAdminQueueTable() {
 
     const snHtml = (comp.snComparisons && comp.snComparisons.length > 0)
       ? comp.snComparisons.map(s => {
-          const icon = s.status === 'matched' ? '✅' : s.status === 'mismatch' ? '❌' : s.status === 'missing' ? '⬜' : '🔹';
+          const mark = s.status === 'matched' ? '✓' : s.status === 'mismatch' ? '!' : '·';
           const cls = s.status === 'matched'
             ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
             : s.status === 'mismatch'
@@ -5292,102 +5292,102 @@ function renderAdminQueueTable() {
               : 'bg-white text-slate-700 border-slate-200';
           return `
             <div class="px-2.5 py-1 rounded-lg border text-xs ${cls}">
-              <div>${icon} <strong>${s.deviceLabel}</strong></div>
+              <div><span class="font-mono font-bold mr-1">${mark}</span><strong>${s.deviceLabel}</strong></div>
               <div class="font-mono text-[11px] mt-0.5">S/N: <code>${s.manualSn || '-'}</code> ${s.ocrSn ? `| OCR: <code>${s.ocrSn}</code>` : ''}</div>
             </div>
           `;
         }).join('')
       : `
         <div class="px-2.5 py-1 rounded-lg border bg-white text-slate-700 border-slate-200 text-xs">
-          🖧 MikroTik (${r.router_summary?.model || 'RB3011'}): <code class="font-mono font-bold">${r.router_summary?.serial_no || '-'}</code>
+          MikroTik (${r.router_summary?.model || 'RB3011'}): <code class="font-mono font-bold">${r.router_summary?.serial_no || '-'}</code>
         </div>
         ${aps.map((a, idx) => `
           <div class="px-2.5 py-1 rounded-lg border bg-white text-slate-700 border-slate-200 text-xs">
-            📡 AP#${idx + 1} (${a.room || ''}): <code class="font-mono font-bold">${a.serial_no || '-'}</code>
+            AP#${idx + 1} (${a.room || ''}): <code class="font-mono font-bold">${a.serial_no || '-'}</code>
           </div>
         `).join('')}
       `;
 
-    let admBadge = `<span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">⏳ รอช่างดำเนินการ</span>`;
+    let admBadge = `<span class="px-2.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold">รอช่างดำเนินการ</span>`;
     if (r.admin_status === 'pending_review') {
-      admBadge = `<span class="px-3 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-xs font-extrabold animate-pulse">⏳ รอผู้ตรวจรับอนุมัติก่อนช่างออกจาก Site</span>`;
+      admBadge = `<span class="px-2.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-300 text-xs font-bold">รอผู้ตรวจรับอนุมัติก่อนช่างออกจาก Site</span>`;
     } else if (r.admin_status === 'approved') {
-      admBadge = `<span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-extrabold">✅ ตรวจผ่านแล้ว — ช่างออกจาก Site ได้ (${r.admin_reviewer || r.admin_name || '1-TO-ALL'})</span>`;
+      admBadge = `<span class="px-2.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-bold">ตรวจผ่านแล้ว — ช่างออกได้ (${r.admin_reviewer || r.admin_name || 'ผู้ตรวจรับ'})</span>`;
     } else if (r.admin_status === 'rejected') {
-      admBadge = `<span class="px-3 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-300 text-xs font-extrabold">❌ ให้ช่างแก้ไขก่อนออก (${r.admin_review_note || r.admin_comment || '-'})</span>`;
+      admBadge = `<span class="px-2.5 py-0.5 rounded bg-rose-50 text-rose-800 border border-rose-300 text-xs font-bold">ให้ช่างแก้ไขก่อนออก (${r.admin_review_note || r.admin_comment || '-'})</span>`;
     } else if (r.checkin_status === 'checked_in') {
-      admBadge = `<span class="px-3 py-1 rounded-full bg-blue-100 text-blue-800 border border-blue-300 text-xs font-extrabold">🟢 ช่างกำลังอยู่ใน Site</span>`;
+      admBadge = `<span class="px-2.5 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200 text-xs font-bold">ช่างกำลังอยู่ใน Site</span>`;
     }
 
     return `
-      <div class="bg-white rounded-2xl border-2 ${r.admin_status === 'pending_review' ? 'border-amber-400' : 'border-slate-200'} p-4 shadow-sm hover:shadow-md transition">
+      <div class="bg-white rounded-xl border ${r.admin_status === 'pending_review' ? 'border-amber-400' : 'border-slate-200'} p-4 shadow-sm hover:border-slate-400 transition">
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-slate-100">
           <div class="flex flex-wrap items-center gap-2">
-            <span class="px-2.5 py-1 rounded-lg bg-slate-900 text-white font-mono text-xs font-extrabold">${r.so_number}</span>
-            <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-xs font-bold">${r.service_no || '-'}</span>
-            <span class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-800 text-xs font-extrabold">${r.province}</span>
-            <span class="text-xs font-bold text-slate-800">${r.branch_name || ''}</span>
+            <span class="px-2.5 py-1 rounded bg-slate-900 text-white font-mono text-xs font-bold">${r.so_number}</span>
+            <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-xs font-semibold">${r.service_no || '-'}</span>
+            <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200 text-xs font-semibold">จ.${r.province}</span>
+            <span class="text-xs font-bold text-slate-900">${r.branch_name || ''}</span>
             ${admBadge}
           </div>
           <div class="flex items-center gap-1.5 flex-wrap">
-            <button onclick="openInspectionModal('${r.so_number}')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition">
-              🔍 ตรวจรูป/ข้อมูล
+            <button onclick="openInspectionModal('${r.so_number}')" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition">
+              ตรวจรูป/ข้อมูล
             </button>
-            <a href="/report.html?id=${encodeURIComponent(r.so_number)}" target="_blank" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-extrabold transition">
-              🖨️ รายงาน PDF (5.1 & 5.2)
+            <a href="/report.html?id=${encodeURIComponent(r.so_number)}" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-medium transition">
+              รายงาน PDF
             </a>
-            <a href="/api/circuits/${encodeURIComponent(r.so_number)}/report.docx" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold transition">
-              📝 Word
+            <a href="/api/circuits/${encodeURIComponent(r.so_number)}/report.docx" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-medium transition">
+              Word
             </a>
-            <button onclick="promptAdminReview('${r.so_number}', 'approved')" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold shadow-sm transition">
-              ✅ อนุมัติให้ช่างออก
+            <button onclick="promptAdminReview('${r.so_number}', 'approved')" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition">
+              อนุมัติให้ช่างออก
             </button>
-            <button onclick="promptAdminReview('${r.so_number}', 'rejected')" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold shadow-sm transition">
-              ❌ สั่งแก้ก่อนออก
+            <button onclick="promptAdminReview('${r.so_number}', 'rejected')" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold transition">
+              สั่งแก้ก่อนออก
             </button>
           </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3">
-          <div class="bg-slate-50 rounded-xl p-3 border border-slate-200/80 text-xs space-y-1">
-            <div class="font-extrabold text-slate-700">1. ประสานช่างหน้างาน & ข้อมูลห้อง</div>
-            <div>👷 ช่าง: <strong>${r.inspector_name || '-'}</strong> ${r.inspector_phone ? `(<a href="tel:${r.inspector_phone}" class="text-indigo-600 underline">${r.inspector_phone}</a>)` : ''}</div>
-            <div class="text-emerald-700 font-semibold">📍 Check-in: ${checkinStr}</div>
-            <div class="text-indigo-700 font-semibold">🏁 ส่งตรวจ: ${checkoutStr}</div>
+          <div class="bg-slate-50 rounded-lg p-3 border border-slate-200 text-xs space-y-1">
+            <div class="font-bold text-slate-800">1. ประสานช่างหน้างาน & ข้อมูลห้อง</div>
+            <div>ช่าง: <strong>${r.inspector_name || '-'}</strong> ${r.inspector_phone ? `(<a href="tel:${r.inspector_phone}" class="text-sky-700 underline font-mono">${r.inspector_phone}</a>)` : ''}</div>
+            <div class="text-emerald-700 font-medium tabular-nums">Check-in: ${checkinStr}</div>
+            <div class="text-slate-700 font-medium tabular-nums">ส่งตรวจ: ${checkoutStr}</div>
             ${geccAp ? `
-              <div class="mt-1.5 pt-1.5 border-t border-amber-200 bg-amber-50/80 rounded p-2 space-y-1 text-[11px]">
-                <div class="font-extrabold text-amber-950">🔐 มีห้อง GECC (ต่อ LAN/WiFi ต้องลงทะเบียน Authen ก่อนเทส):</div>
+              <div class="mt-1.5 pt-1.5 border-t border-amber-200 bg-amber-50/70 rounded p-2 space-y-1 text-[11px]">
+                <div class="font-bold text-amber-950">มีห้อง GECC (ต่อ LAN/WiFi ต้องลงทะเบียน Authen ก่อนเทส):</div>
                 <div class="flex flex-wrap gap-1">
-                  <span class="px-1.5 py-0.5 rounded ${geccAp.gecc_authen_wifi ? 'bg-emerald-100 text-emerald-800' : 'bg-white text-slate-600'} border">${geccAp.gecc_authen_wifi ? '✅ ลงทะเบียน Authen & เทสความเร็วแล้ว' : 'ℹ️ ทำเหมือนห้องปกติ (ลงทะเบียน Authen ก่อนเทส)'}</span>
+                  <span class="px-1.5 py-0.5 rounded ${geccAp.gecc_authen_wifi ? 'bg-emerald-100 text-emerald-800' : 'bg-white text-slate-600'} border">${geccAp.gecc_authen_wifi ? '✓ ลงทะเบียน Authen & เทสความเร็วแล้ว' : 'ทำเหมือนห้องปกติ (ลงทะเบียน Authen ก่อนเทส)'}</span>
                 </div>
               </div>
-            ` : `<div class="text-[11px] text-slate-500 pt-1">ℹ️ ห้องในวงจรนี้: ${aps.map(a => a.room).join(', ') || '-'}</div>`}
+            ` : `<div class="text-[11px] text-slate-500 pt-1">ห้องในวงจรนี้: ${aps.map(a => a.room).join(', ') || '-'}</div>`}
           </div>
 
-          <div class="bg-slate-50 rounded-xl p-3 border border-slate-200/80 text-xs space-y-1.5">
+          <div class="bg-slate-50 rounded-lg p-3 border border-slate-200 text-xs space-y-1.5">
             <div class="flex items-center justify-between gap-1 flex-wrap">
-              <span class="font-extrabold text-slate-700">2. รูปอุปกรณ์หน้างาน & สแกนใบส่งมอบ</span>
-              <div class="flex items-center gap-1 flex-wrap">
-                <span class="px-2 py-0.5 rounded-full text-[11px] font-extrabold ${
-                  comp.isOnsitePhotoComplete ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                }">📷 หน้างาน ${comp.onsiteUploadedCount ?? comp.uploadedRequiredCount}/${comp.onsiteRequiredCount ?? comp.totalRequiredCount}</span>
-                <span class="px-2 py-0.5 rounded-full text-[11px] font-extrabold ${
-                  comp.isHandoverComplete ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-200 text-slate-700'
-                }">🖨️ ใบส่งมอบ ${comp.handoverUploadedCount ?? 0}/2 หน้า</span>
+              <span class="font-bold text-slate-800">2. รูปอุปกรณ์หน้างาน & สแกนใบส่งมอบ</span>
+              <div class="flex items-center gap-1 flex-wrap tabular-nums">
+                <span class="px-2 py-0.5 rounded text-[11px] font-semibold ${
+                  comp.isOnsitePhotoComplete ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'
+                }">หน้างาน ${comp.onsiteUploadedCount ?? comp.uploadedRequiredCount}/${comp.onsiteRequiredCount ?? comp.totalRequiredCount}</span>
+                <span class="px-2 py-0.5 rounded text-[11px] font-semibold ${
+                  comp.isHandoverComplete ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-white text-slate-700 border border-slate-200'
+                }">ใบส่งมอบ ${comp.handoverUploadedCount ?? 0}/2 หน้า</span>
               </div>
             </div>
             ${(comp.missingOnsitePhotoLabels || []).length > 0 ? `
               <div class="text-[11px] text-rose-600 leading-relaxed">
                 <strong>รูปหน้างานที่ยังขาด:</strong> ${comp.missingOnsitePhotoLabels.join(', ')}
               </div>
-            ` : ((comp.onsiteUploadedCount ?? 0) > 0 ? `<div class="text-emerald-700 font-bold">✅ รูปอุปกรณ์และผลเทสความเร็วหน้างานครบถ้วนแล้ว</div>` : `<div class="text-slate-500 text-[11px]">รอช่างอัปโหลดรูปภาพอุปกรณ์และผลเทสความเร็ว</div>`)}
-            <div class="text-[11px] ${comp.isHandoverComplete ? 'text-indigo-700 font-bold' : 'text-amber-800'}">
-              ${comp.isHandoverComplete ? '✅ สแกนใบแบบส่งมอบงานครบทั้ง 2 หน้าแล้ว (พร้อมพิมพ์ PDF ส่งลูกค้า)' : '⏳ ใบแบบส่งมอบงาน (หน้า 1–2): สามารถใช้ Scanner สแกนตามหลังเข้าหน้างานได้'}
+            ` : ((comp.onsiteUploadedCount ?? 0) > 0 ? `<div class="text-emerald-700 font-semibold">✓ รูปอุปกรณ์และผลเทสความเร็วหน้างานครบถ้วนแล้ว</div>` : `<div class="text-slate-500 text-[11px]">รอช่างอัปโหลดรูปภาพอุปกรณ์และผลเทสความเร็ว</div>`)}
+            <div class="text-[11px] ${comp.isHandoverComplete ? 'text-emerald-700 font-semibold' : 'text-slate-600'}">
+              ${comp.isHandoverComplete ? '✓ สแกนใบแบบส่งมอบงานครบทั้ง 2 หน้าแล้ว (พร้อมพิมพ์ PDF ส่งลูกค้า)' : 'ใบแบบส่งมอบงาน (หน้า 1–2): ใช้ Scanner สแกนแนบ 2 หน้า'}
             </div>
           </div>
 
-          <div class="bg-slate-50 rounded-xl p-3 border border-slate-200/80 text-xs space-y-1.5">
-            <div class="font-extrabold text-slate-700">3. อุปกรณ์ & รหัส S/N ประจำวงจร</div>
+          <div class="bg-slate-50 rounded-lg p-3 border border-slate-200 text-xs space-y-1.5">
+            <div class="font-bold text-slate-800">3. อุปกรณ์ & รหัส S/N ประจำวงจร</div>
             <div class="grid grid-cols-1 gap-1">
               ${snHtml}
             </div>
