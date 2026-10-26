@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="color-scheme" content="light" />
+  <meta name="color-scheme" content="light dark" />
   <meta name="robots" content="noindex" />
   <title>ศูนย์ตรวจรับงาน · DLT Onsite</title>
+  <script src="/theme.js?v=1"></script>
   <link rel="stylesheet" href="/fonts/fonts.css" />
-  <link rel="stylesheet" href="/admin.css?v=3" />
+  <link rel="stylesheet" href="/admin.css?v=4" />
 </head>
 <body>
   <header class="top" id="top" hidden>
@@ -20,6 +21,7 @@
     </nav>
     <div class="who">
       <span id="whoName"></span>
+      <button class="btn btn--quiet btn--sm" id="themeBtn" type="button"></button>
       <button class="btn btn--quiet btn--sm" id="logoutBtn" type="button">ออกจากระบบ</button>
     </div>
   </header>
@@ -30,6 +32,6 @@
   <dialog id="lightbox" class="lightbox" aria-label="ดูรูปขยาย"></dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <noscript><p style="padding:24px">ต้องเปิดใช้งาน JavaScript เพื่อใช้งานหน้านี้</p></noscript>
-  <script src="/admin.js?v=3"></script>
+  <script src="/admin.js?v=4"></script>
 </body>
 </html>

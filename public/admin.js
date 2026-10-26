@@ -961,6 +961,10 @@
     else if (e.key.toLowerCase() === 'f') { toggleFlag(S.photos[lbIndex].key); drawLightbox(); renderDetail(); }
   });
 
+  const themeBtn = $('#themeBtn');
+  const paintTheme = () => { if (themeBtn && window.dltTheme) { themeBtn.textContent = 'ธีม: ' + window.dltTheme.label(); themeBtn.setAttribute('aria-label', 'เปลี่ยนธีมหน้าจอ ตอนนี้: ' + window.dltTheme.label()); } };
+  if (themeBtn) { themeBtn.addEventListener('click', () => { window.dltTheme.cycle(); paintTheme(); }); paintTheme(); }
+
   $('#logoutBtn').addEventListener('click', async () => {
     try { await api('/api/admin/logout', { method: 'POST', body: {} }); } catch (_) { /* ignore */ }
     S.me = null; S.sites = []; S.detail = null; S.detailKey = '';

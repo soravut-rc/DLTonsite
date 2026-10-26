@@ -707,6 +707,7 @@
         </div>
         <div id="results"></div>
         <a class="footer-link" href="/?desk=1">เปิดหน้าสำหรับออฟฟิศ / ผู้ตรวจ →</a>
+        <div style="text-align:center"><button class="btn btn--link" data-act="theme" id="themeBtn">ธีม: ${(window.dltTheme && window.dltTheme.label()) || 'อัตโนมัติ'}</button></div>
       </main>`;
     renderHomeResults();
     const q = $('#q');
@@ -1459,6 +1460,7 @@
       case 'provinces': openProvinceSheet(); break;
       case 'pick-province': S.province = el.dataset.v || ''; S.near = null; $('#sheet') && $('#sheet').close(); render(); break;
       case 'profile': openProfileSheet(); break;
+      case 'theme': { if (window.dltTheme) { window.dltTheme.cycle(); el.textContent = 'ธีม: ' + window.dltTheme.label(); } break; }
       case 'close-sheet': $('#sheet') && $('#sheet').close(); break;
       case 'save-profile':
         S.profile = { name: ($('#pfName').value || '').trim(), phone: ($('#pfPhone').value || '').trim() };
