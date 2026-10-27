@@ -73,6 +73,9 @@
     .hidden {
       display: none !important;
     }
+    body[data-active-tab="admin"] .admin-only-speedtest-btn {
+      display: inline-flex !important;
+    }
     /* Inside a coloured circuit frame, inner panels stay white so the frame's tint only shows around them */
     .circuit-tint .bg-slate-50,
     .circuit-tint .bg-slate-50\/50 {
@@ -114,22 +117,12 @@
           <span>คู่มือขั้นตอน</span>
         </button>
 
-        <a href="/speedtest.html" target="_blank" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 transition inline-flex items-center gap-1.5">
-          <svg class="w-3.5 h-3.5 text-sky-600" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
-          <span>สร้างภาพ Speedtest</span>
-        </a>
-
         <button onclick="openAddCircuitModal()" class="hidden sm:inline-flex px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 transition items-center gap-1">
           <svg class="w-3.5 h-3.5 text-slate-500" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
           <span>เพิ่มวงจร</span>
         </button>
 
         <button type="button" id="themeBtn" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 transition whitespace-nowrap" aria-label="เปลี่ยนธีมหน้าจอ"></button>
-
-        <button type="button" onclick="exportUpdatedExcelSummary()" class="inline-flex px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white transition items-center gap-1.5">
-          <svg class="w-3.5 h-3.5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <span>ดาวน์โหลด Excel (.xlsx)</span>
-        </button>
       </div>
     </div>
 
@@ -404,9 +397,9 @@
           </p>
         </div>
         <div class="flex items-center gap-2 flex-wrap shrink-0">
-          <button type="button" onclick="exportUpdatedExcelSummary()" class="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition inline-flex items-center gap-1.5">
-            <svg class="w-4 h-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2"/><path d="M8 17h2"/><path d="M14 13h2"/><path d="M14 17h2"/></svg>
-            <span>ดาวน์โหลดสรุป Excel (.xlsx)</span>
+          <button type="button" onclick="switchTab('admin')" class="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition inline-flex items-center gap-1.5">
+            <svg class="w-4 h-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>ไปที่หน้าผู้ตรวจรับงาน (Admin)</span>
           </button>
           <a href="/api/export/csv" class="px-3.5 py-2 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold transition inline-flex items-center gap-1.5">
             <svg class="w-4 h-4 text-slate-500" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -700,8 +693,16 @@
             ตรวจสอบความครบถ้วนของรูปถ่ายอุปกรณ์ + Sticker S/N + ผลทดสอบความเร็วทุกห้อง (DLS / GPS / VICC / GECC) <strong>ก่อนกดอนุมัติให้ช่าง Check-out ออกจากหน้างาน</strong>
           </p>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <input id="adminNameInput" type="text" value="เจ้าหน้าที่ตรวจรับ (บริษัท)" placeholder="ชื่อผู้ตรวจรับงาน..." class="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-300 text-slate-900 text-xs font-medium w-48" />
+        <div class="flex items-center gap-2 flex-wrap shrink-0">
+          <input id="adminNameInput" type="text" value="เจ้าหน้าที่ตรวจรับ (บริษัท)" placeholder="ชื่อผู้ตรวจรับงาน..." class="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-300 text-slate-900 text-xs font-medium w-44" />
+          <a href="/speedtest.html" target="_blank" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 transition inline-flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-sky-600" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
+            <span>สร้างภาพ Speedtest</span>
+          </a>
+          <button type="button" onclick="exportUpdatedExcelSummary()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 text-white transition inline-flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>ดาวน์โหลด Excel (.xlsx)</span>
+          </button>
           <button type="button" onclick="loadAdminOverview()" class="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition inline-flex items-center gap-1.5">
             <svg class="w-3.5 h-3.5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
             <span>รีเฟรชข้อมูลสด</span>
@@ -1095,7 +1096,7 @@
                 <div class="flex items-center justify-between gap-1 flex-wrap">
                   <span class="text-xs font-semibold text-slate-700">ผลเทส Port 2 (เกณฑ์ ≥ 650/350 Mbps)</span>
                   <div class="flex items-center gap-1">
-                    <button type="button" onclick="openSpeedtestGenerator(0, 'router_lan2', 'router')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold inline-flex items-center gap-1">
+                    <button type="button" onclick="openSpeedtestGenerator(0, 'router_lan2', 'router')" class="admin-only-speedtest-btn hidden px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold items-center gap-1">
                       <svg class="w-3 h-3 text-sky-600" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
                       <span>สร้างภาพ</span>
                     </button>
@@ -1112,7 +1113,7 @@
                 <div class="flex items-center justify-between gap-1 flex-wrap">
                   <span class="text-xs font-semibold text-slate-700">ผลเทส Port 3 (เกณฑ์ ≥ 650/350 Mbps)</span>
                   <div class="flex items-center gap-1">
-                    <button type="button" onclick="openSpeedtestGenerator(0, 'router_lan3', 'router')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold inline-flex items-center gap-1">
+                    <button type="button" onclick="openSpeedtestGenerator(0, 'router_lan3', 'router')" class="admin-only-speedtest-btn hidden px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold items-center gap-1">
                       <svg class="w-3 h-3 text-sky-600" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
                       <span>สร้างภาพ</span>
                     </button>
@@ -1418,6 +1419,6 @@
   <!-- Toast Notification -->
   <div id="toastBox" class="fixed bottom-4 right-4 z-50 hidden bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl border border-slate-700 text-xs font-semibold"></div>
 
-  <script src="/app.js?v=20261026e"></script>
+  <script src="/app.js?v=20261027a"></script>
 </body>
 </html>

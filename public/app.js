@@ -223,6 +223,7 @@ function renderHeaderAndCards() {
 }
 
 function switchTab(tab) {
+  document.body.dataset.activeTab = tab;
   const views = {
     circuits: document.getElementById('viewCircuits'),
     linebot: document.getElementById('viewLinebot'),
@@ -2598,7 +2599,7 @@ function renderAccessPointCards() {
             <div class="flex items-center justify-between gap-1 flex-wrap mb-1.5">
               <span class="text-xs font-semibold text-slate-700">ผลทดสอบ WiFi (≥ ${spec.wifiMinDl}/${spec.wifiMinUl}M)</span>
               <div class="flex items-center gap-1">
-                <button type="button" onclick="openSpeedtestGenerator(0, 'ap${idx + 1}_wifi', 'wifi')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold">สร้างภาพ</button>
+                <button type="button" onclick="openSpeedtestGenerator(0, 'ap${idx + 1}_wifi', 'wifi')" class="admin-only-speedtest-btn hidden px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold">สร้างภาพ</button>
                 <span id="apWifiBadge_${idx}">${validateApSpeedBadge(ap.speed_wifi_dl, ap.speed_wifi_ul, spec.wifiMinDl, spec.wifiMinUl)}</span>
               </div>
             </div>
@@ -2611,7 +2612,7 @@ function renderAccessPointCards() {
             <div class="flex items-center justify-between gap-1 flex-wrap mb-1.5">
               <span class="text-xs font-semibold text-slate-700">ผลทดสอบ Port LAN (≥ ${spec.lanMinDl}/${spec.lanMinUl}M)</span>
               <div class="flex items-center gap-1">
-                <button type="button" onclick="openSpeedtestGenerator(0, 'ap${idx + 1}_lan', '${spec.lanMinDl >= 350 ? 'gps_lan' : 'dls_lan'}')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold">สร้างภาพ</button>
+                <button type="button" onclick="openSpeedtestGenerator(0, 'ap${idx + 1}_lan', '${spec.lanMinDl >= 350 ? 'gps_lan' : 'dls_lan'}')" class="admin-only-speedtest-btn hidden px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold">สร้างภาพ</button>
                 <span id="apLanBadge_${idx}">${validateApSpeedBadge(ap.speed_lan_dl, ap.speed_lan_ul, spec.lanMinDl, spec.lanMinUl)}</span>
               </div>
             </div>
@@ -3285,7 +3286,7 @@ function renderAdditionalSiteCircuitsInModal() {
             <div class="flex items-center justify-between gap-1 flex-wrap mb-1.5">
               <span class="text-xs font-semibold text-slate-700">ผลทดสอบ Port 2 (≥ 650/350M)</span>
               <div class="flex items-center gap-1">
-                <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'router_lan2', 'router')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold">สร้างภาพ</button>
+                <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'router_lan2', 'router')" class="admin-only-speedtest-btn hidden px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold">สร้างภาพ</button>
                 <span id="sc_${cIdx}_lan2Badge">${validateApSpeedBadge(rt.speed_lan2_dl, rt.speed_lan2_ul, 650, 350)}</span>
               </div>
             </div>
@@ -3298,7 +3299,7 @@ function renderAdditionalSiteCircuitsInModal() {
             <div class="flex items-center justify-between gap-1 flex-wrap mb-1.5">
               <span class="text-xs font-semibold text-slate-700">ผลทดสอบ Port 3 (≥ 650/350M)</span>
               <div class="flex items-center gap-1">
-                <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'router_lan3', 'router')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold">สร้างภาพ</button>
+                <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'router_lan3', 'router')" class="admin-only-speedtest-btn hidden px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold">สร้างภาพ</button>
                 <span id="sc_${cIdx}_lan3Badge">${validateApSpeedBadge(rt.speed_lan3_dl, rt.speed_lan3_ul, 650, 350)}</span>
               </div>
             </div>
@@ -3421,7 +3422,7 @@ function renderAdditionalSiteCircuitsInModal() {
                   <div class="flex items-center justify-between gap-1 flex-wrap mb-1">
                     <span class="text-xs font-semibold text-slate-700">ผลทดสอบ WiFi (≥ ${spec.wifiMinDl}/${spec.wifiMinUl}M)</span>
                     <div class="flex items-center gap-1">
-                      <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'ap${apIdx + 1}_wifi', 'wifi')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold">สร้างภาพ</button>
+                      <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'ap${apIdx + 1}_wifi', 'wifi')" class="admin-only-speedtest-btn hidden px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold">สร้างภาพ</button>
                       <span id="sc_${cIdx}_apWifiBadge_${apIdx}">${validateApSpeedBadge(ap.speed_wifi_dl, ap.speed_wifi_ul, spec.wifiMinDl, spec.wifiMinUl)}</span>
                     </div>
                   </div>
@@ -3434,7 +3435,7 @@ function renderAdditionalSiteCircuitsInModal() {
                   <div class="flex items-center justify-between gap-1 flex-wrap mb-1">
                     <span class="text-xs font-semibold text-slate-700">ผลทดสอบ Port LAN (≥ ${spec.lanMinDl}/${spec.lanMinUl}M)</span>
                     <div class="flex items-center gap-1">
-                      <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'ap${apIdx + 1}_lan', '${spec.lanMinDl >= 350 ? 'gps_lan' : 'dls_lan'}')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold">สร้างภาพ</button>
+                      <button type="button" onclick="openSpeedtestGenerator(${cIdx}, 'ap${apIdx + 1}_lan', '${spec.lanMinDl >= 350 ? 'gps_lan' : 'dls_lan'}')" class="admin-only-speedtest-btn hidden px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold">สร้างภาพ</button>
                       <span id="sc_${cIdx}_apLanBadge_${apIdx}">${validateApSpeedBadge(ap.speed_lan_dl, ap.speed_lan_ul, spec.lanMinDl, spec.lanMinUl)}</span>
                     </div>
                   </div>
@@ -5576,7 +5577,8 @@ async function handleScannerHandoverUpload(fileInput) {
 // ============================================================================
 async function exportUpdatedExcelSummary() {
   try {
-    showToast('📊 กำลังสร้างไฟล์สรุป Excel ใหม่ (.xlsx) สำหรับทั้ง 334 วงจร...');
+    showToast('📊 กำลังดึงข้อมูลสดและสร้างไฟล์สรุป Excel (.xlsx) สำหรับทั้ง 334 วงจร...');
+    await loadCircuits(false);
     if (!Array.isArray(allCircuits) || allCircuits.length === 0) {
       await refreshAllData();
     }
@@ -5592,6 +5594,36 @@ async function exportUpdatedExcelSummary() {
       const rt = c.router_info || {};
       const aps = Array.isArray(c.access_points) ? c.access_points.filter(a => a && a.checked !== false) : [];
       const comp = c.completeness || {};
+
+      const onsiteUp = c.onsite_photo_count ?? comp.onsiteUploadedCount ?? 0;
+      const onsiteReq = c.onsite_required_count ?? comp.onsiteRequiredCount ?? (3 + aps.length * 3);
+      const handoverUp = c.handover_scan_count ?? comp.handoverUploadedCount ?? ((rt.photo_handover_p1 || rt.photo_signed_doc ? 1 : 0) + (rt.photo_handover_p2 ? 1 : 0));
+      const totalUp = onsiteUp + handoverUp;
+      const totalReq = onsiteReq + 2;
+      const isAllPhotoComplete = Boolean(c.is_photo_complete ?? comp.isPhotoComplete ?? (onsiteUp >= onsiteReq && handoverUp >= 2));
+
+      const missingList = [];
+      if (Array.isArray(comp.missingPhotoLabels) && comp.missingPhotoLabels.length > 0) {
+        missingList.push(...comp.missingPhotoLabels);
+      } else if (!isAllPhotoComplete) {
+        if (!rt.photo_device) missingList.push('1.1 รูป MikroTik (S/N)');
+        if (!rt.photo_lan2) missingList.push('1.2 เทส LAN 2');
+        if (!rt.photo_lan3) missingList.push('1.3 เทส LAN 3');
+        aps.forEach((ap, apIdx) => {
+          const apNum = apIdx + 1;
+          if (!ap.photo_device) missingList.push(`2.${apNum}.1 รูป AP#${apNum}`);
+          if (!ap.photo_wifi) missingList.push(`2.${apNum}.2 เทส WiFi AP#${apNum}`);
+          if (!ap.photo_lan) missingList.push(`2.${apNum}.3 เทสสาย LAN AP#${apNum}`);
+        });
+        if (!(rt.photo_handover_p1 || rt.photo_signed_doc)) missingList.push('4.1 ใบส่งมอบหน้า 1/2');
+        if (!rt.photo_handover_p2) missingList.push('4.2 ใบส่งมอบหน้า 2/2');
+      }
+
+      const photoOverallStatus = isAllPhotoComplete
+        ? `ครบถ้วนทุกรูป (${totalUp}/${totalReq})`
+        : totalUp > 0
+          ? `ยังไม่ครบ (แนบแล้ว ${totalUp}/${totalReq} รูป)`
+          : `ยังไม่ได้แนบรูป (0/${totalReq})`;
 
       const roomListStr = aps.map(a => a.room || a.room_type || 'AP').join(' + ') || 'ไม่มี AP';
       const rtModel = rt.model || 'RB3011';
@@ -5641,8 +5673,10 @@ async function exportUpdatedExcelSummary() {
         'ผลเทส Speed Port 2': rtP2,
         'ผลเทส Speed Port 3': rtP3,
         'รายละเอียดอุปกรณ์ Access Point ทุกห้อง': apSummaryText,
-        'รูปอุปกรณ์+เทสหน้างาน': `${comp.onsiteUploadedCount ?? 0}/${comp.onsiteRequiredCount ?? (3 + aps.length * 3)}`,
-        'สแกนใบส่งมอบงาน (หน้า 1-2)': `${comp.handoverUploadedCount ?? 0}/2 หน้า`,
+        'สถานะแนบรูปภาพรวม': photoOverallStatus,
+        'รูปอุปกรณ์+เทสหน้างาน': `${onsiteUp}/${onsiteReq}`,
+        'สแกนใบส่งมอบงาน (หน้า 1-2)': `${handoverUp}/2 หน้า`,
+        'รายการรูปที่ยังขาด': isAllPhotoComplete ? 'ครบถ้วน' : missingList.join(' | '),
         'สถานะตรวจรับ (บริษัท QA)': qaLabel,
         'ผู้ตรวจรับงาน (QA)': c.admin_name || c.admin_reviewer || '',
         'ช่างผู้เข้าดำเนินการ': c.inspector_name || '',
@@ -5672,6 +5706,8 @@ async function exportUpdatedExcelSummary() {
         'ผลเทส WiFi / Port 3 (DL/UL)': rtP3,
         'หมายเหตุห้อง GECC (ลงทะเบียน Authen)': '-',
         'มีรูปอุปกรณ์+Sticker': rt.photo_device ? 'มีรูปแล้ว' : 'ยังไม่มี',
+        'มีรูปเทส LAN / Port 2': rt.photo_lan2 ? 'มีรูปแล้ว' : 'ยังไม่มี',
+        'มีรูปเทส WiFi / Port 3': rt.photo_lan3 ? 'มีรูปแล้ว' : 'ยังไม่มี',
         'มีรูปผลเทสความเร็วครบ': (rt.photo_lan2 && rt.photo_lan3) ? 'ครบ 2 พอร์ต' : 'ยังไม่ครบ'
       });
 
@@ -5707,6 +5743,8 @@ async function exportUpdatedExcelSummary() {
           'ผลเทส WiFi / Port 3 (DL/UL)': wifiSpd,
           'หมายเหตุห้อง GECC (ลงทะเบียน Authen)': geccInfo,
           'มีรูปอุปกรณ์+Sticker': ap.photo_device ? 'มีรูปแล้ว' : 'ยังไม่มี',
+          'มีรูปเทส LAN / Port 2': ap.photo_lan ? 'มีรูปแล้ว' : 'ยังไม่มี',
+          'มีรูปเทส WiFi / Port 3': ap.photo_wifi ? 'มีรูปแล้ว' : 'ยังไม่มี',
           'มีรูปผลเทสความเร็วครบ': (ap.photo_lan && ap.photo_wifi) ? 'ครบ (LAN+WiFi)' : 'ยังไม่ครบ'
         });
       });

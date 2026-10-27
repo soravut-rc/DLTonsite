@@ -479,14 +479,26 @@
 
   function speedTable(c) {
     const val = (d, u) => (d == null && u == null ? '-' : `${d ?? '-'} / ${u ?? '-'}`);
+    const slotParamOf = key => {
+      const m = String(key || '').match(/^ap_(\d+)_(wifi|lan)$/);
+      return m ? `ap${Number(m[1]) + 1}_${m[2]}` : (key || 'router_lan2');
+    };
+    const presetOf = s => {
+      if (String(s.key || '').startsWith('router_')) return 'router';
+      if (String(s.key || '').endsWith('_wifi')) return 'wifi';
+      return (s.minDl >= 350) ? 'gps_lan' : 'dls_lan';
+    };
     return `<h3>ผลทดสอบความเร็ว (ดาวน์โหลด / อัปโหลด Mbps)</h3><div class="table-wrap"><table>
-      <thead><tr><th>รายการ</th><th class="r">ค่าที่ช่างกรอก</th><th class="r">เกณฑ์ขั้นต่ำ</th><th>ผล</th></tr></thead>
+      <thead><tr><th>รายการ</th><th class="r">ค่าที่ช่างกรอก</th><th class="r">เกณฑ์ขั้นต่ำ</th><th>ผล</th><th>เครื่องมือ</th></tr></thead>
       <tbody>${c.checks.speeds.map(s => {
         let res = '<span class="status-warn">ไม่มีค่าที่กรอก — ดูจากรูป</span>';
         if (s.status === 'pass') res = '<span class="status-ok">ผ่านเกณฑ์</span>';
         else if (s.status === 'fail') res = '<span class="status-bad">ต่ำกว่าเกณฑ์</span>';
         else if (!s.hasPhoto) res = '<span class="status-bad">ยังไม่มีรูปและค่า</span>';
-        return `<tr><td>${esc(s.label)}</td><td class="r num">${val(s.dl, s.ul)}</td><td class="r num">≥ ${s.minDl} / ${s.minUl}</td><td>${res}</td></tr>`;
+        const spParams = new URLSearchParams({ so: c.so_number, slot: slotParamOf(s.key), preset: presetOf(s) });
+        if (s.dl != null) spParams.set('dl', s.dl);
+        if (s.ul != null) spParams.set('ul', s.ul);
+        return `<tr><td>${esc(s.label)}</td><td class="r num">${val(s.dl, s.ul)}</td><td class="r num">≥ ${s.minDl} / ${s.minUl}</td><td>${res}</td><td><a class="btn btn--sm" href="/speedtest.html?${spParams}" target="_blank" rel="noopener">สร้างภาพ</a></td></tr>`;
       }).join('')}</tbody></table></div>
       ${c.checks.gecc.length ? `<p class="small" style="margin-top:8px">ห้อง GECC: ${c.checks.gecc.map(g => `${esc(g.label)} — <span class="status-${g.authen ? 'ok' : 'warn'}">${g.authen ? 'ยืนยัน Authen แล้ว' : 'ยังไม่ยืนยัน Authen'}</span>`).join(' · ')}</p>` : ''}`;
   }
@@ -762,12 +774,15 @@
         </section>
 
         <section class="section" aria-labelledby="hCsv">
-          <h2 id="hCsv">2. ตารางภาพรวม (CSV เปิดด้วย Excel)</h2>
+          <h2 id="hCsv">2. ตารางภาพรวม (Excel .xlsx / CSV)</h2>
           <div class="checks" role="radiogroup" aria-label="ระดับข้อมูล">
             <label><input type="radio" name="level" value="sites" ${exp.level === 'sites' ? 'checked' : ''} /> ระดับ Site (1 แถวต่อ Site)</label>
             <label><input type="radio" name="level" value="circuits" ${exp.level === 'circuits' ? 'checked' : ''} /> ระดับวงจร (1 แถวต่อวงจร พร้อมรายละเอียดอุปกรณ์ S/N ความเร็ว)</label>
           </div>
-          <div class="row-actions"><a class="btn btn--primary" id="csvBtn" href="#">ดาวน์โหลด CSV</a></div>
+          <div class="row-actions">
+            <button class="btn btn--primary" id="xlsxPageBtn" type="button">ดาวน์โหลด Excel (.xlsx ครบ 334 วงจร)</button>
+            <a class="btn" id="csvBtn" href="#">ดาวน์โหลด CSV (ตามขอบเขตที่เลือก)</a>
+          </div>
         </section>
 
         <section class="section" aria-labelledby="hDocs">
@@ -820,6 +835,183 @@
     $('#selAll').addEventListener('click', () => { exportSites().slice(0, 400).forEach(s => exp.selected.add(s.key)); refresh(); });
     $('#selNone').addEventListener('click', () => { exp.selected.clear(); refresh(); });
     $('#zipBtn').addEventListener('click', bulkZip);
+    const xlsxPageBtn = $('#xlsxPageBtn');
+    if (xlsxPageBtn) xlsxPageBtn.addEventListener('click', exportFullExcelSummary);
+  }
+
+  function loadSheetJs() {
+    if (window.XLSX) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('โหลดตัวสร้างไฟล์ Excel ไม่สำเร็จ'));
+      document.head.appendChild(s);
+    });
+  }
+
+  async function exportFullExcelSummary() {
+    try {
+      toast('กำลังดึงข้อมูลสดและสร้างไฟล์สรุป Excel (.xlsx) 334 วงจร…');
+      await loadSheetJs();
+      const data = await api('/api/circuits');
+      const list = Array.isArray(data && data.circuits) ? data.circuits : [];
+      const circuitRows = [];
+      const deviceRows = [];
+
+      list.forEach((c, idx) => {
+        const rt = c.router_info || {};
+        const aps = Array.isArray(c.access_points) ? c.access_points.filter(a => a && a.checked !== false) : [];
+        const comp = c.completeness || {};
+
+        const onsiteUp = c.onsite_photo_count ?? comp.onsiteUploadedCount ?? 0;
+        const onsiteReq = c.onsite_required_count ?? comp.onsiteRequiredCount ?? (3 + aps.length * 3);
+        const handoverUp = c.handover_scan_count ?? comp.handoverUploadedCount ?? ((rt.photo_handover_p1 || rt.photo_signed_doc ? 1 : 0) + (rt.photo_handover_p2 ? 1 : 0));
+        const totalUp = onsiteUp + handoverUp;
+        const totalReq = onsiteReq + 2;
+        const isAllPhotoComplete = Boolean(c.is_photo_complete ?? comp.isPhotoComplete ?? (onsiteUp >= onsiteReq && handoverUp >= 2));
+
+        const missingList = [];
+        if (Array.isArray(comp.missingPhotoLabels) && comp.missingPhotoLabels.length > 0) {
+          missingList.push(...comp.missingPhotoLabels);
+        } else if (!isAllPhotoComplete) {
+          if (!rt.photo_device) missingList.push('1.1 รูป MikroTik (S/N)');
+          if (!rt.photo_lan2) missingList.push('1.2 เทส LAN 2');
+          if (!rt.photo_lan3) missingList.push('1.3 เทส LAN 3');
+          aps.forEach((ap, apIdx) => {
+            const apNum = apIdx + 1;
+            if (!ap.photo_device) missingList.push(`2.${apNum}.1 รูป AP#${apNum}`);
+            if (!ap.photo_wifi) missingList.push(`2.${apNum}.2 เทส WiFi AP#${apNum}`);
+            if (!ap.photo_lan) missingList.push(`2.${apNum}.3 เทสสาย LAN AP#${apNum}`);
+          });
+          if (!(rt.photo_handover_p1 || rt.photo_signed_doc)) missingList.push('4.1 ใบส่งมอบหน้า 1/2');
+          if (!rt.photo_handover_p2) missingList.push('4.2 ใบส่งมอบหน้า 2/2');
+        }
+
+        const photoOverallStatus = isAllPhotoComplete
+          ? `ครบถ้วนทุกรูป (${totalUp}/${totalReq})`
+          : totalUp > 0
+            ? `ยังไม่ครบ (แนบแล้ว ${totalUp}/${totalReq} รูป)`
+            : `ยังไม่ได้แนบรูป (0/${totalReq})`;
+
+        const roomListStr = aps.map(a => a.room || a.room_type || 'AP').join(' + ') || 'ไม่มี AP';
+        const rtModel = rt.model || 'RB3011';
+        const rtP2 = (rt.speed_lan2_dl || rt.speed_lan2_ul)
+          ? `${rt.speed_lan2_dl || '-'}/${rt.speed_lan2_ul || '-'} Mbps`
+          : (rt.photo_lan2 ? 'มีรูปผลเทส (≥650/350M)' : '-');
+        const rtP3 = (rt.speed_lan3_dl || rt.speed_lan3_ul)
+          ? `${rt.speed_lan3_dl || '-'}/${rt.speed_lan3_ul || '-'} Mbps`
+          : (rt.photo_lan3 ? 'มีรูปผลเทส (≥650/350M)' : '-');
+
+        const apSummaryText = aps.map((ap, i) => {
+          const lanSpd = (ap.speed_lan_dl || ap.speed_lan_ul) ? `${ap.speed_lan_dl || '-'}/${ap.speed_lan_ul || '-'}M` : (ap.photo_lan ? 'มีรูปเทส' : '-');
+          const wifiSpd = (ap.speed_wifi_dl || ap.speed_wifi_ul) ? `${ap.speed_wifi_dl || '-'}/${ap.speed_wifi_ul || '-'}M` : (ap.photo_wifi ? 'มีรูปเทส' : '-');
+          return `[AP#${i + 1} ${ap.room || 'AP'}: ${ap.brand || 'TOTOLINK'} ${ap.model || ''} | ครุภัณฑ์:${dispApAsset(ap.asset_no)} | S/N:${ap.serial_no || '-'} | LAN:${lanSpd} | WiFi:${wifiSpd}]`;
+        }).join(' ; ');
+
+        const qaLabel = c.admin_status === 'approved' ? 'อนุมัติแล้ว' : c.admin_status === 'rejected' ? 'แจ้งแก้ไข' : c.admin_status === 'pending_review' ? 'รอตรวจรับ' : 'ยังไม่ส่งตรวจ';
+        const statusLabel = c.status === 'completed' ? 'ส่งมอบแล้ว' : c.status === 'in_progress' ? 'กำลังดำเนินการ' : c.status === 'issue' ? 'ติดปัญหาหน้างาน' : 'รอดำเนินการ';
+
+        circuitRows.push({
+          'ลำดับ': c.seq || idx + 1,
+          'เลขที่วงจร (S/O)': c.so_number || '',
+          'Service No.': c.service_no || c.so_number || '',
+          'ภูมิภาค': c.region || '',
+          'จังหวัด': c.province || '',
+          'ชื่อหน่วยงาน / สาขา': c.branch_name || '',
+          'ความเร็ววงจร': c.speed_pkg || '650M/350M',
+          'จำนวนห้อง/AP (ปีนี้)': aps.length,
+          'รายชื่อห้องที่ใช้งานจริง (ปีนี้)': roomListStr,
+          'Router ยี่ห้อ/รุ่น': `MikroTik ${rtModel}`,
+          'Router เลขครุภัณฑ์': dispRouterAsset(rt.asset_no),
+          'Router S/N (ใหม่/ยืนยัน)': rt.serial_no || '',
+          'Router S/N (จาก OCR)': rt.ocr_serial_no || '',
+          'ผลเทส Speed Port 2': rtP2,
+          'ผลเทส Speed Port 3': rtP3,
+          'รายละเอียดอุปกรณ์ Access Point ทุกห้อง': apSummaryText,
+          'สถานะแนบรูปภาพรวม': photoOverallStatus,
+          'รูปอุปกรณ์+เทสหน้างาน': `${onsiteUp}/${onsiteReq}`,
+          'สแกนใบส่งมอบงาน (หน้า 1-2)': `${handoverUp}/2 หน้า`,
+          'รายการรูปที่ยังขาด': isAllPhotoComplete ? 'ครบถ้วน' : missingList.join(' | '),
+          'สถานะตรวจรับ (บริษัท QA)': qaLabel,
+          'ผู้ตรวจรับงาน (QA)': c.admin_name || c.admin_reviewer || '',
+          'ช่างผู้เข้าดำเนินการ': c.inspector_name || '',
+          'เบอร์โทรช่าง': c.inspector_phone || '',
+          'วันที่เข้าดำเนินการ': c.inspection_date || '',
+          'สถานะงาน': statusLabel,
+          'หมายเหตุหน้างาน': c.remarks || ''
+        });
+
+        deviceRows.push({
+          'ลำดับวงจร': c.seq || idx + 1,
+          'เลขที่วงจร (S/O)': c.so_number || '',
+          'จังหวัด': c.province || '',
+          'ชื่อหน่วยงาน / สาขา': c.branch_name || '',
+          'ประเภทอุปกรณ์': '1. Router (MikroTik)',
+          'ลำดับอุปกรณ์ในวงจร': 'Router ตัวที่ 1',
+          'ห้องที่ติดตั้ง': rt.room || 'ห้อง Server / Rack',
+          'ชั้น / อาคาร': `ชั้น ${rt.floor || '1'} อาคาร ${rt.building || '1'}`,
+          'ยี่ห้อ': 'MikroTik',
+          'รุ่นอุปกรณ์': rtModel,
+          'หมายเลขครุภัณฑ์': dispRouterAsset(rt.asset_no),
+          'S/N ใหม่ (ช่างยืนยัน)': rt.serial_no || '',
+          'S/N ที่อ่านได้จากรูป (OCR)': rt.ocr_serial_no || '',
+          'เกณฑ์ความเร็ว': 'Port 2 & Port 3 ≥ 650/350 Mbps',
+          'ผลเทส LAN / Port 2 (DL/UL)': rtP2,
+          'ผลเทส WiFi / Port 3 (DL/UL)': rtP3,
+          'หมายเหตุห้อง GECC (ลงทะเบียน Authen)': '-',
+          'มีรูปอุปกรณ์+Sticker': rt.photo_device ? 'มีรูปแล้ว' : 'ยังไม่มี',
+          'มีรูปเทส LAN / Port 2': rt.photo_lan2 ? 'มีรูปแล้ว' : 'ยังไม่มี',
+          'มีรูปเทส WiFi / Port 3': rt.photo_lan3 ? 'มีรูปแล้ว' : 'ยังไม่มี',
+          'มีรูปผลเทสความเร็วครบ': (rt.photo_lan2 && rt.photo_lan3) ? 'ครบ 2 พอร์ต' : 'ยังไม่ครบ'
+        });
+
+        aps.forEach((ap, apIdx) => {
+          const rName = String(ap.room || ap.room_type || '');
+          const isGps = /GPS|เดินรถ|ขนส่ง/i.test(rName);
+          const isGecc = /GECC|ประชาสัมพันธ์/i.test(rName);
+          const code = isGecc ? 'GECC' : isGps ? 'GPS' : 'DLS';
+          const lanSpd = (ap.speed_lan_dl || ap.speed_lan_ul) ? `${ap.speed_lan_dl || '-'}/${ap.speed_lan_ul || '-'} Mbps` : (ap.photo_lan ? 'มีรูปผลเทส' : '-');
+          const wifiSpd = (ap.speed_wifi_dl || ap.speed_wifi_ul) ? `${ap.speed_wifi_dl || '-'}/${ap.speed_wifi_ul || '-'} Mbps` : (ap.photo_wifi ? 'มีรูปผลเทส' : '-');
+          const geccInfo = isGecc ? (ap.gecc_authen_wifi ? 'ลงทะเบียน Authen แล้ว' : 'ห้อง GECC (ลงทะเบียน Authen ก่อนเทส)') : '-';
+
+          deviceRows.push({
+            'ลำดับวงจร': c.seq || idx + 1,
+            'เลขที่วงจร (S/O)': c.so_number || '',
+            'จังหวัด': c.province || '',
+            'ชื่อหน่วยงาน / สาขา': c.branch_name || '',
+            'ประเภทอุปกรณ์': `2. Access Point (${code})`,
+            'ลำดับอุปกรณ์ในวงจร': `AP ตัวที่ ${apIdx + 1}`,
+            'ห้องที่ติดตั้ง': ap.room || code,
+            'ชั้น / อาคาร': `ชั้น ${ap.floor || '1'} อาคาร ${ap.building || '1'}`,
+            'ยี่ห้อ': ap.brand || 'TOTOLINK',
+            'รุ่นอุปกรณ์': ap.model || 'A3002RU',
+            'หมายเลขครุภัณฑ์': dispApAsset(ap.asset_no),
+            'S/N ใหม่ (ช่างยืนยัน)': ap.serial_no || '',
+            'S/N ที่อ่านได้จากรูป (OCR)': ap.ocr_serial_no || '',
+            'เกณฑ์ความเร็ว': isGps ? 'LAN ≥ 350/200M | WiFi ≥ 50/20M' : 'LAN ≥ 300/150M | WiFi ≥ 50/20M',
+            'ผลเทส LAN / Port 2 (DL/UL)': lanSpd,
+            'ผลเทส WiFi / Port 3 (DL/UL)': wifiSpd,
+            'หมายเหตุห้อง GECC (ลงทะเบียน Authen)': geccInfo,
+            'มีรูปอุปกรณ์+Sticker': ap.photo_device ? 'มีรูปแล้ว' : 'ยังไม่มี',
+            'มีรูปเทส LAN / Port 2': ap.photo_lan ? 'มีรูปแล้ว' : 'ยังไม่มี',
+            'มีรูปเทส WiFi / Port 3': ap.photo_wifi ? 'มีรูปแล้ว' : 'ยังไม่มี',
+            'มีรูปผลเทสความเร็วครบ': (ap.photo_lan && ap.photo_wifi) ? 'ครบ (LAN+WiFi)' : 'ยังไม่ครบ'
+          });
+        });
+      });
+
+      const wb = window.XLSX.utils.book_new();
+      const wsCircuits = window.XLSX.utils.json_to_sheet(circuitRows);
+      const wsDevices = window.XLSX.utils.json_to_sheet(deviceRows);
+      window.XLSX.utils.book_append_sheet(wb, wsCircuits, '1_สรุปวงจรสาขา_334วงจร');
+      window.XLSX.utils.book_append_sheet(wb, wsDevices, '2_อุปกรณ์_Router_AP_ทุกห้อง');
+      const dateTag = dayKey(new Date());
+      window.XLSX.writeFile(wb, `สรุปวงจรสาขา_กรมการขนส่งทางบก_2569_อัปเดตใหม่_${dateTag}.xlsx`);
+      toast('ดาวน์โหลดไฟล์สรุป Excel (.xlsx) เรียบร้อยแล้ว', 'ok');
+    } catch (e) {
+      toast('ส่งออก Excel ไม่สำเร็จ: ' + e.message, 'bad');
+    }
   }
 
   function loadJsZip() {
@@ -964,6 +1156,9 @@
   const themeBtn = $('#themeBtn');
   const paintTheme = () => { if (themeBtn && window.dltTheme) { themeBtn.textContent = 'ธีม: ' + window.dltTheme.label(); themeBtn.setAttribute('aria-label', 'เปลี่ยนธีมหน้าจอ ตอนนี้: ' + window.dltTheme.label()); } };
   if (themeBtn) { themeBtn.addEventListener('click', () => { window.dltTheme.cycle(); paintTheme(); }); paintTheme(); }
+
+  const xlsxExportTopBtn = $('#xlsxExportTopBtn');
+  if (xlsxExportTopBtn) xlsxExportTopBtn.addEventListener('click', exportFullExcelSummary);
 
   $('#logoutBtn').addEventListener('click', async () => {
     try { await api('/api/admin/logout', { method: 'POST', body: {} }); } catch (_) { /* ignore */ }
