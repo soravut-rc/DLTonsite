@@ -224,6 +224,24 @@ function extractSiteNameServer(c) {
   return cleaned || `สขจ.${c.province || ''}`;
 }
 
+function getCleanBranchServer(c) {
+  if (!c) return '-';
+  let raw = String(c.short_branch_name || c.site_name || c.customer_site_name || c.branch_name || '').trim();
+  raw = raw.replace(/\s*วงจรที่\s*\d+/g, '').replace(/\s*\([^)]*\)/g, '').trim();
+  if (/^สำนักงานขนส่งจังหวัด/i.test(raw)) {
+    raw = raw.replace(/^สำนักงานขนส่งจังหวัด\s*/i, 'สขจ. ');
+  } else if (/^สำนักงานขนส่งสาขา/i.test(raw)) {
+    raw = raw.replace(/^สำนักงานขนส่งสาขา\s*/i, 'สขข. ');
+  } else if (/^สำนักงานขนส่งกรุงเทพมหานครพื้นที่/i.test(raw)) {
+    raw = raw.replace(/^สำนักงานขนส่งกรุงเทพมหานครพื้นที่\s*/i, 'สขพ. ');
+  }
+  raw = raw.replace(/^(สข[จขพ]\.)(?!\s)/, '$1 ');
+  if (!raw || raw === c.province) {
+    return c.province ? `สขจ. ${c.province}` : '-';
+  }
+  return raw;
+}
+
 function getSiteGroupKeyServer(c) {
   if (!c) return '';
   if (c.site_key && String(c.site_key).trim()) return String(c.site_key).trim();
@@ -688,11 +706,7 @@ export default {
           const photoMap = await admin.loadPhotoMap(env, listForDocx, uploadsMap);
           const docxBuf = generateCircuitDocx(admin.forReport(listForDocx), photoMap);
           const soComma = listForDocx.map(c => c.so_number).join(',');
-          const rawSiteName = extractSiteNameServer(listForDocx[0])
-            .replace(/^สำนักงานขนส่งจังหวัด[^ ]*\s*/i, '')
-            .replace(/^สขจ\.[^ ]*\s*/i, '')
-            .replace(/^สาขา\s*/i, '')
-            .trim() || 'อำเภอเมือง';
+          const rawSiteName = getCleanBranchServer(listForDocx[0]);
           const provName = listForDocx[0]?.province || '';
           const utf8Filename = `${soComma} สาขา ${rawSiteName} จังหวัด ${provName}.docx`;
           const asciiFallback = `${soComma}.docx`;
