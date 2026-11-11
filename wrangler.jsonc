@@ -1,8 +1,16 @@
 {
   "name": "dlt-onsite-inspection",
+  "account_id": "9084aee8ff54a8f0b444a8d59846e41f",
   "main": "worker.js",
   "compatibility_date": "2025-03-01",
   "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "dlt2027.1toall.win",
+      "custom_domain": true
+    }
+  ],
   "r2_buckets": [
     {
       "binding": "PHOTOS_BUCKET",
