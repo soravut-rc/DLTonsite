@@ -223,16 +223,19 @@ function renderHeaderAndCards() {
 }
 
 function switchTab(tab) {
+  if (tab === 'linebot') {
+    switchTab('admin');
+    toggleAdminLineBotSection(true);
+    return;
+  }
   document.body.dataset.activeTab = tab;
   const views = {
     circuits: document.getElementById('viewCircuits'),
-    linebot: document.getElementById('viewLinebot'),
     admin: document.getElementById('viewAdmin'),
     dashboard: document.getElementById('viewDashboard')
   };
   const btns = {
     circuits: document.getElementById('tabBtnCircuits'),
-    linebot: document.getElementById('tabBtnLinebot'),
     admin: document.getElementById('tabBtnAdmin'),
     dashboard: document.getElementById('tabBtnDashboard')
   };
@@ -250,10 +253,32 @@ function switchTab(tab) {
     }
   });
 
-  if (tab === 'linebot') {
-    loadLineBotTab();
-  } else if (tab === 'admin') {
+  if (tab === 'admin') {
     loadAdminOverview();
+  }
+}
+
+function toggleAdminLineBotSection(forceOpen) {
+  const panel = document.getElementById('adminLineBotPanel');
+  const btn = document.getElementById('btnAdminLineBot');
+  if (!panel) return;
+  const isHidden = panel.classList.contains('hidden');
+  const shouldOpen = forceOpen !== undefined ? Boolean(forceOpen) : isHidden;
+
+  if (shouldOpen) {
+    panel.classList.remove('hidden');
+    if (btn) {
+      btn.classList.add('bg-slate-900', 'text-white', 'border-slate-900');
+      btn.classList.remove('bg-white', 'text-slate-800', 'border-slate-300');
+    }
+    loadLineBotTab();
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    panel.classList.add('hidden');
+    if (btn) {
+      btn.classList.remove('bg-slate-900', 'text-white', 'border-slate-900');
+      btn.classList.add('bg-white', 'text-slate-800', 'border-slate-300');
+    }
   }
 }
 
