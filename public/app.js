@@ -766,6 +766,37 @@ function applyCircuitFilters() {
 function renderCircuitsGrid(list) {
   const container = document.getElementById('circuitsContainer');
   if (list.length === 0) {
+    const rawQ = (document.getElementById('filterSearch')?.value || '').trim();
+    const qLower = rawQ.toLowerCase();
+    const isAdminIntent = /^(admin|ผู้ตรวจ|ตรวจรับ|ตรวจงาน|ผู้ดูแลระบบ)/i.test(qLower);
+
+    if (isAdminIntent) {
+      container.innerHTML = `
+        <div class="col-span-full bg-white p-8 rounded-xl border border-slate-200 text-center space-y-3">
+          <div class="w-12 h-12 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-700">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          </div>
+          <p class="text-slate-900 text-sm font-bold">ต้องการไปที่หน้าผู้ตรวจรับงาน (Admin) ใช่หรือไม่?</p>
+          <p class="text-slate-500 text-xs max-w-md mx-auto">
+            ช่องนี้ใช้สำหรับค้นหารหัสวงจร (S/O) หรือชื่อสาขา/จังหวัด หากต้องการตรวจงานหรือส่งออกรายงานของ Admin สามารถกดปุ่มด้านล่างได้ทันที:
+          </p>
+          <div class="flex items-center justify-center gap-2 pt-2 flex-wrap">
+            <button type="button" onclick="clearSearchInput(); switchTab('admin');" class="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-sm transition">
+              <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span>ไปที่แท็บ 2. ผู้ตรวจรับงาน</span>
+            </button>
+            <a href="/admin" target="_blank" rel="noopener" class="px-4 py-2 rounded-lg bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 text-xs font-semibold inline-flex items-center gap-1.5 shadow-sm transition">
+              <span>เปิดศูนย์ตรวจรับงาน (/admin) ↗</span>
+            </a>
+            <button type="button" onclick="clearSearchInput()" class="px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition">
+              ล้างคำค้นหา "${rawQ}"
+            </button>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
     container.innerHTML = `
       <div class="col-span-full bg-white p-8 rounded-xl border border-slate-200 text-center space-y-2">
         <p class="text-slate-600 text-sm font-medium">ไม่พบข้อมูลวงจรที่ค้นหา</p>
