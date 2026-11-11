@@ -481,24 +481,42 @@
             </div>
         </div>
 
-        <div class="ctrl-field">
-            <label>รหัสวงจร S/O (ส่งรูปเข้าวงจร)</label>
-            <input id="inpTargetSo" type="text" placeholder="เช่น BINF3480006" style="font-family:monospace;text-transform:uppercase;" />
+        <div class="ctrl-field" style="grid-column: span 2;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+                <label style="margin:0;font-weight:700;">เลือกรหัสวงจร S/O (ระบบจะดึง AP จริงของวงจรนั้นให้อัตโนมัติ)</label>
+                <span id="circuitLoadStatus" style="font-size:11px;color:#38bdf8;"></span>
+            </div>
+            <div class="ctrl-inline-group">
+                <input id="inpTargetSo" type="text" list="soDatalist" placeholder="พิมพ์ BINF... หรือเลือกจากรายชื่อสาขา/จังหวัด" style="font-family:monospace;text-transform:uppercase;font-weight:700;" />
+                <button type="button" class="mini-btn" onclick="fetchAndApplyCircuitSo(document.getElementById('inpTargetSo').value)" title="โหลดข้อมูลวงจรนี้">โหลดข้อมูล</button>
+            </div>
+            <datalist id="soDatalist"></datalist>
+
+            <!-- Circuit Summary Info Badge -->
+            <div id="circuitInfoCard" style="display:none;margin-top:6px;padding:6px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(56,189,248,0.25);border-radius:8px;font-size:11.5px;line-height:1.45;">
+                <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;">
+                    <div style="color:#38bdf8;font-weight:700;">
+                        📍 <span id="infoSiteName">-</span> (<span id="infoProvince">-</span>)
+                    </div>
+                    <div style="color:#facc15;font-weight:600;">
+                        แพ็กเกจ: <span id="infoPkg">-</span> | AP ในระบบ: <span id="infoApCount">0</span> ตัว
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="ctrl-field">
-            <label>ช่องรูปที่จะแนบเข้าวงจร</label>
-            <select id="inpTargetSlot">
-                <option value="router_lan2">Router: ทดสอบสาย LAN Port 2</option>
-                <option value="router_lan3">Router: ทดสอบสาย LAN Port 3</option>
-                <option value="ap1_wifi">AP ตัวที่ 1: ทดสอบ WiFi</option>
-                <option value="ap1_lan">AP ตัวที่ 1: ทดสอบสาย Port LAN</option>
-                <option value="ap2_wifi">AP ตัวที่ 2: ทดสอบ WiFi</option>
-                <option value="ap2_lan">AP ตัวที่ 2: ทดสอบสาย Port LAN</option>
-                <option value="ap3_wifi">AP ตัวที่ 3: ทดสอบ WiFi</option>
-                <option value="ap3_lan">AP ตัวที่ 3: ทดสอบสาย Port LAN</option>
-                <option value="ap4_wifi">AP ตัวที่ 4: ทดสอบ WiFi</option>
-                <option value="ap4_lan">AP ตัวที่ 4: ทดสอบสาย Port LAN</option>
+        <div class="ctrl-field" style="grid-column: span 2;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+                <label style="margin:0;font-weight:700;">เลือกอุปกรณ์และพอร์ตที่จะแนบรูป + บันทึกผลเทส</label>
+                <span id="slotProgressSummary" style="font-size:11px;color:#4ade80;font-weight:700;"></span>
+            </div>
+            <select id="inpTargetSlot" onchange="onTargetSlotChanged()" style="font-size:12.5px;font-weight:600;padding:7px 9px;">
+                <option value="router_lan2">Router: ทดสอบสาย LAN Port 2 (≥ 650/350M)</option>
+                <option value="router_lan3">Router: ทดสอบสาย LAN Port 3 (≥ 650/350M)</option>
+                <option value="ap1_wifi">AP ตัวที่ 1: ทดสอบ WiFi (≥ 50/20M)</option>
+                <option value="ap1_lan">AP ตัวที่ 1: ทดสอบสาย Port LAN (≥ 300/150M)</option>
+                <option value="ap2_wifi">AP ตัวที่ 2: ทดสอบ WiFi (≥ 50/20M)</option>
+                <option value="ap2_lan">AP ตัวที่ 2: ทดสอบสาย Port LAN (≥ 300/150M)</option>
             </select>
         </div>
     </div>
@@ -1108,15 +1126,175 @@
         }
     }
 
+    let currentLoadedCircuit = null;
+    let allCircuitsCache = [];
+    let circuitFetchDebounce = null;
+
+    async function preloadCircuitsForDatalist() {
+        try {
+            const res = await fetch('/api/circuits');
+            if (!res.ok) return;
+            const data = await res.json();
+            const list = Array.isArray(data.circuits) ? data.circuits : (Array.isArray(data) ? data : []);
+            allCircuitsCache = list;
+            const dl = document.getElementById('soDatalist');
+            if (dl && list.length > 0) {
+                dl.innerHTML = list.map(c => {
+                    const site = c.customer_site_name || c.branch_name || c.short_branch_name || '';
+                    return `<option value="${c.so_number}">${c.so_number} - ${c.province || ''} (${site})</option>`;
+                }).join('');
+            }
+        } catch (err) {
+            console.warn('preloadCircuits error:', err);
+        }
+    }
+
+    async function fetchAndApplyCircuitSo(rawSo, forceSlot) {
+        const m = String(rawSo || '').trim().match(/BINF\d{7}/i);
+        const so = m ? m[0].toUpperCase() : String(rawSo || '').trim().toUpperCase();
+        const statusEl = document.getElementById('circuitLoadStatus');
+
+        if (!so || so.length < 11) {
+            if (statusEl) statusEl.textContent = '';
+            return;
+        }
+
+        if (statusEl) statusEl.textContent = '⏳ กำลังดึงข้อมูล...';
+        try {
+            let c = allCircuitsCache.find(x => x.so_number === so);
+            if (!c || !c.access_points) {
+                const res = await fetch(`/api/circuits/${encodeURIComponent(so)}`);
+                if (!res.ok) throw new Error('ไม่พบรหัสวงจรนี้ในระบบ');
+                const data = await res.json();
+                c = data.circuit || data;
+            }
+            if (!c || !c.so_number) throw new Error('ข้อมูลวงจรไม่สมบูรณ์');
+
+            currentLoadedCircuit = c;
+            document.getElementById('inpTargetSo').value = c.so_number;
+
+            // Display circuit info banner
+            const card = document.getElementById('circuitInfoCard');
+            if (card) {
+                card.style.display = 'block';
+                document.getElementById('infoSiteName').textContent = c.customer_site_name || c.branch_name || c.short_branch_name || c.site_name || '-';
+                document.getElementById('infoProvince').textContent = c.province || '-';
+                document.getElementById('infoPkg').textContent = c.speed_pkg || '650M/350M';
+                document.getElementById('infoApCount').textContent = Array.isArray(c.access_points) ? c.access_points.length : 0;
+            }
+            if (statusEl) statusEl.textContent = '✅ โหลดสำเร็จ';
+
+            // Populate AP and Router slots dynamically based on actual circuit data
+            renderDynamicSlots(c, forceSlot);
+
+        } catch (err) {
+            if (statusEl) statusEl.textContent = '❌ ' + err.message;
+        }
+    }
+
+    function renderDynamicSlots(c, preserveSlot) {
+        const sel = document.getElementById('inpTargetSlot');
+        if (!sel) return;
+
+        const rt = c.router_info || {};
+        const aps = Array.isArray(c.access_points) ? c.access_points : [];
+
+        let slotsHtml = '';
+        let totalCount = 2; // Router lan2, lan3
+        let doneCount = 0;
+
+        // 1. Router Ports
+        const lan2Done = Boolean(rt.photo_lan2);
+        if (lan2Done) doneCount++;
+        const lan2Label = `🔌 Router: LAN Port 2 (≥ 650/350M) — ${lan2Done ? `[✅ มีรูปแล้ว ${rt.speed_lan2_dl || '-'}/${rt.speed_lan2_ul || '-'}M]` : '[⭕ ยังไม่มีผลเทส]'}`;
+        slotsHtml += `<option value="router_lan2" data-preset="router" data-done="${lan2Done}">${lan2Label}</option>`;
+
+        const lan3Done = Boolean(rt.photo_lan3);
+        if (lan3Done) doneCount++;
+        const lan3Label = `🔌 Router: LAN Port 3 (≥ 650/350M) — ${lan3Done ? `[✅ มีรูปแล้ว ${rt.speed_lan3_dl || '-'}/${rt.speed_lan3_ul || '-'}M]` : '[⭕ ยังไม่มีผลเทส]'}`;
+        slotsHtml += `<option value="router_lan3" data-preset="router" data-done="${lan3Done}">${lan3Label}</option>`;
+
+        // 2. APs strictly based on the circuit's actual AP count!
+        aps.forEach((ap, idx) => {
+            const apNum = idx + 1;
+            totalCount += 2; // 1 wifi + 1 lan
+            const roomName = ap.room || ap.room_type || ('AP ' + apNum);
+            const roomType = ap.room_type || '';
+            const wifiTarget = ap.wifi_target || '≥ 50/20M';
+            const lanTarget = ap.lan_target || (roomType === 'GPS' || roomType === 'VICC' ? '≥ 350/200M' : '≥ 300/150M');
+            const lanPreset = (roomType === 'GPS' || roomType === 'VICC') ? 'gps_lan' : 'dls_lan';
+
+            const wifiDone = Boolean(ap.photo_wifi);
+            if (wifiDone) doneCount++;
+            const wifiLabel = `📶 AP ตัวที่ ${apNum} (${roomName}): WiFi (${wifiTarget}) — ${wifiDone ? `[✅ มีรูปแล้ว ${ap.speed_wifi_dl || '-'}/${ap.speed_wifi_ul || '-'}M]` : '[⭕ ยังไม่มีผลเทส]'}`;
+            slotsHtml += `<option value="ap${apNum}_wifi" data-preset="wifi" data-done="${wifiDone}">${wifiLabel}</option>`;
+
+            const lanDone = Boolean(ap.photo_lan);
+            if (lanDone) doneCount++;
+            const lanLabel = `สาย LAN AP ตัวที่ ${apNum} (${roomName}): LAN (${lanTarget}) — ${lanDone ? `[✅ มีรูปแล้ว ${ap.speed_lan_dl || '-'}/${ap.speed_lan_ul || '-'}M]` : '[⭕ ยังไม่มีผลเทส]'}`;
+            slotsHtml += `<option value="ap${apNum}_lan" data-preset="${lanPreset}" data-done="${lanDone}">${lanLabel}</option>`;
+        });
+
+        sel.innerHTML = slotsHtml;
+
+        const progressEl = document.getElementById('slotProgressSummary');
+        if (progressEl) {
+            progressEl.textContent = `ผลเทส: ${doneCount}/${totalCount} รายการ`;
+        }
+
+        // Select requested slot or first pending slot
+        const curVal = preserveSlot || sel.value;
+        const matchOpt = Array.from(sel.options).find(o => o.value === curVal);
+        if (matchOpt) {
+            sel.value = curVal;
+        } else {
+            // Auto-pick first pending slot if any
+            const firstPending = Array.from(sel.options).find(o => o.getAttribute('data-done') === 'false');
+            if (firstPending) {
+                sel.value = firstPending.value;
+            }
+        }
+
+        onTargetSlotChanged(false);
+    }
+
+    function onTargetSlotChanged(autoShiftTime = false) {
+        const sel = document.getElementById('inpTargetSlot');
+        if (!sel || sel.selectedIndex < 0) return;
+        const opt = sel.options[sel.selectedIndex];
+        if (!opt) return;
+        const preset = opt.getAttribute('data-preset');
+
+        if (preset === 'router') {
+            applySpeedPreset('router');
+        } else if (preset === 'gps_lan') {
+            applySpeedPreset('gps_lan');
+        } else if (preset === 'dls_lan') {
+            applySpeedPreset('dls_lan');
+        } else if (preset === 'wifi') {
+            applySpeedPreset('wifi');
+        }
+
+        if (autoShiftTime) {
+            shiftDateTimeSeconds(65);
+        }
+        syncViewFromInputs();
+    }
+
     async function uploadGeneratedToCircuitSlot() {
         const so = document.getElementById('inpTargetSo').value.trim().toUpperCase();
-        const slot = document.getElementById('inpTargetSlot').value;
+        const sel = document.getElementById('inpTargetSlot');
+        const slot = sel ? sel.value : '';
         const dl = document.getElementById('inpDownload').value.trim();
         const ul = document.getElementById('inpUpload').value.trim();
 
         if (!so) {
             showToastMsg('กรุณาระบุรหัสวงจร S/O ก่อนกดแนบรูปเข้าวงจร (เช่น BINF3480006)', true);
             document.getElementById('inpTargetSo').focus();
+            return;
+        }
+        if (!slot) {
+            showToastMsg('กรุณาเลือกอุปกรณ์/พอร์ตที่จะแนบรูปเข้าวงจร', true);
             return;
         }
 
@@ -1186,9 +1364,29 @@
                                 is_draft: true
                             })
                         });
+
+                        // Update local copy and re-render slots
+                        c.router_info = rt;
+                        c.access_points = aps;
+                        currentLoadedCircuit = c;
+                        renderDynamicSlots(c);
+
+                        // Auto-advance to the next pending slot!
+                        const nextPending = Array.from(sel.options).find(o => o.getAttribute('data-done') === 'false');
+                        if (nextPending) {
+                            sel.value = nextPending.value;
+                            onTargetSlotChanged(true);
+                            const nextTitle = nextPending.text.split('—')[0].trim();
+                            showToastMsg(`✅ บันทึกเข้า ${so} เรียบร้อย! สลับเป็น ${nextTitle} ให้ทันที`);
+                        } else {
+                            showToastMsg(`🎉 ยอดเยี่ยม! บันทึกผลทดสอบความเร็วครบทุกพอร์ต/AP ของวงจร ${so} แล้ว!`);
+                        }
                     }
                 }
-            } catch (_) {}
+            } catch (err) {
+                console.error('Update circuit error:', err);
+                showToastMsg(`✅ แนบรูปและบันทึกค่าความเร็ว (${dl}/${ul} Mbps) เข้า ${so} เรียบร้อย!`);
+            }
 
             if (window.opener && !window.opener.closed) {
                 try {
@@ -1202,8 +1400,6 @@
                     }, '*');
                 } catch (_) {}
             }
-
-            showToastMsg(`✅ แนบรูปและบันทึกค่าความเร็ว (${dl}/${ul} Mbps) เข้า ${so} เรียบร้อย!`);
         } catch (err) {
             showToastMsg('อัปโหลดไม่สำเร็จ: ' + err.message, true);
         }
@@ -1220,17 +1416,34 @@
 
         setNowDateTime();
 
-        if (so) document.getElementById('inpTargetSo').value = so.toUpperCase();
-        if (slot) {
-            const sel = document.getElementById('inpTargetSlot');
-            if (sel && Array.from(sel.options).some(o => o.value === slot)) {
-                sel.value = slot;
-            }
+        // Setup input event listeners for auto-fetching circuit
+        const targetSoInput = document.getElementById('inpTargetSo');
+        if (targetSoInput) {
+            targetSoInput.addEventListener('input', ev => {
+                clearTimeout(circuitFetchDebounce);
+                const val = ev.target.value.trim();
+                circuitFetchDebounce = setTimeout(() => {
+                    fetchAndApplyCircuitSo(val);
+                }, 350);
+            });
+            targetSoInput.addEventListener('change', ev => {
+                fetchAndApplyCircuitSo(ev.target.value);
+            });
         }
+
+        preloadCircuitsForDatalist();
+
+        if (so) {
+            targetSoInput.value = so.toUpperCase();
+            fetchAndApplyCircuitSo(so, slot);
+        }
+
         if (so || slot) {
             const badge = document.getElementById('linkedSlotBadge');
-            badge.style.display = 'inline-block';
-            badge.textContent = `เชื่อมกับ: ${so || '-'} (${slot || 'Speedtest'})`;
+            if (badge) {
+                badge.style.display = 'inline-block';
+                badge.textContent = `เชื่อมกับ: ${so || '-'} (${slot || 'Speedtest'})`;
+            }
         }
 
         if (preset) applySpeedPreset(preset);
